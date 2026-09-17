@@ -52,7 +52,59 @@
     nav a.active { color: var(--primary); border-bottom-color: var(--primary); }
     nav a:hover:not(.active) { color: var(--text-main); }
 
-    .main-content { padding: 30px; }
+    .main-content { padding: 30px; max-width: 1600px; margin: 0 auto; }
+
+    /* Summary Metrics Grid */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .summary-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02);
+      transition: transform 0.2s;
+    }
+    .summary-card:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.04); }
+    
+    .summary-label {
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      color: var(--text-sub);
+      letter-spacing: 0.05em;
+    }
+    .summary-value {
+      font-size: 28px;
+      font-weight: 800;
+      line-height: 1;
+    }
+    
+    /* Specific Card Accents */
+    .card-total { border-top: 4px solid var(--primary); }
+    .card-total .summary-value { color: var(--primary); }
+    
+    .card-l2 { border-top: 4px solid var(--success); }
+    .card-l2 .summary-value { color: var(--success); }
+    
+    .card-l1 { border-top: 4px solid var(--accent-blue); }
+    .card-l1 .summary-value { color: var(--accent-blue); }
+    
+    .card-rework { border-top: 4px solid var(--warning); }
+    .card-rework .summary-value { color: var(--warning); }
+    
+    .card-quarantine { border-top: 4px solid var(--quarantine); }
+    .card-quarantine .summary-value { color: var(--quarantine); }
+    
+    .card-draft { border-top: 4px solid var(--text-sub); }
+    .card-draft .summary-value { color: var(--text-main); }
 
     /* Filters Section */
     .filters-container {
@@ -217,6 +269,12 @@
   </nav>
 
   <div class="main-content">
+    
+    <!-- Top Level Dashboard Summaries -->
+    <div class="summary-grid" id="summary-grid">
+      <!-- Generated via JS to reflect current filter state -->
+    </div>
+
     <!-- Filters -->
     <div class="filters-container">
       <input type="text" id="search-id" class="filter-input" placeholder="Search Task ID (e.g. 01a081d2...)" oninput="renderTable()">
@@ -427,11 +485,11 @@
     }
 
     function getBadgeClass(state) {
-      const s = state.toLowerCase();
+      const s = (state || '').toLowerCase();
       if (s.includes('rework')) return 'status-rework';
       if (s.includes('approved')) return 'status-approved';
-      if (s.includes('l2')) return 'status-l2';
-      if (s.includes('quarantined')) return 'status-quarantined';
+      if (s.includes('l2') || s.includes('l1-approved')) return 'status-l2';
+      if (s.includes('quarantine')) return 'status-quarantined';
       return 'status-l1';
     }
 
@@ -443,6 +501,54 @@
     function formatTimeShort(dateStr) {
       if (!dateStr) return '';
       return new Date(dateStr).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    }
+
+    function updateSummaryMetrics(filteredData) {
+      const stats = { total: 0, l2Approved: 0, l1Approved: 0, rework: 0, quarantined: 0, pending: 0 };
+      
+      filteredData.forEach(t => {
+        stats.total++;
+        const s = (t.state || '').toLowerCase();
+        
+        if (s.includes('approved')) {
+          stats.l2Approved++;
+        } else if (s.includes('l2') || s.includes('l1-approved')) {
+          stats.l1Approved++;
+        } else if (s.includes('rework')) {
+          stats.rework++;
+        } else if (s.includes('quarantine')) {
+          stats.quarantined++;
+        } else {
+          stats.pending++;
+        }
+      });
+
+      document.getElementById('summary-grid').innerHTML = `
+        <div class="summary-card card-total">
+          <span class="summary-label">Total Tasks</span>
+          <span class="summary-value">${stats.total}</span>
+        </div>
+        <div class="summary-card card-l2">
+          <span class="summary-label">Final Approved (L2)</span>
+          <span class="summary-value">${stats.l2Approved}</span>
+        </div>
+        <div class="summary-card card-l1">
+          <span class="summary-label">L1-Approved (Pending L2)</span>
+          <span class="summary-value">${stats.l1Approved}</span>
+        </div>
+        <div class="summary-card card-rework">
+          <span class="summary-label">In Rework</span>
+          <span class="summary-value">${stats.rework}</span>
+        </div>
+        <div class="summary-card card-quarantine">
+          <span class="summary-label">Quarantined</span>
+          <span class="summary-value">${stats.quarantined}</span>
+        </div>
+        <div class="summary-card card-draft">
+          <span class="summary-label">Pending L1 / Draft</span>
+          <span class="summary-value">${stats.pending}</span>
+        </div>
+      `;
     }
 
     function renderTable() {
@@ -457,7 +563,7 @@
       const filtered = globalData.filter(t => {
         const matchSearch = t.id.toLowerCase().includes(qSearch);
         const matchDate = checkDateMatch(t.submitted_at, qDate);
-        const matchState = qState === 'All' || t.state.toLowerCase().includes(qState.toLowerCase());
+        const matchState = qState === 'All' || (t.state && t.state.toLowerCase().includes(qState.toLowerCase()));
         const matchTrainer = qTrainer === 'All' || t.annotator === qTrainer;
         const matchReviewer = qReviewer === 'All' || t.reviewer === qReviewer;
         
@@ -467,6 +573,9 @@
 
         return matchSearch && matchDate && matchState && matchMilestone && matchTrainer && matchReviewer;
       });
+      
+      // Update the top summary dashboard
+      updateSummaryMetrics(filtered);
 
       if (filtered.length === 0) {
         tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:var(--text-sub); padding: 40px;">No tasks found matching criteria.</td></tr>';
