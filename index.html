@@ -372,6 +372,10 @@
     <div class="table-actions">
       <h3>Ledger Details</h3>
       <div class="table-actions-btns">
+        <button class="action-btn" onclick="copyPendingL1Table()" style="background: #fdf4ff; color: #a21caf; border-color: #f5d0fe;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+          Copy Pending & Pre-L1 Table
+        </button>
         <button class="action-btn action-btn-secondary" onclick="downloadOfflineLedger()">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
           Download Offline Ledger
@@ -940,6 +944,77 @@
     function esc(str) {
       if (!str) return '';
       return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+    
+    function copyPendingL1Table() {
+      const targetTasks = globalData.filter(t => {
+        const s = (t.state || '').toLowerCase();
+        const isL2App = s.includes('approved');
+        const isL1App = s.includes('l2') || s.includes('l1-approved');
+        const isRework = s.includes('rework');
+        const isQuar = s.includes('quarantine');
+        const isDraft = s.includes('pool') || s.includes('draft') || s === '' || s === 'unassigned' || s === '—';
+        
+        const isPendingL1 = !isL2App && !isL1App && !isRework && !isQuar && !isDraft;
+        const isPreL1Quarantine = isQuar && !hasClearedL1(t);
+        
+        return isPendingL1 || isPreL1Quarantine;
+      });
+
+      if (targetTasks.length === 0) {
+        alert("No tasks match the Pending L1 or Pre-L1 Quarantine criteria.");
+        return;
+      }
+
+      let html = '<table border="1" style="border-collapse: collapse;">';
+      html += '<tr><th>Trainer Name</th><th>Task ID</th><th>Previous Reviewer</th><th>Submission Status</th></tr>';
+      
+      targetTasks.forEach(t => {
+        const trainer = t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned' ? t.annotator : 'Unassigned';
+        const taskId = t.id || '—';
+        const reviewer = (t.reviewer && t.reviewer !== '—' && t.reviewer !== 'Unassigned') ? t.reviewer : 'None';
+        
+        let status = 'Fresh Submission';
+        const s = (t.state || '').toLowerCase();
+        
+        let reworks = 0;
+        if (t.history) {
+          t.history.forEach(h => {
+            if (h.label && h.label.toLowerCase().includes('rework')) reworks++;
+          });
+        }
+
+        if (s.includes('quarantine')) {
+          status = 'Quarantined';
+        } else if (reworks > 0) {
+          status = 'Rework';
+        }
+
+        html += `<tr><td>${trainer}</td><td>${taskId}</td><td>${reviewer}</td><td>${status}</td></tr>`;
+      });
+      html += '</table>';
+
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = html;
+      tempDiv.style.position = 'absolute';
+      tempDiv.style.left = '-9999px';
+      document.body.appendChild(tempDiv);
+      
+      const range = document.createRange();
+      range.selectNodeContents(tempDiv);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+      
+      try {
+        document.execCommand('copy');
+        alert(`Successfully copied table with ${targetTasks.length} tasks to clipboard!\nYou can now paste this directly into Google Sheets or Excel.`);
+      } catch (err) {
+        console.error('Failed to copy table: ', err);
+        alert('Failed to copy table.');
+      }
+      
+      document.body.removeChild(tempDiv);
     }
 
     init();
