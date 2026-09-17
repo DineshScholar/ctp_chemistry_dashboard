@@ -189,7 +189,7 @@
       const datasets = statuses.map(status => ({ label: status, data: topPeople.map(p => stats[p][status]), backgroundColor: COLORS[status] }));
 
       new Chart(document.getElementById(canvasId).getContext('2d'), {
-        type: 'bar', data: { labels: top parting lineople, datasets },
+        type: 'bar', data: { labels: topPeople, datasets },
         options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', scales: { x: { stacked: true }, y: { stacked: true } } }
       });
     }
