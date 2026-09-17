@@ -474,6 +474,7 @@
     
     let globalData = [];
     let trainerToPod = {};
+    let userToEmail = {};
 
     function getReviewCycles(task) {
       if (task.review_cycles !== undefined) return task.review_cycles;
@@ -497,6 +498,7 @@
       if (window.__OFFLINE_PAYLOAD__) {
         globalData = window.__OFFLINE_PAYLOAD__.tasks || [];
         trainerToPod = window.__OFFLINE_PAYLOAD__.trainerToPod || {};
+        userToEmail = window.__OFFLINE_PAYLOAD__.userToEmail || {};
         populateFilters();
         renderTable();
         return;
@@ -513,7 +515,16 @@
 
         if (rosterJson.pods) {
           rosterJson.pods.forEach(pod => {
-            pod.trainers.forEach(t => trainerToPod[t.name] = pod.name);
+            pod.trainers.forEach(t => {
+                trainerToPod[t.name] = pod.name;
+                if (t.email) userToEmail[t.name] = t.email;
+            });
+          });
+        }
+        
+        if (rosterJson.l2_reviewers) {
+          rosterJson.l2_reviewers.forEach(r => {
+             if (r.email) userToEmail[r.name] = r.email;
           });
         }
 
@@ -722,7 +733,7 @@
 
       const script = document.createElement('script');
       script.id = 'offline-payload-script';
-      script.textContent = `window.__OFFLINE_PAYLOAD__ = ${JSON.stringify({ tasks: globalData, trainerToPod: trainerToPod })};`;
+      script.textContent = `window.__OFFLINE_PAYLOAD__ = ${JSON.stringify({ tasks: globalData, trainerToPod: trainerToPod, userToEmail: userToEmail })};`;
       doc.querySelector('head').prepend(script);
 
       const htmlString = "<!DOCTYPE html>\n" + doc.outerHTML;
@@ -794,7 +805,7 @@
           }).join('');
         }
 
-        const trEmail = t.annotator !== 'Unassigned' ? t.annotator.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '';
+        const trEmail = userToEmail[t.annotator] || (t.annotator !== 'Unassigned' ? t.annotator.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '');
         const displayState = (!t.state || t.state === '') ? 'Pool / Draft' : t.state;
         const cycleCount = getReviewCycles(t);
 
@@ -840,9 +851,9 @@
 
       document.getElementById('modal-task-id').textContent = task.id;
       document.getElementById('modal-trainer-name').textContent = task.annotator;
-      document.getElementById('modal-trainer-email').textContent = task.annotator !== 'Unassigned' ? task.annotator.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '—';
+      document.getElementById('modal-trainer-email').textContent = userToEmail[task.annotator] || (task.annotator !== 'Unassigned' ? task.annotator.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '—');
       document.getElementById('modal-reviewer-name').textContent = task.reviewer;
-      document.getElementById('modal-reviewer-email').textContent = task.reviewer !== '—' ? task.reviewer.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '—';
+      document.getElementById('modal-reviewer-email').textContent = userToEmail[task.reviewer] || (task.reviewer !== '—' ? task.reviewer.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '—');
       document.getElementById('modal-domain').textContent = task.domain;
       document.getElementById('modal-date').textContent = task.submitted_at ? formatDateShort(task.submitted_at) + ', ' + new Date(task.submitted_at).getFullYear() : '—';
       
