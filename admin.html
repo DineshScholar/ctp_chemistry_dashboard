@@ -2,50 +2,97 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CTP Chemistry · Team Builder</title>
+  <title>CTP Chemistry · Team Builder (Admin)</title>
   <style>
-    :root { --bg: #f8fafc; --card: #ffffff; --border: #e2e8f0; --text-main: #0f172a; --text-sub: #64748b; --primary: #4f46e5; }
+    :root { --primary: #4f46e5; --text-main: #0f172a; --text-sub: #64748b; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text-main); }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f8fafc; color: var(--text-main); }
     
-    nav { background: var(--card); padding: 0 30px; display: flex; gap: 30px; border-bottom: 1px solid var(--border); }
+    /* Navigation */
+    nav { background: #ffffff; padding: 0 32px; display: flex; gap: 30px; border-bottom: 1px solid #e2e8f0; }
     nav a { text-decoration: none; color: var(--text-sub); font-weight: 600; font-size: 14px; padding: 20px 0; border-bottom: 2px solid transparent; }
     nav a.active { color: var(--primary); border-bottom-color: var(--primary); }
+    nav a:hover:not(.active) { color: var(--text-main); }
 
-    .container { padding: 30px; max-width: 1400px; margin: 0 auto; }
+    .container { padding: 32px; max-width: 1200px; margin: 0 auto; }
     
-    .total-team-header { background: white; border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; }
-    .blinking-wrapper { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: bold;}
-    .pulse-green { width: 9px; height: 9px; background: #10b981; border-radius: 50%; animation: pulseGreen 1.5s infinite; }
-    .pulse-red { width: 9px; height: 9px; background: #ef4444; border-radius: 50%; animation: pulseRed 1.5s infinite; }
-    @keyframes pulseGreen { 0% { box-shadow: 0 0 0 0 rgba(16,185,129,0.7); } 70% { box-shadow: 0 0 0 6px rgba(16,185,129,0); } }
-    @keyframes pulseRed { 0% { box-shadow: 0 0 0 0 rgba(239,68,68,0.7); } 70% { box-shadow: 0 0 0 6px rgba(239,68,68,0); } }
-
-    .btn { background: var(--primary); color: white; border: none; padding: 10px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; }
+    .header { margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
+    .header h1 { font-size: 20px; font-weight: 800; color: #0f172a; }
+    .header .meta { font-size: 12px; color: #64748b; }
+    
+    /* Controls */
+    .action-row { display: flex; gap: 12px; }
+    .btn { background: var(--primary); color: white; border: none; padding: 10px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px; }
     .btn-secondary { background: #e2e8f0; color: #0f172a; }
+    .btn:hover { opacity: 0.9; }
 
-    .pod-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
-    .pod-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
-    .pod-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid #f1f5f9; padding-bottom: 12px; margin-bottom: 12px; }
-    .pod-title input { font-size: 15px; font-weight: 800; border: 1px solid transparent; width: 100%; color: var(--text-main); }
-    .pod-title input:focus { border-bottom: 1px solid var(--primary); outline: none; }
-    .pod-lead input { font-size: 11px; color: #1e40af; border: none; background: #dbeafe; padding: 4px 8px; border-radius: 4px; font-weight: 600; width: 100%; margin-top: 6px;}
+    /* Live Indicator Banner */
+    .total-team-header { background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 18px; margin-bottom: 18px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; }
+    .blinking-wrapper { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #0f172a; }
+    .sync-tag { font-size: 10px; font-weight: 700; text-transform: uppercase; background: #f1f5f9; color: #475569; padding: 2px 7px; border-radius: 4px; margin-left: 6px; }
+    .legend-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; font-size: 12px; color: #334155; }
+    .legend-item { display: flex; align-items: center; gap: 6px; }
+    .legend-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+    .dot-green { background: #10b981; }
+    .dot-amber { background: #f59e0b; }
+    .dot-red { background: #ef4444; }
+    .dot-dark { background: #475569; }
+    .legend-total { margin-left: 6px; padding-left: 10px; border-left: 1px solid #cbd5e1; font-weight: 700; color: #0f172a; }
 
-    .trainer-card { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #f8fafc; position: relative; }
-    .trainer-info { flex: 1; display: flex; flex-direction: column; gap: 4px; }
-    .trainer-info input { font-size: 13px; font-weight: 600; border: 1px solid transparent; width: 100%; }
-    .trainer-info input.email { font-family: ui-monospace, monospace; font-size: 11px; color: var(--text-sub); font-weight: normal; }
-    .trainer-info input:focus { border-bottom: 1px solid var(--border); outline: none; }
+    .pulse-green { width: 9px; height: 9px; background: #10b981; border-radius: 50%; display: inline-block; animation: pulseGreen 1.5s infinite; }
+    .pulse-red { width: 9px; height: 9px; background: #ef4444; border-radius: 50%; display: inline-block; animation: pulseRed 1.5s infinite; }
+    @keyframes pulseGreen { 0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); } 70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); } }
+    @keyframes pulseRed { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); } }
+
+    /* Editable Inputs */
+    .ghost-input { border: 1px solid transparent; background: transparent; font-family: inherit; font-size: inherit; color: inherit; padding: 2px 4px; border-radius: 4px; outline: none; font-weight: inherit; transition: all 0.2s;}
+    .ghost-input:focus, .ghost-input:hover { border-color: #cbd5e1; background: white; }
+    .ghost-select { border: 1px solid transparent; background: transparent; cursor: pointer; outline: none; font-weight: inherit; font-size: inherit; font-family: inherit;}
+    .ghost-select:hover { border-color: #cbd5e1; background: white;}
     
-    .status-select { font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 4px; border: none; text-transform: uppercase; cursor: pointer; outline: none;}
-    .status-select[value="Active"] { background: #ecfdf5; color: #047857; }
-    .status-select[value="MIA"] { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
-    .status-select[value="Offboarded"] { background: #f1f5f9; color: #64748b; border: 1px solid #cbd5e1; }
+    .icon-btn { background: none; border: none; cursor: pointer; color: #ef4444; font-weight: bold; opacity: 0.5; padding: 0 4px; }
+    .icon-btn:hover { opacity: 1; }
 
-    .delete-btn { background: none; border: none; color: #ef4444; cursor: pointer; font-weight: bold; padding: 0 4px;}
-    .add-btn { width: 100%; padding: 10px; background: transparent; border: 1px dashed var(--border); color: var(--text-sub); border-radius: 8px; cursor: pointer; font-weight: 600; margin-top: 10px; }
-    .add-btn:hover { border-color: var(--primary); color: var(--primary); }
+    /* Indented Outline Styles */
+    .outline-container { background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; font-size: 13px; }
+    .outline-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid #f8fafc; }
+    
+    .row-mia { background: #fef2f2; border-radius: 6px; padding: 4px 8px; border: 1px solid #fee2e2;}
+    .row-lowperf { background: #fffbeb; border-radius: 6px; padding: 4px 8px; border: 1px solid #fef3c7;}
+    .row-offboarded { background: #f8fafc; opacity: 0.75; border-radius: 6px; padding: 4px 8px; }
+    
+    .outline-root { border-bottom: 1px solid #f1f5f9; padding-bottom: 12px; margin-bottom: 12px; }
+    .outline-branch { margin-top: 14px; padding-left: 12px; border-left: 2px solid #e2e8f0; }
+    .outline-branch-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-weight: bold; margin-bottom: 12px; }
+    .outline-branch-children { padding-left: 14px; display: flex; flex-direction: column; gap: 4px; }
+    
+    .outline-pod-block { margin-bottom: 12px; background: #fafafa; border: 1px solid #f1f5f9; border-radius: 8px; padding: 8px 12px; }
+    .pod-header-row { font-size: 13px; font-weight: bold; color: #0f172a; border-bottom: 1px solid #e2e8f0; padding-bottom: 6px; margin-bottom: 6px; display: flex; align-items: center;}
+    .outline-trainer-list { padding-left: 16px; display: flex; flex-direction: column; gap: 4px; }
+    .outline-stem, .outline-substem { font-family: monospace; color: #94a3b8; user-select: none; }
+    
+    .outline-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+    .dot-slate { background: #0f172a; }
+    .dot-indigo { background: #4f46e5; }
+    .dot-purple { background: #9333ea; }
+    
+    .outline-role-tag { font-size: 10px; font-weight: 800; text-transform: uppercase; background: #f1f5f9; padding: 2px 6px; border-radius: 4px; color: #475569; }
+    .tag-indigo { background: #e0e7ff; color: #3730a3; }
+    .tag-purple { background: #f3e8ff; color: #7e22ce; }
+    
+    .micro-badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 600; display: inline-flex; align-items: center;}
+    .badge-blue { background: #dbeafe; color: #1e40af; }
+    
+    /* Specific Status Badges */
+    .status-badge { font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; }
+    .active-badge { background: #ecfdf5; color: #047857; }
+    .mia-badge { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+    .lowperf-badge { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
+    .offboarded-badge { background: #f1f5f9; color: #64748b; border: 1px solid #cbd5e1; }
+    
+    .strikethrough-name { text-decoration: line-through; color: #94a3b8; }
+    .add-txt-btn { background: none; border: none; font-size: 12px; color: #64748b; cursor: pointer; text-align: left; padding: 4px 0; font-weight: 600;}
+    .add-txt-btn:hover { color: var(--primary); }
   </style>
 </head>
 <body>
@@ -57,81 +104,205 @@
   </nav>
 
   <div class="container">
-    <div class="total-team-header">
-      <div class="blinking-wrapper">
-        <span class="pulse-green"></span><span class="pulse-red"></span>
-        CHEMISTRY TEAM BUILDER (LIVE SYNC)
+    <div class="header">
+      <div>
+        <h1>CTP Chemistry · Team Hierarchy</h1>
+        <div class="meta">View: <strong>indented_outline_editable</strong> · Live Database</div>
       </div>
-      <div style="display: flex; gap: 10px;">
-        <button class="btn btn-secondary" onclick="addPod()">+ Add Pod</button>
+      <div class="action-row">
+        <button class="btn btn-secondary" onclick="loadRoster()">Discard Changes</button>
         <button class="btn" onclick="saveRoster()">Save to Cloudflare</button>
       </div>
     </div>
+    
+    <div class="total-team-header">
+      <div class="blinking-wrapper">
+        <span class="pulse-green"></span>
+        <span class="pulse-red"></span>
+        <strong>TOTAL TEAM (ALL-TIME ROSTER)</strong>
+        <span class="sync-tag">Live Sync</span>
+      </div>
+      <div class="legend-bar">
+        <span class="legend-item"><span class="legend-dot dot-green"></span> Active (<span id="count-active">0</span>)</span>
+        <span class="legend-item"><span class="legend-dot dot-amber"></span> Low Perf (<span id="count-lowperf">0</span>)</span>
+        <span class="legend-item"><span class="legend-dot dot-red"></span> MIA (<span id="count-mia">0</span>)</span>
+        <span class="legend-item"><span class="legend-dot dot-dark"></span> Off/Resigned (<span id="count-off">0</span>)</span>
+        <span class="legend-total"><strong id="count-total">0 Total</strong></span>
+      </div>
+    </div>
 
-    <div class="pod-grid" id="roster-grid"></div>
+    <div class="outline-container" id="roster-container">
+      <div style="text-align:center; padding: 40px; color:#64748b;">Loading hierarchy...</div>
+    </div>
   </div>
 
   <script>
     const API_URL = 'https://turing-api.dineshkashyaparya.workers.dev/roster';
-    let roster = { pods: [] };
+    let roster = { pods: [], l2_reviewers: [] };
 
     async function loadRoster() {
       try {
         const res = await fetch(API_URL);
         roster = await res.json();
+        // Ensure legacy data structure supports new arrays
+        if (!roster.l2_reviewers) roster.l2_reviewers = [];
         renderRoster();
       } catch (err) {
-        console.error("Failed to load roster", err);
+        console.error("Failed to load", err);
       }
     }
 
+    function getStatusClass(status) {
+      if (status === 'MIA') return 'row-mia';
+      if (status === 'Low Performance') return 'row-lowperf';
+      if (status === 'Offboarded' || status === 'Resigned') return 'row-offboarded';
+      return '';
+    }
+
+    function getBadgeClass(status) {
+      if (status === 'MIA') return 'mia-badge';
+      if (status === 'Low Performance') return 'lowperf-badge';
+      if (status === 'Offboarded' || status === 'Resigned') return 'offboarded-badge';
+      return 'active-badge';
+    }
+
     function renderRoster() {
-      const grid = document.getElementById('roster-grid');
-      grid.innerHTML = roster.pods.map((pod, pIdx) => `
-        <div class="pod-card">
-          <div class="pod-header">
-            <div style="flex: 1;">
-              <div class="pod-title"><input type="text" value="${pod.name}" onchange="updatePod(${pIdx}, 'name', this.value)"></div>
-              <div class="pod-lead"><input type="text" value="${pod.lead}" placeholder="Lead: Name" onchange="updatePod(${pIdx}, 'lead', this.value)"></div>
-            </div>
-            <button class="delete-btn" onclick="deletePod(${pIdx})">✕</button>
+      // Calculate Stats
+      let active = 0, mia = 0, lowperf = 0, off = 0;
+      
+      const countPerson = (p) => {
+        if(p.status === 'Active') active++;
+        else if(p.status === 'MIA') mia++;
+        else if(p.status === 'Low Performance') lowperf++;
+        else if(p.status === 'Offboarded' || p.status === 'Resigned') off++;
+      };
+
+      roster.l2_reviewers.forEach(countPerson);
+      roster.pods.forEach(pod => {
+        if (pod.trainers) pod.trainers.forEach(countPerson);
+      });
+
+      document.getElementById('count-active').textContent = active;
+      document.getElementById('count-mia').textContent = mia;
+      document.getElementById('count-lowperf').textContent = lowperf;
+      document.getElementById('count-off').textContent = off;
+      document.getElementById('count-total').textContent = active + mia + lowperf + off;
+
+      // Render Outline
+      const container = document.getElementById('roster-container');
+      
+      const renderPersonRow = (person, type, podIdx, personIdx) => {
+        const rowClass = getStatusClass(person.status);
+        const badgeClass = getBadgeClass(person.status);
+        const nameClass = (person.status === 'Offboarded' || person.status === 'Resigned') ? 'strikethrough-name' : '';
+        
+        return `
+          <div class="outline-row ${rowClass}">
+            <span class="outline-substem">├─</span>
+            <input class="ghost-input ${nameClass}" style="font-weight:600; width:220px;" value="${person.name}" onchange="updatePerson('${type}', ${podIdx}, ${personIdx}, 'name', this.value)" placeholder="Name">
+            <input class="ghost-input" style="font-family:ui-monospace, monospace; font-size:11px; color:#64748b; width:220px;" value="${person.email}" onchange="updatePerson('${type}', ${podIdx}, ${personIdx}, 'email', this.value)" placeholder="email@turing.com">
+            
+            <select class="ghost-select status-badge ${badgeClass}" onchange="updatePerson('${type}', ${podIdx}, ${personIdx}, 'status', this.value)">
+              <option value="Active" ${person.status === 'Active' ? 'selected' : ''}>Active</option>
+              <option value="Low Performance" ${person.status === 'Low Performance' ? 'selected' : ''}>Low Performance</option>
+              <option value="MIA" ${person.status === 'MIA' ? 'selected' : ''}>MIA</option>
+              <option value="Resigned" ${person.status === 'Resigned' ? 'selected' : ''}>Resigned</option>
+              <option value="Offboarded" ${person.status === 'Offboarded' ? 'selected' : ''}>Offboarded</option>
+            </select>
+            
+            <button class="icon-btn" onclick="deletePerson('${type}', ${podIdx}, ${personIdx})" title="Remove">✕</button>
           </div>
-          
-          <div>
-            ${pod.trainers.map((t, tIdx) => `
-              <div class="trainer-card">
-                <span style="color:#94a3b8; font-family:monospace;">├─</span>
-                <div class="trainer-info">
-                  <input type="text" value="${t.name}" placeholder="Trainer Name" style="${t.status==='Offboarded' ? 'text-decoration:line-through; color:#94a3b8;' : ''}" onchange="updateTrainer(${pIdx}, ${tIdx}, 'name', this.value)">
-                  <input type="text" class="email" value="${t.email || ''}" placeholder="email@turing.com" onchange="updateTrainer(${pIdx}, ${tIdx}, 'email', this.value)">
+        `;
+      };
+
+      let html = `
+        <div class="outline-row outline-root">
+          <span class="outline-dot dot-slate"></span>
+          <span class="outline-role-tag">Operations Lead</span>
+          <span style="font-weight:bold;">Dinesh Kashyap</span>
+          <span style="font-family:ui-monospace,monospace; font-size:11px; color:#64748b;">dinesh.k3@turing.com</span>
+        </div>
+
+        <!-- L2 Reviewers Branch -->
+        <div class="outline-branch">
+          <div class="outline-branch-head">
+            <div>
+              <span class="outline-dot dot-purple"></span>
+              <span class="outline-role-tag tag-purple">Quality Oversight (L2 Reviewers)</span>
+            </div>
+          </div>
+          <div class="outline-branch-children">
+            ${roster.l2_reviewers.map((r, idx) => renderPersonRow(r, 'l2', null, idx)).join('')}
+            <button class="add-txt-btn" onclick="addPerson('l2', null)">+ Add L2 Reviewer</button>
+          </div>
+        </div>
+
+        <!-- Pods Branch -->
+        <div class="outline-branch">
+          <div class="outline-branch-head">
+            <div>
+              <span class="outline-dot dot-indigo"></span>
+              <span class="outline-role-tag tag-indigo">Chemistry Pods Network (${roster.pods.length} Pods)</span>
+            </div>
+            <button class="add-txt-btn" style="color:var(--primary);" onclick="addPod()">+ Add New Pod</button>
+          </div>
+          <div class="outline-branch-children">
+            ${roster.pods.map((pod, pIdx) => `
+              <div class="outline-pod-block">
+                <div class="outline-row pod-header-row">
+                  <span class="outline-stem">●</span>
+                  <input class="ghost-input" style="font-size:14px; font-weight:800; min-width:200px;" value="${pod.name}" onchange="updatePod(${pIdx}, 'name', this.value)">
+                  
+                  <span class="micro-badge badge-blue">
+                    Lead: <input class="ghost-input" style="font-size:10px; font-weight:600; width:130px; color:inherit; margin-left:4px;" value="${pod.lead}" placeholder="Pod Lead Name" onchange="updatePod(${pIdx}, 'lead', this.value)">
+                  </span>
+                  
+                  <span style="font-family:ui-monospace,monospace; font-size:11px; color:#64748b; margin-left:auto;">${pod.trainers.length} Trainers</span>
+                  <button class="icon-btn" onclick="deletePod(${pIdx})" title="Delete Pod">✕</button>
                 </div>
-                <select class="status-select" value="${t.status || 'Active'}" onchange="updateTrainer(${pIdx}, ${tIdx}, 'status', this.value)">
-                  <option value="Active" ${t.status === 'Active' ? 'selected' : ''}>Active</option>
-                  <option value="MIA" ${t.status === 'MIA' ? 'selected' : ''}>MIA</option>
-                  <option value="Offboarded" ${t.status === 'Offboarded' ? 'selected' : ''}>Offboarded</option>
-                </select>
-                <button class="delete-btn" onclick="deleteTrainer(${pIdx}, ${tIdx})">✕</button>
+                <div class="outline-trainer-list">
+                  ${pod.trainers.map((t, tIdx) => renderPersonRow(t, 'trainer', pIdx, tIdx)).join('')}
+                  <button class="add-txt-btn" onclick="addPerson('trainer', ${pIdx})">+ Add Trainer to Pod</button>
+                </div>
               </div>
             `).join('')}
           </div>
-          <button class="add-btn" onclick="addTrainer(${pIdx})">+ Add Trainer</button>
         </div>
-      `).join('');
+      `;
+
+      container.innerHTML = html;
     }
 
+    // Handlers
     function updatePod(pIdx, field, val) { roster.pods[pIdx][field] = val; }
-    function updateTrainer(pIdx, tIdx, field, val) { roster.pods[pIdx].trainers[tIdx][field] = val; renderRoster(); }
-    function addPod() { roster.pods.push({ id: Date.now().toString(), name: "New Pod", lead: "Lead Name", trainers: [] }); renderRoster(); }
-    function deletePod(pIdx) { if(confirm("Delete this pod?")) { roster.pods.splice(pIdx, 1); renderRoster(); } }
-    function addTrainer(pIdx) { roster.pods[pIdx].trainers.push({ name: "New Trainer", email: "new@turing.com", status: "Active" }); renderRoster(); }
-    function deleteTrainer(pIdx, tIdx) { roster.pods[pIdx].trainers.splice(tIdx, 1); renderRoster(); }
+    function addPod() { roster.pods.push({ id: Date.now().toString(), name: "New Pod", lead: "New Lead", trainers: [] }); renderRoster(); }
+    function deletePod(pIdx) { if(confirm("Delete this entire pod and its trainers?")) { roster.pods.splice(pIdx, 1); renderRoster(); } }
+
+    function updatePerson(type, pIdx, personIdx, field, val) {
+      if(type === 'l2') roster.l2_reviewers[personIdx][field] = val;
+      else roster.pods[pIdx].trainers[personIdx][field] = val;
+      if (field === 'status') renderRoster(); // re-render to update colors
+    }
+    
+    function addPerson(type, pIdx) {
+      const newPerson = { name: "New Member", email: "email@turing.com", status: "Active" };
+      if (type === 'l2') roster.l2_reviewers.push(newPerson);
+      else roster.pods[pIdx].trainers.push(newPerson);
+      renderRoster();
+    }
+    
+    function deletePerson(type, pIdx, personIdx) {
+      if(type === 'l2') roster.l2_reviewers.splice(personIdx, 1);
+      else roster.pods[pIdx].trainers.splice(personIdx, 1);
+      renderRoster();
+    }
 
     async function saveRoster() {
-      const password = prompt("Enter Admin Password:");
+      const password = prompt("Enter Admin Password to sync to Cloudflare:");
       if (!password) return;
       try {
         const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${password}` }, body: JSON.stringify(roster) });
-        if (res.ok) alert("Chemistry Roster saved successfully!");
+        if (res.ok) alert("Hierarchy saved successfully! Changes are now live.");
         else alert("Failed to save. Incorrect password.");
       } catch (err) { alert("Network error."); }
     }
