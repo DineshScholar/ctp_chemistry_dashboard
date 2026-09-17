@@ -263,13 +263,24 @@
 
     .timeline-item { position: relative; margin-bottom: 24px; }
     .timeline-item:last-child { margin-bottom: 0; }
+    
+    /* Blinking Animations for Timeline Statuses */
+    @keyframes pulse-green { 0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); } 100% { box-shadow: 0 0 0 0 transparent; } }
+    @keyframes pulse-blue { 0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(59, 130, 246, 0); } 100% { box-shadow: 0 0 0 0 transparent; } }
+    @keyframes pulse-amber { 0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(245, 158, 11, 0); } 100% { box-shadow: 0 0 0 0 transparent; } }
+    @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 transparent; } }
+
     .timeline-dot {
       position: absolute; left: -31px; top: 4px; width: 12px; height: 12px;
       border-radius: 50%; background: var(--bg-card); border: 3px solid var(--primary);
+      transition: all 0.3s ease;
     }
-    .timeline-dot.reviewer { border-color: var(--primary); }
-    .timeline-dot.trainer { border-color: var(--accent-blue); }
-    .timeline-dot.system { border-color: var(--text-sub); }
+    
+    /* Dynamic Dot State Classes */
+    .timeline-dot.status-l2-app { border-color: var(--success) !important; background: var(--success-light) !important; animation: pulse-green 2s infinite; }
+    .timeline-dot.status-l1-app { border-color: var(--accent-blue) !important; background: var(--accent-blue-light) !important; animation: pulse-blue 2s infinite; }
+    .timeline-dot.status-rework { border-color: var(--warning) !important; background: var(--warning-light) !important; animation: pulse-amber 2s infinite; }
+    .timeline-dot.status-quar { border-color: var(--quarantine) !important; background: var(--quarantine-light) !important; animation: pulse-red 2s infinite; }
 
     .tl-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
     .tl-role { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
@@ -450,7 +461,6 @@
 
     async function init() {
       try {
-        // Fetch tasks and roster to enable pod filtering mapping
         const [taskRes, rosterRes] = await Promise.all([
           fetch(CLOUDFLARE_URL).catch(() => ({ json: () => ({ tasks: [] }) })),
           fetch(ROSTER_URL).catch(() => ({ json: () => ({ pods: [] }) }))
@@ -458,14 +468,12 @@
         const json = await taskRes.json();
         const rosterJson = await rosterRes.json();
 
-        // Map trainers to their respective pods
         if (rosterJson.pods) {
           rosterJson.pods.forEach(pod => {
             pod.trainers.forEach(t => trainerToPod[t.name] = pod.name);
           });
         }
 
-        // Attach pod information directly to the task data
         globalData = (json.tasks || []).map(t => ({
           ...t,
           pod: trainerToPod[t.annotator] || 'Unassigned Pod'
@@ -533,19 +541,22 @@
       return true;
     }
 
+    // Checking Historical Milestones for Accuracy
     function hasClearedL1(task) {
       if (['Approved', 'L2 review'].includes(task.state)) return true;
       if (!task.history) return false;
       return task.history.some(h => 
         (h.kind === 'review_cleared' && h.detail && h.detail.includes('review_l2')) ||
-        (h.label && h.label.toLowerCase().includes('cleared for claim pool'))
+        (h.label && h.label.toLowerCase().includes('cleared for claim pool')) ||
+        (h.label && h.label.toLowerCase().includes('l1 approved')) || 
+        (h.label === 'Approved' && h.actor_name !== 'System')
       );
     }
 
     function hasClearedL2(task) {
       if (task.state === 'Approved') return true;
       if (!task.history) return false;
-      return task.history.some(h => h.label === 'Approved' || h.kind === 'approved' || h.state === 'Approved');
+      return task.history.some(h => h.label === 'Approved' || h.kind === 'approved' || h.state === 'Approved' || (h.label && h.label.toLowerCase().includes('l2 approved')));
     }
 
     function getBadgeClass(state) {
@@ -576,7 +587,9 @@
         rework: 0, 
         quarantined: 0, 
         pendingL1: 0, 
-        draft: 0 
+        draft: 0,
+        quarPostL1: 0,
+        quarPostL2: 0
       };
       
       filteredData.forEach(t => {
@@ -591,18 +604,19 @@
           stats.rework++;
         } else if (s.includes('quarantine')) {
           stats.quarantined++;
+          
+          // Determine if Quarantine happened AFTER an L1 or L2 approval historically
+          if (hasClearedL2(t)) {
+            stats.quarPostL2++;
+          } else if (hasClearedL1(t)) {
+            stats.quarPostL1++;
+          }
         } else if (s.includes('pool') || s.includes('draft') || s === '' || s === 'unassigned' || s === '—') {
-          // Explicitly separate unsubmitted/pool tasks from pending L1
           stats.draft++;
         } else {
-          // Tasks that are "Submitted" or "L1 Review"
           stats.pendingL1++;
         }
       });
-
-      // Calculate Combined Stats
-      const quarPlusL1 = stats.quarantined + stats.l1Approved;
-      const quarPlusL2 = stats.quarantined + stats.l2Approved;
 
       document.getElementById('summary-grid').innerHTML = `
         <div class="summary-card card-total">
@@ -622,7 +636,7 @@
           <span class="summary-value">${stats.rework}</span>
         </div>
         <div class="summary-card card-quarantine">
-          <span class="summary-label">Quarantined</span>
+          <span class="summary-label">Quarantined (All)</span>
           <span class="summary-value">${stats.quarantined}</span>
         </div>
         <div class="summary-card card-pending">
@@ -634,12 +648,12 @@
           <span class="summary-value">${stats.draft}</span>
         </div>
         <div class="summary-card card-quar-l1">
-          <span class="summary-label">Quarantined + L1</span>
-          <span class="summary-value">${quarPlusL1}</span>
+          <span class="summary-label">Quarantined (Post-L1)</span>
+          <span class="summary-value">${stats.quarPostL1}</span>
         </div>
         <div class="summary-card card-quar-l2">
-          <span class="summary-label">Quarantined + L2</span>
-          <span class="summary-value">${quarPlusL2}</span>
+          <span class="summary-label">Quarantined (Post-L2)</span>
+          <span class="summary-value">${stats.quarPostL2}</span>
         </div>
       `;
     }
@@ -675,7 +689,6 @@
       const qReviewer = document.getElementById('filter-reviewer').value;
       const qPod = document.getElementById('filter-pod').value;
 
-      // Reset Master Checkbox when re-rendering
       document.getElementById('selectAllCheckbox').checked = false;
 
       const filtered = globalData.filter(t => {
@@ -683,7 +696,6 @@
         const matchDate = checkDateMatch(t.submitted_at, qDate);
         let matchState = true;
         
-        // Handle Draft distinction in filters
         if (qState !== 'All') {
           if (qState === 'Draft') {
             matchState = (!t.state || t.state.toLowerCase().includes('draft') || t.state.toLowerCase().includes('pool'));
@@ -783,6 +795,7 @@
       document.getElementById('modal-action-btn').href = `https://task.turing.com/admin/projects/43b7da4f-5f31-41a0-b51d-1c64c7fd0a38/delivery-quality/tasks/${task.id}?view=task-review-queue`;
 
       let timelineHTML = '<div style="color:var(--text-sub); font-size:13px;">No history available</div>';
+      
       if (task.history && task.history.length > 0) {
         timelineHTML = task.history.slice().reverse().map(h => {
           let roleLabel = 'SYSTEM';
@@ -796,17 +809,40 @@
             roleClass = 'trainer';
           }
           
+          let displayLabel = esc(h.label);
+          let extraDotClass = '';
+          const lLower = (h.label || '').toLowerCase();
+          const dLower = (h.detail || '').toLowerCase();
+
+          // L1 / L2 Approval Inference & Blinking Designators
+          if (lLower.includes('approved') || lLower.includes('cleared')) {
+              if (dLower.includes('review_l2') || lLower.includes('claim pool') || lLower.includes('l1')) {
+                  displayLabel = '✅ L1 Approved (Advanced to L2)';
+                  extraDotClass = 'status-l1-app';
+              } else if (lLower === 'approved' || h.kind === 'approved' || dLower.includes('final') || lLower.includes('l2')) {
+                  displayLabel = '🏆 L2 Final Approved';
+                  extraDotClass = 'status-l2-app';
+              } else {
+                  displayLabel = '✅ Approved';
+                  extraDotClass = 'status-l2-app';
+              }
+          } else if (lLower.includes('rework')) {
+              extraDotClass = 'status-rework';
+          } else if (lLower.includes('quarantine')) {
+              extraDotClass = 'status-quar';
+          }
+
           const detailHTML = h.detail && h.detail.trim() !== '' && h.detail !== h.label && h.detail !== 'null' && !['review_l1', 'review_l2'].includes(h.detail)
             ? `<div class="tl-detail">${esc(h.detail)}</div>` : '';
 
           return `
             <div class="timeline-item">
-              <div class="timeline-dot ${roleClass}"></div>
+              <div class="timeline-dot ${roleClass} ${extraDotClass}"></div>
               <div class="tl-header">
                 <span class="tl-role ${roleClass}">${roleLabel}</span>
                 <span class="tl-date">${formatDateShort(h.occurred_at)}, ${new Date(h.occurred_at).getFullYear()}, ${formatTimeShort(h.occurred_at)}</span>
               </div>
-              <div class="tl-action">${esc(h.label)}</div>
+              <div class="tl-action" style="${extraDotClass ? 'font-weight: 800;' : ''}">${displayLabel}</div>
               <div class="tl-name">${esc(h.actor_name || 'System')}</div>
               ${detailHTML}
             </div>
