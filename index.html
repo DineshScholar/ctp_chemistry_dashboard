@@ -156,6 +156,11 @@
       padding: 0 4px;
     }
     .table-actions h3 { margin: 0; font-size: 14px; font-weight: 700; color: var(--text-main); }
+    
+    .table-actions-btns {
+      display: flex;
+      gap: 12px;
+    }
 
     /* Ledger Table */
     .ledger-container {
@@ -181,10 +186,12 @@
       border-radius: 6px;
       font-family: ui-monospace, monospace;
       font-weight: 600;
-      font-size: 12px;
+      font-size: 11px;
+      word-break: break-all;
+      max-width: 280px;
     }
 
-    .copy-icon { cursor: pointer; color: var(--primary); opacity: 0.6; transition: opacity 0.2s; }
+    .copy-icon { cursor: pointer; color: var(--primary); opacity: 0.6; transition: opacity 0.2s; flex-shrink: 0; }
     .copy-icon:hover { opacity: 1; }
 
     .user-block { display: flex; flex-direction: column; gap: 4px; }
@@ -231,6 +238,8 @@
     .action-btn:hover { background: #dbeafe; }
     .action-btn-primary { background: var(--primary-light); color: var(--primary); border-color: #d8b4fe; }
     .action-btn-primary:hover { background: #e9d5ff; }
+    .action-btn-secondary { background: #f1f5f9; color: #475569; border-color: #cbd5e1; }
+    .action-btn-secondary:hover { background: #e2e8f0; color: #0f172a; }
 
     /* Modal */
     .modal-overlay {
@@ -289,7 +298,7 @@
     .tl-role.system { color: var(--text-sub); }
     
     .tl-date { font-size: 11.5px; color: var(--text-sub); font-family: ui-monospace, monospace; }
-    .tl-action { font-size: 14px; font-weight: 600; color: var(--text-main); margin-bottom: 4px; }
+    .tl-action { font-size: 14px; font-weight: 600; color: var(--text-main); margin-bottom: 4px; display: flex; align-items: center; }
     .tl-name { font-size: 13px; color: var(--text-sub); }
     .tl-detail { margin-top: 10px; font-size: 13px; color: #4b5563; background: #fff; padding: 12px; border-radius: 8px; border: 1px solid var(--border); white-space: pre-wrap; }
 
@@ -362,10 +371,16 @@
     <!-- Table Action Bar -->
     <div class="table-actions">
       <h3>Ledger Details</h3>
-      <button class="action-btn action-btn-primary" onclick="copySelectedTaskIds()">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-        Copy Selected Task IDs
-      </button>
+      <div class="table-actions-btns">
+        <button class="action-btn action-btn-secondary" onclick="downloadOfflineLedger()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          Download Offline Ledger
+        </button>
+        <button class="action-btn action-btn-primary" onclick="copySelectedTaskIds()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+          Copy Selected Task IDs
+        </button>
+      </div>
     </div>
 
     <!-- Ledger Table -->
@@ -460,6 +475,16 @@
     let trainerToPod = {};
 
     async function init() {
+      // Check if we are running in an exported offline file
+      if (window.__OFFLINE_PAYLOAD__) {
+        globalData = window.__OFFLINE_PAYLOAD__.tasks || [];
+        trainerToPod = window.__OFFLINE_PAYLOAD__.trainerToPod || {};
+        populateFilters();
+        renderTable();
+        return;
+      }
+
+      // Normal Live Fetch
       try {
         const [taskRes, rosterRes] = await Promise.all([
           fetch(CLOUDFLARE_URL).catch(() => ({ json: () => ({ tasks: [] }) })),
@@ -581,15 +606,8 @@
 
     function updateSummaryMetrics(filteredData) {
       const stats = { 
-        total: 0, 
-        l2Approved: 0, 
-        l1Approved: 0, 
-        rework: 0, 
-        quarantined: 0, 
-        pendingL1: 0, 
-        draft: 0,
-        quarPostL1: 0,
-        quarPostL2: 0
+        total: 0, l2Approved: 0, l1Approved: 0, rework: 0, quarantined: 0, 
+        pendingL1: 0, draft: 0, quarPostL1: 0, quarPostL2: 0
       };
       
       filteredData.forEach(t => {
@@ -605,7 +623,6 @@
         } else if (s.includes('quarantine')) {
           stats.quarantined++;
           
-          // Determine if Quarantine happened AFTER an L1 or L2 approval historically
           if (hasClearedL2(t)) {
             stats.quarPostL2++;
           } else if (hasClearedL1(t)) {
@@ -679,6 +696,31 @@
       });
     }
 
+    function downloadOfflineLedger() {
+      const doc = document.documentElement.cloneNode(true);
+      
+      // Remove any previously injected script to prevent duplicates
+      const existingScript = doc.querySelector('#offline-payload-script');
+      if (existingScript) existingScript.remove();
+
+      // Inject current runtime data into a static variable for offline load
+      const script = document.createElement('script');
+      script.id = 'offline-payload-script';
+      script.textContent = `window.__OFFLINE_PAYLOAD__ = ${JSON.stringify({ tasks: globalData, trainerToPod: trainerToPod })};`;
+      doc.querySelector('head').prepend(script);
+
+      const htmlString = "<!DOCTYPE html>\n" + doc.outerHTML;
+      const blob = new Blob([htmlString], { type: 'text/html;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Task_Ledger_Offline_${new Date().toISOString().split('T')[0]}.html`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
     function renderTable() {
       const tbody = document.getElementById('table-body');
       const qSearch = document.getElementById('search-id').value.toLowerCase();
@@ -725,7 +767,6 @@
       filtered.sort((a, b) => new Date(b.submitted_at || 0) - new Date(a.submitted_at || 0));
 
       tbody.innerHTML = filtered.map(t => {
-        const shortId = t.id.split('-')[0] + '-' + t.id.split('-')[1] + '...';
         const badgeCls = getBadgeClass(t.state);
         
         let miniHistoryHTML = '<span style="color:#ccc">—</span>';
@@ -745,7 +786,7 @@
             <td onclick="event.stopPropagation()"><input type="checkbox" class="task-checkbox" value="${t.id}"></td>
             <td>
               <div class="task-id-pill">
-                ${shortId}
+                ${t.id}
                 <svg class="copy-icon" onclick="copyId(event, '${t.id}')" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
               </div>
             </td>
@@ -811,20 +852,28 @@
           
           let displayLabel = esc(h.label);
           let extraDotClass = '';
+          let iconHtml = '';
           const lLower = (h.label || '').toLowerCase();
           const dLower = (h.detail || '').toLowerCase();
 
-          // L1 / L2 Approval Inference & Blinking Designators
+          // SVGs for Professional UI replacement over Emojis
+          const iconL1 = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px; vertical-align:text-bottom; color: var(--accent-blue);"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>`;
+          const iconL2 = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px; vertical-align:text-bottom; color: var(--success);"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"></path><path d="m9 12 2 2 4-4"></path></svg>`;
+
+          // L1 / L2 Approval Inference & Professional Icons
           if (lLower.includes('approved') || lLower.includes('cleared')) {
               if (dLower.includes('review_l2') || lLower.includes('claim pool') || lLower.includes('l1')) {
-                  displayLabel = '✅ L1 Approved (Advanced to L2)';
+                  displayLabel = 'L1 Approved (Advanced to L2)';
                   extraDotClass = 'status-l1-app';
+                  iconHtml = iconL1;
               } else if (lLower === 'approved' || h.kind === 'approved' || dLower.includes('final') || lLower.includes('l2')) {
-                  displayLabel = '🏆 L2 Final Approved';
+                  displayLabel = 'L2 Final Approved';
                   extraDotClass = 'status-l2-app';
+                  iconHtml = iconL2;
               } else {
-                  displayLabel = '✅ Approved';
+                  displayLabel = 'Approved';
                   extraDotClass = 'status-l2-app';
+                  iconHtml = iconL1;
               }
           } else if (lLower.includes('rework')) {
               extraDotClass = 'status-rework';
@@ -842,7 +891,7 @@
                 <span class="tl-role ${roleClass}">${roleLabel}</span>
                 <span class="tl-date">${formatDateShort(h.occurred_at)}, ${new Date(h.occurred_at).getFullYear()}, ${formatTimeShort(h.occurred_at)}</span>
               </div>
-              <div class="tl-action" style="${extraDotClass ? 'font-weight: 800;' : ''}">${displayLabel}</div>
+              <div class="tl-action" style="${extraDotClass ? 'font-weight: 800;' : ''}">${iconHtml}${displayLabel}</div>
               <div class="tl-name">${esc(h.actor_name || 'System')}</div>
               ${detailHTML}
             </div>
