@@ -494,6 +494,7 @@
     }
 
     async function init() {
+      // Check if we are running in an exported offline file
       if (window.__OFFLINE_PAYLOAD__) {
         globalData = window.__OFFLINE_PAYLOAD__.tasks || [];
         trainerToPod = window.__OFFLINE_PAYLOAD__.trainerToPod || {};
@@ -503,6 +504,7 @@
         return;
       }
 
+      // Normal Live Fetch
       try {
         const [taskRes, rosterRes] = await Promise.all([
           fetch(CLOUDFLARE_URL).catch(() => ({ json: () => ({ tasks: [] }) })),
@@ -511,30 +513,25 @@
         const json = await taskRes.json();
         const rosterJson = await rosterRes.json();
 
-        // Systematically build mappings to ensure NO fallback errors
         if (rosterJson.pods) {
           rosterJson.pods.forEach(pod => {
             pod.trainers.forEach(t => {
-                if (t.name) {
-                    trainerToPod[t.name.trim()] = pod.name;
-                    if (t.email) userToEmail[t.name.trim().toLowerCase()] = t.email.trim();
-                }
+                trainerToPod[t.name] = pod.name;
+                if (t.email) userToEmail[t.name] = t.email;
             });
           });
         }
         
         if (rosterJson.l2_reviewers) {
           rosterJson.l2_reviewers.forEach(r => {
-             if (r.name && r.email) userToEmail[r.name.trim().toLowerCase()] = r.email.trim();
+             if (r.email) userToEmail[r.name] = r.email;
           });
         }
 
-        globalData = (json.tasks || [])
-          .filter(t => t.annotator !== 'Dinesh Kashyap' && t.reviewer !== 'Dinesh Kashyap') // Exclude globally as requested
-          .map(t => ({
-            ...t,
-            pod: trainerToPod[t.annotator] || 'Unassigned Pod'
-          }));
+        globalData = (json.tasks || []).map(t => ({
+          ...t,
+          pod: trainerToPod[t.annotator] || 'Unassigned Pod'
+        }));
       } catch (err) {
         console.warn("Using fallback data or failed to fetch fully.", err);
       }
@@ -598,6 +595,7 @@
       return true;
     }
 
+    // Checking Historical Milestones for Accuracy
     function hasClearedL1(task) {
       if (['Approved', 'L2 review'].includes(task.state)) return true;
       if (!task.history) return false;
@@ -807,9 +805,7 @@
           }).join('');
         }
 
-        const annotatorNameKey = t.annotator ? t.annotator.trim().toLowerCase() : '';
-        const trEmail = userToEmail[annotatorNameKey] || (t.annotator && t.annotator !== 'Unassigned' ? t.annotator.trim().toLowerCase().replace(/\s/g, '.') + '@turing.com' : '');
-        
+        const trEmail = userToEmail[t.annotator] || (t.annotator !== 'Unassigned' ? t.annotator.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '');
         const displayState = (!t.state || t.state === '') ? 'Pool / Draft' : t.state;
         const cycleCount = getReviewCycles(t);
 
@@ -854,16 +850,10 @@
       if (!task) return;
 
       document.getElementById('modal-task-id').textContent = task.id;
-      
-      const annotatorKey = task.annotator ? task.annotator.trim().toLowerCase() : '';
-      const reviewerKey = task.reviewer ? task.reviewer.trim().toLowerCase() : '';
-      
       document.getElementById('modal-trainer-name').textContent = task.annotator;
-      document.getElementById('modal-trainer-email').textContent = userToEmail[annotatorKey] || (task.annotator && task.annotator !== 'Unassigned' ? task.annotator.trim().toLowerCase().replace(/\s/g, '.') + '@turing.com' : '—');
-      
+      document.getElementById('modal-trainer-email').textContent = userToEmail[task.annotator] || (task.annotator !== 'Unassigned' ? task.annotator.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '—');
       document.getElementById('modal-reviewer-name').textContent = task.reviewer;
-      document.getElementById('modal-reviewer-email').textContent = userToEmail[reviewerKey] || (task.reviewer && task.reviewer !== '—' ? task.reviewer.trim().toLowerCase().replace(/\s/g, '.') + '@turing.com' : '—');
-      
+      document.getElementById('modal-reviewer-email').textContent = userToEmail[task.reviewer] || (task.reviewer !== '—' ? task.reviewer.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '—');
       document.getElementById('modal-domain').textContent = task.domain;
       document.getElementById('modal-date').textContent = task.submitted_at ? formatDateShort(task.submitted_at) + ', ' + new Date(task.submitted_at).getFullYear() : '—';
       
