@@ -21,6 +21,8 @@
       --success-light: #d1fae5;
       --quarantine: #9f1239;
       --quarantine-light: #ffe4e6;
+      --combo-purple: #7e22ce;
+      --combo-teal: #0f766e;
     }
 
     * { box-sizing: border-box; }
@@ -57,7 +59,7 @@
     /* Summary Metrics Grid */
     .summary-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
       gap: 16px;
       margin-bottom: 24px;
     }
@@ -65,7 +67,7 @@
       background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 20px;
+      padding: 16px;
       display: flex;
       flex-direction: column;
       gap: 6px;
@@ -75,14 +77,14 @@
     .summary-card:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.04); }
     
     .summary-label {
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 800;
       text-transform: uppercase;
       color: var(--text-sub);
       letter-spacing: 0.05em;
     }
     .summary-value {
-      font-size: 28px;
+      font-size: 26px;
       font-weight: 800;
       line-height: 1;
     }
@@ -103,8 +105,17 @@
     .card-quarantine { border-top: 4px solid var(--quarantine); }
     .card-quarantine .summary-value { color: var(--quarantine); }
     
+    .card-pending { border-top: 4px solid #6366f1; }
+    .card-pending .summary-value { color: #6366f1; }
+
     .card-draft { border-top: 4px solid var(--text-sub); }
     .card-draft .summary-value { color: var(--text-main); }
+
+    .card-quar-l1 { border-top: 4px solid var(--combo-purple); background: #faf9fb; }
+    .card-quar-l1 .summary-value { color: var(--combo-purple); }
+
+    .card-quar-l2 { border-top: 4px solid var(--combo-teal); background: #faf9fb; }
+    .card-quar-l2 .summary-value { color: var(--combo-teal); }
 
     /* Filters Section */
     .filters-container {
@@ -135,6 +146,16 @@
     
     .filter-group { display: flex; gap: 8px; flex: 1.5; min-width: 250px; }
     #custom-date-range { display: none; gap: 8px; align-items: center; flex: 2; }
+
+    /* Ledger Actions Bar */
+    .table-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      padding: 0 4px;
+    }
+    .table-actions h3 { margin: 0; font-size: 14px; font-weight: 700; color: var(--text-main); }
 
     /* Ledger Table */
     .ledger-container {
@@ -185,6 +206,7 @@
     .status-l1 { background: var(--primary-light); color: var(--primary); border-color: #d8b4fe; }
     .status-l2 { background: var(--accent-blue-light); color: var(--accent-blue); border-color: #93c5fd; }
     .status-quarantined { background: var(--quarantine-light); color: var(--quarantine); border-color: #fda4af; }
+    .status-draft { background: #f1f5f9; color: var(--text-sub); border-color: #cbd5e1; }
 
     .mini-history { display: flex; flex-direction: column; gap: 6px; font-size: 11.5px; color: var(--text-sub); }
     .mini-history-item span { font-weight: 600; color: var(--text-main); }
@@ -194,18 +216,21 @@
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      padding: 6px 12px;
+      padding: 8px 14px;
       background: var(--accent-blue-light);
       color: var(--accent-blue);
       border: 1px solid #bfdbfe;
       border-radius: 6px;
-      font-size: 12px;
+      font-size: 13px;
       font-weight: 600;
       cursor: pointer;
       text-decoration: none;
       white-space: nowrap;
+      transition: all 0.2s;
     }
     .action-btn:hover { background: #dbeafe; }
+    .action-btn-primary { background: var(--primary-light); color: var(--primary); border-color: #d8b4fe; }
+    .action-btn-primary:hover { background: #e9d5ff; }
 
     /* Modal */
     .modal-overlay {
@@ -272,7 +297,7 @@
     
     <!-- Top Level Dashboard Summaries -->
     <div class="summary-grid" id="summary-grid">
-      <!-- Generated via JS to reflect current filter state -->
+      <!-- Generated via JS to accurately reflect currently filtered data -->
     </div>
 
     <!-- Filters -->
@@ -294,8 +319,13 @@
         </div>
       </div>
 
+      <select id="filter-pod" class="filter-input" onchange="renderTable()">
+        <option value="All">All Pods</option>
+      </select>
+
       <select id="filter-state" class="filter-input" onchange="renderTable()">
         <option value="All">All Current Statuses</option>
+        <option value="Draft">Draft / Pool</option>
         <option value="L1 review">Awaiting L1 Review</option>
         <option value="L2 review">Awaiting L2 Review</option>
         <option value="Rework">Rework</option>
@@ -318,12 +348,23 @@
       </select>
     </div>
 
+    <!-- Table Action Bar -->
+    <div class="table-actions">
+      <h3>Ledger Details</h3>
+      <button class="action-btn action-btn-primary" onclick="copySelectedTaskIds()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+        Copy Selected Task IDs
+      </button>
+    </div>
+
     <!-- Ledger Table -->
     <div class="ledger-container">
       <table>
         <thead>
           <tr>
-            <th style="width: 40px;"><input type="checkbox"></th>
+            <th style="width: 40px;">
+              <input type="checkbox" id="selectAllCheckbox" onclick="toggleAllCheckboxes(this)" title="Select All Visible Tasks">
+            </th>
             <th>Task ID</th>
             <th>Trainer</th>
             <th>Domain</th>
@@ -402,15 +443,35 @@
 
   <script>
     const CLOUDFLARE_URL = 'https://turing-api.dineshkashyaparya.workers.dev';
+    const ROSTER_URL = 'https://turing-api.dineshkashyaparya.workers.dev/roster';
+    
     let globalData = [];
+    let trainerToPod = {};
 
     async function init() {
       try {
-        const res = await fetch(CLOUDFLARE_URL);
-        const json = await res.json();
-        globalData = json.tasks || [];
+        // Fetch tasks and roster to enable pod filtering mapping
+        const [taskRes, rosterRes] = await Promise.all([
+          fetch(CLOUDFLARE_URL).catch(() => ({ json: () => ({ tasks: [] }) })),
+          fetch(ROSTER_URL).catch(() => ({ json: () => ({ pods: [] }) }))
+        ]);
+        const json = await taskRes.json();
+        const rosterJson = await rosterRes.json();
+
+        // Map trainers to their respective pods
+        if (rosterJson.pods) {
+          rosterJson.pods.forEach(pod => {
+            pod.trainers.forEach(t => trainerToPod[t.name] = pod.name);
+          });
+        }
+
+        // Attach pod information directly to the task data
+        globalData = (json.tasks || []).map(t => ({
+          ...t,
+          pod: trainerToPod[t.annotator] || 'Unassigned Pod'
+        }));
       } catch (err) {
-        console.warn("Using fallback data due to fetch error.", err);
+        console.warn("Using fallback data or failed to fetch fully.", err);
       }
       populateFilters();
       renderTable();
@@ -419,10 +480,12 @@
     function populateFilters() {
       const trainers = new Set();
       const reviewers = new Set();
+      const pods = new Set();
 
       globalData.forEach(t => {
         if (t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned') trainers.add(t.annotator);
         if (t.reviewer && t.reviewer !== '—' && t.reviewer !== 'Unassigned') reviewers.add(t.reviewer);
+        if (t.pod) pods.add(t.pod);
       });
 
       const fillOptions = (id, set) => {
@@ -434,6 +497,7 @@
 
       fillOptions('filter-trainer', trainers);
       fillOptions('filter-reviewer', reviewers);
+      fillOptions('filter-pod', pods);
     }
 
     function toggleCustomDate() {
@@ -490,6 +554,7 @@
       if (s.includes('approved')) return 'status-approved';
       if (s.includes('l2') || s.includes('l1-approved')) return 'status-l2';
       if (s.includes('quarantine')) return 'status-quarantined';
+      if (s.includes('pool') || s.includes('draft') || s === '') return 'status-draft';
       return 'status-l1';
     }
 
@@ -504,7 +569,15 @@
     }
 
     function updateSummaryMetrics(filteredData) {
-      const stats = { total: 0, l2Approved: 0, l1Approved: 0, rework: 0, quarantined: 0, pending: 0 };
+      const stats = { 
+        total: 0, 
+        l2Approved: 0, 
+        l1Approved: 0, 
+        rework: 0, 
+        quarantined: 0, 
+        pendingL1: 0, 
+        draft: 0 
+      };
       
       filteredData.forEach(t => {
         stats.total++;
@@ -518,14 +591,22 @@
           stats.rework++;
         } else if (s.includes('quarantine')) {
           stats.quarantined++;
+        } else if (s.includes('pool') || s.includes('draft') || s === '' || s === 'unassigned' || s === '—') {
+          // Explicitly separate unsubmitted/pool tasks from pending L1
+          stats.draft++;
         } else {
-          stats.pending++;
+          // Tasks that are "Submitted" or "L1 Review"
+          stats.pendingL1++;
         }
       });
 
+      // Calculate Combined Stats
+      const quarPlusL1 = stats.quarantined + stats.l1Approved;
+      const quarPlusL2 = stats.quarantined + stats.l2Approved;
+
       document.getElementById('summary-grid').innerHTML = `
         <div class="summary-card card-total">
-          <span class="summary-label">Total Tasks</span>
+          <span class="summary-label">Total Selected View</span>
           <span class="summary-value">${stats.total}</span>
         </div>
         <div class="summary-card card-l2">
@@ -533,7 +614,7 @@
           <span class="summary-value">${stats.l2Approved}</span>
         </div>
         <div class="summary-card card-l1">
-          <span class="summary-label">L1-Approved (Pending L2)</span>
+          <span class="summary-label">L1-Approved (Wait L2)</span>
           <span class="summary-value">${stats.l1Approved}</span>
         </div>
         <div class="summary-card card-rework">
@@ -544,11 +625,44 @@
           <span class="summary-label">Quarantined</span>
           <span class="summary-value">${stats.quarantined}</span>
         </div>
+        <div class="summary-card card-pending">
+          <span class="summary-label">Pending L1</span>
+          <span class="summary-value">${stats.pendingL1}</span>
+        </div>
         <div class="summary-card card-draft">
-          <span class="summary-label">Pending L1 / Draft</span>
-          <span class="summary-value">${stats.pending}</span>
+          <span class="summary-label">Draft / Unsubmitted</span>
+          <span class="summary-value">${stats.draft}</span>
+        </div>
+        <div class="summary-card card-quar-l1">
+          <span class="summary-label">Quarantined + L1</span>
+          <span class="summary-value">${quarPlusL1}</span>
+        </div>
+        <div class="summary-card card-quar-l2">
+          <span class="summary-label">Quarantined + L2</span>
+          <span class="summary-value">${quarPlusL2}</span>
         </div>
       `;
+    }
+
+    function toggleAllCheckboxes(source) {
+      const checkboxes = document.querySelectorAll('.task-checkbox');
+      checkboxes.forEach(cb => cb.checked = source.checked);
+    }
+
+    function copySelectedTaskIds() {
+      const checkboxes = document.querySelectorAll('.task-checkbox:checked');
+      const ids = Array.from(checkboxes).map(cb => cb.value);
+      
+      if (ids.length === 0) {
+        alert('Please select at least one task using the checkboxes.');
+        return;
+      }
+      
+      navigator.clipboard.writeText(ids.join('\n')).then(() => {
+        alert(`Successfully copied ${ids.length} Task ID(s) to clipboard!`);
+      }).catch(err => {
+        console.error('Failed to copy text: ', err);
+      });
     }
 
     function renderTable() {
@@ -559,22 +673,36 @@
       const qMilestone = document.getElementById('filter-milestone').value;
       const qTrainer = document.getElementById('filter-trainer').value;
       const qReviewer = document.getElementById('filter-reviewer').value;
+      const qPod = document.getElementById('filter-pod').value;
+
+      // Reset Master Checkbox when re-rendering
+      document.getElementById('selectAllCheckbox').checked = false;
 
       const filtered = globalData.filter(t => {
         const matchSearch = t.id.toLowerCase().includes(qSearch);
         const matchDate = checkDateMatch(t.submitted_at, qDate);
-        const matchState = qState === 'All' || (t.state && t.state.toLowerCase().includes(qState.toLowerCase()));
+        let matchState = true;
+        
+        // Handle Draft distinction in filters
+        if (qState !== 'All') {
+          if (qState === 'Draft') {
+            matchState = (!t.state || t.state.toLowerCase().includes('draft') || t.state.toLowerCase().includes('pool'));
+          } else {
+            matchState = (t.state && t.state.toLowerCase().includes(qState.toLowerCase()));
+          }
+        }
+        
         const matchTrainer = qTrainer === 'All' || t.annotator === qTrainer;
         const matchReviewer = qReviewer === 'All' || t.reviewer === qReviewer;
+        const matchPod = qPod === 'All' || t.pod === qPod;
         
         let matchMilestone = true;
         if (qMilestone === 'L1') matchMilestone = hasClearedL1(t);
         if (qMilestone === 'L2') matchMilestone = hasClearedL2(t);
 
-        return matchSearch && matchDate && matchState && matchMilestone && matchTrainer && matchReviewer;
+        return matchSearch && matchDate && matchState && matchMilestone && matchTrainer && matchReviewer && matchPod;
       });
-      
-      // Update the top summary dashboard
+
       updateSummaryMetrics(filtered);
 
       if (filtered.length === 0) {
@@ -598,10 +726,11 @@
         }
 
         const trEmail = t.annotator !== 'Unassigned' ? t.annotator.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '';
+        const displayState = (!t.state || t.state === '') ? 'Pool / Draft' : t.state;
 
         return `
           <tr onclick="openModal('${t.id}')">
-            <td onclick="event.stopPropagation()"><input type="checkbox"></td>
+            <td onclick="event.stopPropagation()"><input type="checkbox" class="task-checkbox" value="${t.id}"></td>
             <td>
               <div class="task-id-pill">
                 ${shortId}
@@ -616,7 +745,7 @@
             </td>
             <td style="color:var(--text-sub);">${esc(t.domain)}</td>
             <td style="font-weight:600;">${formatDateShort(t.submitted_at)}</td>
-            <td><span class="status-badge ${badgeCls}">${esc(t.state)}</span></td>
+            <td><span class="status-badge ${badgeCls}">${esc(displayState)}</span></td>
             <td><div class="mini-history">${miniHistoryHTML}</div></td>
             <td onclick="event.stopPropagation()">
               <a href="https://task.turing.com/admin/projects/43b7da4f-5f31-41a0-b51d-1c64c7fd0a38/delivery-quality/tasks/${t.id}?view=task-review-queue" target="_blank" class="action-btn">
@@ -647,8 +776,9 @@
       document.getElementById('modal-date').textContent = task.submitted_at ? formatDateShort(task.submitted_at) + ', ' + new Date(task.submitted_at).getFullYear() : '—';
       
       const badgeCls = getBadgeClass(task.state);
+      const displayState = (!task.state || task.state === '') ? 'Pool / Draft' : task.state;
       document.getElementById('modal-status-badge').className = `status-badge ${badgeCls}`;
-      document.getElementById('modal-status-badge').textContent = task.state;
+      document.getElementById('modal-status-badge').textContent = displayState;
       
       document.getElementById('modal-action-btn').href = `https://task.turing.com/admin/projects/43b7da4f-5f31-41a0-b51d-1c64c7fd0a38/delivery-quality/tasks/${task.id}?view=task-review-queue`;
 
