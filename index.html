@@ -396,12 +396,13 @@
             <th>Domain</th>
             <th>Report Date</th>
             <th>Current Status</th>
+            <th style="text-align: center;">Review Cycles</th>
             <th>Status History</th>
             <th>Actions</th>
           </tr>
         </thead>
         <tbody id="table-body">
-          <tr><td colspan="8" style="text-align:center; color:#8a8894; padding: 40px;">Loading data...</td></tr>
+          <tr><td colspan="9" style="text-align:center; color:#8a8894; padding: 40px;">Loading data...</td></tr>
         </tbody>
       </table>
     </div>
@@ -473,6 +474,23 @@
     
     let globalData = [];
     let trainerToPod = {};
+
+    function getReviewCycles(task) {
+      if (task.review_cycles !== undefined) return task.review_cycles;
+      if (!task.history) return 0;
+      
+      let reworks = 0;
+      task.history.forEach(h => {
+        if (h.label && h.label.toLowerCase().includes('rework')) reworks++;
+      });
+      
+      const s = (task.state || '').toLowerCase();
+      if (s.includes('pool') || s.includes('draft') || s === 'unassigned' || s === '') {
+        return reworks; 
+      }
+      
+      return reworks + 1;
+    }
 
     async function init() {
       // Check if we are running in an exported offline file
@@ -699,11 +717,9 @@
     function downloadOfflineLedger() {
       const doc = document.documentElement.cloneNode(true);
       
-      // Remove any previously injected script to prevent duplicates
       const existingScript = doc.querySelector('#offline-payload-script');
       if (existingScript) existingScript.remove();
 
-      // Inject current runtime data into a static variable for offline load
       const script = document.createElement('script');
       script.id = 'offline-payload-script';
       script.textContent = `window.__OFFLINE_PAYLOAD__ = ${JSON.stringify({ tasks: globalData, trainerToPod: trainerToPod })};`;
@@ -760,7 +776,7 @@
       updateSummaryMetrics(filtered);
 
       if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:var(--text-sub); padding: 40px;">No tasks found matching criteria.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:var(--text-sub); padding: 40px;">No tasks found matching criteria.</td></tr>';
         return;
       }
 
@@ -780,6 +796,7 @@
 
         const trEmail = t.annotator !== 'Unassigned' ? t.annotator.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '';
         const displayState = (!t.state || t.state === '') ? 'Pool / Draft' : t.state;
+        const cycleCount = getReviewCycles(t);
 
         return `
           <tr onclick="openModal('${t.id}')">
@@ -799,6 +816,7 @@
             <td style="color:var(--text-sub);">${esc(t.domain)}</td>
             <td style="font-weight:600;">${formatDateShort(t.submitted_at)}</td>
             <td><span class="status-badge ${badgeCls}">${esc(displayState)}</span></td>
+            <td style="text-align: center; font-weight: 700; color: var(--text-main); font-size: 14px;">${cycleCount}</td>
             <td><div class="mini-history">${miniHistoryHTML}</div></td>
             <td onclick="event.stopPropagation()">
               <a href="https://task.turing.com/admin/projects/43b7da4f-5f31-41a0-b51d-1c64c7fd0a38/delivery-quality/tasks/${t.id}?view=task-review-queue" target="_blank" class="action-btn">
@@ -856,11 +874,9 @@
           const lLower = (h.label || '').toLowerCase();
           const dLower = (h.detail || '').toLowerCase();
 
-          // SVGs for Professional UI replacement over Emojis
           const iconL1 = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px; vertical-align:text-bottom; color: var(--accent-blue);"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>`;
           const iconL2 = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px; vertical-align:text-bottom; color: var(--success);"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"></path><path d="m9 12 2 2 4-4"></path></svg>`;
 
-          // L1 / L2 Approval Inference & Professional Icons
           if (lLower.includes('approved') || lLower.includes('cleared')) {
               if (dLower.includes('review_l2') || lLower.includes('claim pool') || lLower.includes('l1')) {
                   displayLabel = 'L1 Approved (Advanced to L2)';
