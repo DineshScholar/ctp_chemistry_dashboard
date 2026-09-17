@@ -469,8 +469,8 @@
   </div>
 
   <script>
-    const CLOUDFLARE_URL = '[https://turing-api.dineshkashyaparya.workers.dev](https://turing-api.dineshkashyaparya.workers.dev)';
-    const ROSTER_URL = '[https://turing-api.dineshkashyaparya.workers.dev/roster](https://turing-api.dineshkashyaparya.workers.dev/roster)';
+    const CLOUDFLARE_URL = 'https://turing-api.dineshkashyaparya.workers.dev';
+    const ROSTER_URL = 'https://turing-api.dineshkashyaparya.workers.dev/roster';
     
     let globalData = [];
     let trainerToPod = {};
@@ -511,6 +511,7 @@
         const json = await taskRes.json();
         const rosterJson = await rosterRes.json();
 
+        // Systematically build mappings to ensure NO fallback errors
         if (rosterJson.pods) {
           rosterJson.pods.forEach(pod => {
             pod.trainers.forEach(t => {
@@ -528,18 +529,12 @@
           });
         }
 
-        globalData = (json.tasks || []).map(t => {
-            // Remove Dinesh Kashyap completely to strip him from UI, converting to "Unassigned" to preserve task integrity
-            let a = t.annotator === 'Dinesh Kashyap' ? 'Unassigned' : t.annotator;
-            let r = t.reviewer === 'Dinesh Kashyap' ? 'Unassigned' : t.reviewer;
-            
-            return {
-                ...t,
-                annotator: a,
-                reviewer: r,
-                pod: trainerToPod[a] || 'Unassigned Pod'
-            };
-        });
+        globalData = (json.tasks || [])
+          .filter(t => t.annotator !== 'Dinesh Kashyap' && t.reviewer !== 'Dinesh Kashyap') // Exclude globally as requested
+          .map(t => ({
+            ...t,
+            pod: trainerToPod[t.annotator] || 'Unassigned Pod'
+          }));
       } catch (err) {
         console.warn("Using fallback data or failed to fetch fully.", err);
       }
@@ -839,7 +834,7 @@
             <td style="text-align: center; font-weight: 700; color: var(--text-main); font-size: 14px;">${cycleCount}</td>
             <td><div class="mini-history">${miniHistoryHTML}</div></td>
             <td onclick="event.stopPropagation()">
-              <a href="[https://task.turing.com/admin/projects/43b7da4f-5f31-41a0-b51d-1c64c7fd0a38/delivery-quality/tasks/$](https://task.turing.com/admin/projects/43b7da4f-5f31-41a0-b51d-1c64c7fd0a38/delivery-quality/tasks/$){t.id}?view=task-review-queue" target="_blank" class="action-btn">
+              <a href="https://task.turing.com/admin/projects/43b7da4f-5f31-41a0-b51d-1c64c7fd0a38/delivery-quality/tasks/${t.id}?view=task-review-queue" target="_blank" class="action-btn">
                 Audit
               </a>
             </td>
@@ -877,7 +872,7 @@
       document.getElementById('modal-status-badge').className = `status-badge ${badgeCls}`;
       document.getElementById('modal-status-badge').textContent = displayState;
       
-      document.getElementById('modal-action-btn').href = `[https://task.turing.com/admin/projects/43b7da4f-5f31-41a0-b51d-1c64c7fd0a38/delivery-quality/tasks/$](https://task.turing.com/admin/projects/43b7da4f-5f31-41a0-b51d-1c64c7fd0a38/delivery-quality/tasks/$){task.id}?view=task-review-queue`;
+      document.getElementById('modal-action-btn').href = `https://task.turing.com/admin/projects/43b7da4f-5f31-41a0-b51d-1c64c7fd0a38/delivery-quality/tasks/${task.id}?view=task-review-queue`;
 
       let timelineHTML = '<div style="color:var(--text-sub); font-size:13px;">No history available</div>';
       
