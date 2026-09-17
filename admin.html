@@ -2,17 +2,16 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>CTP Chemistry · Team Builder (Admin)</title>
   <style>
     :root { --primary: #4f46e5; --text-main: #0f172a; --text-sub: #64748b; }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f8fafc; color: var(--text-main); }
     
-    /* Navigation */
     nav { background: #ffffff; padding: 0 32px; display: flex; gap: 30px; border-bottom: 1px solid #e2e8f0; }
     nav a { text-decoration: none; color: var(--text-sub); font-weight: 600; font-size: 14px; padding: 20px 0; border-bottom: 2px solid transparent; }
     nav a.active { color: var(--primary); border-bottom-color: var(--primary); }
-    nav a:hover:not(.active) { color: var(--text-main); }
 
     .container { padding: 32px; max-width: 1200px; margin: 0 auto; }
     
@@ -20,13 +19,11 @@
     .header h1 { font-size: 20px; font-weight: 800; color: #0f172a; }
     .header .meta { font-size: 12px; color: #64748b; }
     
-    /* Controls */
     .action-row { display: flex; gap: 12px; }
     .btn { background: var(--primary); color: white; border: none; padding: 10px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px; }
     .btn-secondary { background: #e2e8f0; color: #0f172a; }
     .btn:hover { opacity: 0.9; }
 
-    /* Live Indicator Banner */
     .total-team-header { background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 18px; margin-bottom: 18px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; }
     .blinking-wrapper { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #0f172a; }
     .sync-tag { font-size: 10px; font-weight: 700; text-transform: uppercase; background: #f1f5f9; color: #475569; padding: 2px 7px; border-radius: 4px; margin-left: 6px; }
@@ -44,7 +41,6 @@
     @keyframes pulseGreen { 0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); } 70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); } }
     @keyframes pulseRed { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); } 70% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); } }
 
-    /* Editable Inputs */
     .ghost-input { border: 1px solid transparent; background: transparent; font-family: inherit; font-size: inherit; color: inherit; padding: 2px 4px; border-radius: 4px; outline: none; font-weight: inherit; transition: all 0.2s;}
     .ghost-input:focus, .ghost-input:hover { border-color: #cbd5e1; background: white; }
     .ghost-select { border: 1px solid transparent; background: transparent; cursor: pointer; outline: none; font-weight: inherit; font-size: inherit; font-family: inherit;}
@@ -53,7 +49,6 @@
     .icon-btn { background: none; border: none; cursor: pointer; color: #ef4444; font-weight: bold; opacity: 0.5; padding: 0 4px; }
     .icon-btn:hover { opacity: 1; }
 
-    /* Indented Outline Styles */
     .outline-container { background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px; font-size: 13px; }
     .outline-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid #f8fafc; }
     
@@ -83,7 +78,6 @@
     .micro-badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 600; display: inline-flex; align-items: center;}
     .badge-blue { background: #dbeafe; color: #1e40af; }
     
-    /* Specific Status Badges */
     .status-badge { font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; }
     .active-badge { background: #ecfdf5; color: #047857; }
     .mia-badge { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
@@ -144,7 +138,6 @@
       try {
         const res = await fetch(API_URL);
         roster = await res.json();
-        // Ensure legacy data structure supports new arrays
         if (!roster.l2_reviewers) roster.l2_reviewers = [];
         renderRoster();
       } catch (err) {
@@ -167,7 +160,6 @@
     }
 
     function renderRoster() {
-      // Calculate Stats
       let active = 0, mia = 0, lowperf = 0, off = 0;
       
       const countPerson = (p) => {
@@ -188,7 +180,6 @@
       document.getElementById('count-off').textContent = off;
       document.getElementById('count-total').textContent = active + mia + lowperf + off;
 
-      // Render Outline
       const container = document.getElementById('roster-container');
       
       const renderPersonRow = (person, type, podIdx, personIdx) => {
@@ -223,7 +214,6 @@
           <span style="font-family:ui-monospace,monospace; font-size:11px; color:#64748b;">dinesh.k3@turing.com</span>
         </div>
 
-        <!-- L2 Reviewers Branch -->
         <div class="outline-branch">
           <div class="outline-branch-head">
             <div>
@@ -237,7 +227,6 @@
           </div>
         </div>
 
-        <!-- Pods Branch -->
         <div class="outline-branch">
           <div class="outline-branch-head">
             <div>
@@ -273,7 +262,6 @@
       container.innerHTML = html;
     }
 
-    // Handlers
     function updatePod(pIdx, field, val) { roster.pods[pIdx][field] = val; }
     function addPod() { roster.pods.push({ id: Date.now().toString(), name: "New Pod", lead: "New Lead", trainers: [] }); renderRoster(); }
     function deletePod(pIdx) { if(confirm("Delete this entire pod and its trainers?")) { roster.pods.splice(pIdx, 1); renderRoster(); } }
@@ -281,7 +269,7 @@
     function updatePerson(type, pIdx, personIdx, field, val) {
       if(type === 'l2') roster.l2_reviewers[personIdx][field] = val;
       else roster.pods[pIdx].trainers[personIdx][field] = val;
-      if (field === 'status') renderRoster(); // re-render to update colors
+      if (field === 'status') renderRoster(); 
     }
     
     function addPerson(type, pIdx) {
