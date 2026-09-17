@@ -129,18 +129,21 @@
 
     /* Slack Integration Styles */
     .slack-container { max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; padding: 10px; }
-    .slack-box { background: var(--bg-card); border: 2px solid var(--border); border-radius: 12px; padding: 20px; transition: border-color 0.2s; cursor: pointer; }
-    .slack-box:hover { border-color: var(--primary); }
-    .slack-box-label { font-size: 11px; font-weight: 800; color: var(--text-sub); text-transform: uppercase; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    .slack-box { background: var(--bg-card); border: 2px solid var(--border); border-radius: 12px; padding: 20px; }
+    .slack-box-label { font-size: 11px; font-weight: 800; color: var(--text-sub); text-transform: uppercase; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; user-select: none; }
+    .slack-text { font-family: 'Inter', system-ui, sans-serif; font-size: 14px; color: var(--text-main); line-height: 1.6; margin: 0; }
     
-    .slack-rev-box { border: 2px dashed #cbd5e1; border-radius: 10px; padding: 16px; margin-bottom: 16px; background: #f8fafc; cursor: pointer; transition: border-color 0.2s;}
-    .slack-rev-box:hover { border-color: var(--info); }
+    .selectable-area { cursor: pointer; border-radius: 6px; transition: background 0.2s, box-shadow 0.2s; }
+    .selectable-area:hover { background: #f8fafc; }
+    .slack-pod-block { padding: 10px; margin: -10px; }
+    .slack-rev-block { margin-top: 10px; margin-bottom: 10px; padding: 12px; border: 1px dashed transparent; }
+    .slack-rev-block:hover { border-color: #cbd5e1; background: #ffffff; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+    .slack-train-block { margin-left: 10px; margin-top: 8px; margin-bottom: 8px; padding: 12px; border-left: 3px solid #e2e8f0; }
+    .slack-train-block:hover { background: #ffffff; border-left-color: var(--primary); box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
     
-    .slack-train-box { border: 2px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-top: 12px; background: #ffffff; cursor: pointer; transition: border-color 0.2s; }
-    .slack-train-box:hover { border-color: var(--secondary); }
-    
-    .slack-text { font-family: ui-monospace, monospace; font-size: 13px; color: var(--text-main); line-height: 1.5; margin: 0; }
-    .no-select { user-select: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; }
+    .slack-code-list { margin: 6px 0 0 0; padding-left: 24px; color: var(--text-sub); }
+    .slack-code-list li { margin-bottom: 4px; }
+    .slack-code-list code { font-family: ui-monospace, monospace; font-size: 12px; background: #f1f5f9; padding: 2px 6px; border-radius: 4px; color: var(--primary); }
   </style>
 </head>
 <body>
@@ -158,7 +161,7 @@
       <button onclick="switchTab('trainers')">Trainers</button>
       <button onclick="switchTab('reviewers')">Quality Oversight (Reviewers)</button>
       <button onclick="switchTab('l2-review')">Final Tagging (L2 Accepted)</button>
-      <button onclick="switchTab('slack')">Slack</button>
+      <button onclick="switchTab('slack')">Slack Integration</button>
     </div>
 
     <!-- TAB 1: OVERVIEW -->
@@ -317,7 +320,7 @@
         <div class="chart-header">
           <div class="chart-header-text">
             <h2>SLACK MESSAGE GENERATOR (PENDING TASKS)</h2>
-            <p>Double-click any box (Pod, Reviewer, or Trainer) to instantly select its formatted content. Selected text maintains perfect whitespace and spacing when pasted natively into Slack. Use Cmd+C / Ctrl+C after selection.</p>
+            <p>One-click copy interface. Click any nested boundary (Pod, Reviewer, or Trainer) to automatically select exactly that container's rendered content perfectly formatted for Slack.</p>
           </div>
         </div>
         <div class="slack-container" id="slack-render-area">
@@ -337,6 +340,7 @@
     let globalTasks = []; 
     let globalPods = [];
     let trainerToPod = {}; 
+    let userToEmail = {};
     let chartInstances = {};
     let chartSeriesMap = {}; 
     
@@ -363,15 +367,28 @@
         
         globalPods = rosterData.pods || [];
         globalPods.forEach(pod => {
-          pod.trainers.forEach(t => trainerToPod[t.name] = pod.name);
+          pod.trainers.forEach(t => {
+              if (t.name) {
+                  trainerToPod[t.name.trim()] = pod.name;
+                  if (t.email) userToEmail[t.name.trim().toLowerCase()] = t.email.trim();
+              }
+          });
         });
+        
+        if (rosterData.l2_reviewers) {
+          rosterData.l2_reviewers.forEach(r => {
+             if (r.name && r.email) userToEmail[r.name.trim().toLowerCase()] = r.email.trim();
+          });
+        }
 
-        globalTasks = (taskData.tasks || []).map(t => ({ 
-          ...t, 
-          shortId: t.id ? t.id.split('-')[0] : 'Unknown', // Stored for display, but full t.id is retained
-          pod: trainerToPod[t.annotator] || 'Unassigned Pod',
-          normState: normalizeState(t.state),
-          dateStr: t.submitted_at ? t.submitted_at.split('T')[0] : null
+        globalTasks = (taskData.tasks || [])
+          .filter(t => t.annotator !== 'Dinesh Kashyap' && t.reviewer !== 'Dinesh Kashyap') // Exclude globally as requested
+          .map(t => ({ 
+            ...t, 
+            shortId: t.id ? t.id.split('-')[0] : 'Unknown',
+            pod: trainerToPod[t.annotator] || 'Unassigned Pod',
+            normState: normalizeState(t.state),
+            dateStr: t.submitted_at ? t.submitted_at.split('T')[0] : null
         })).filter(t => t.dateStr);
 
         renderOverviewCharts();
@@ -415,13 +432,12 @@
       });
     };
 
-    // Helper to generate the exact HTML string for the Apex custom tooltip
     function buildTooltipHtml(chartId, seriesIndex, dataPointIndex, w) {
       const val = w.globals.initialSeries[seriesIndex].data[dataPointIndex];
       if (!val) return '';
       
       const fullIds = tooltipStore[chartId]?.[seriesIndex]?.[dataPointIndex] || [];
-      const tListShort = fullIds.map(id => id.split('-')[0]); // Shorten just for visual render
+      const tListShort = fullIds.map(id => id.split('-')[0]); 
       
       const tStr = tListShort.length > 0 
         ? tListShort.slice(0, 8).join(', ') + (tListShort.length > 8 ? ` <br/><span style="color:#f59e0b;">(+${tListShort.length - 8} more tasks)</span>` : '') 
@@ -442,7 +458,6 @@
         </div>`;
     }
 
-    // Dynamic configuration injector to ensure all charts fire copy events
     function getInteractiveChartEvents(chartId) {
       return {
         dataPointSelection: function(e, chart, config) { window.copyFromChart(chartId, config.seriesIndex, config.dataPointIndex); },
@@ -482,13 +497,12 @@
       return dateArray;
     }
 
-    // --- TAB 1: OVERVIEW ---
     function renderOverviewCharts() {
+      // (Original chart logic unedited for space)
       const dates = generateDateRange(globalTasks);
       
       const cIdArea = 'overview-area-chart';
       tooltipStore[cIdArea] = [[], [], []];
-      
       const sData = { sub: [], l1: [], rew: [] };
       
       dates.forEach((d, i) => {
@@ -508,21 +522,13 @@
 
       destroyChart(cIdArea);
       const areaOptions = {
-        series: [
-          { name: 'Total Tasks Submitted', data: sData.sub },
-          { name: 'L1-Accepted (Cleared)', data: sData.l1 },
-          { name: 'Rework Assigned', data: sData.rew }
-        ],
+        series: [{ name: 'Total Tasks Submitted', data: sData.sub }, { name: 'L1-Accepted (Cleared)', data: sData.l1 }, { name: 'Rework Assigned', data: sData.rew }],
         chart: { type: 'area', height: 380, toolbar: { show: false }, fontFamily: 'Inter, sans-serif', events: getInteractiveChartEvents(cIdArea) },
-        colors: ['#6b21a8', '#3b82f6', '#f59e0b'],
-        dataLabels: { enabled: false }, stroke: { curve: 'smooth', width: 2 },
-        markers: { size: 3, hover: { size: 6 } }, // Ensure point clickability
-        fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0.05, stops: [0, 90, 100] } },
+        colors: ['#6b21a8', '#3b82f6', '#f59e0b'], dataLabels: { enabled: false }, stroke: { curve: 'smooth', width: 2 },
+        markers: { size: 3, hover: { size: 6 } }, fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0.05, stops: [0, 90, 100] } },
         xaxis: { categories: dates, type: 'category', tickAmount: 10, labels: { style: { colors: '#64748b' } } },
-        yaxis: { labels: { style: { colors: '#64748b' } } },
-        legend: { position: 'top', horizontalAlign: 'right' },
-        grid: { borderColor: '#f1f5f9', strokeDashArray: 4 },
-        tooltip: { custom: function(opt) { return buildTooltipHtml(cIdArea, opt.seriesIndex, opt.dataPointIndex, opt.w); } }
+        yaxis: { labels: { style: { colors: '#64748b' } } }, legend: { position: 'top', horizontalAlign: 'right' },
+        grid: { borderColor: '#f1f5f9', strokeDashArray: 4 }, tooltip: { custom: function(opt) { return buildTooltipHtml(cIdArea, opt.seriesIndex, opt.dataPointIndex, opt.w); } }
       };
       chartInstances[cIdArea] = new ApexCharts(document.querySelector(`#${cIdArea}`), areaOptions);
       chartInstances[cIdArea].render();
@@ -549,26 +555,17 @@
 
       destroyChart(cIdBar);
       const barOptions = {
-        series: [
-          { name: 'Total Submitted', data: bData.sub },
-          { name: 'L1-Accepted (Cleared)', data: bData.l1 },
-          { name: 'Rework Assigned', data: bData.rew }
-        ],
+        series: [{ name: 'Total Submitted', data: bData.sub }, { name: 'L1-Accepted (Cleared)', data: bData.l1 }, { name: 'Rework Assigned', data: bData.rew }],
         chart: { type: 'bar', height: 380, toolbar: { show: false }, fontFamily: 'Inter, sans-serif', events: getInteractiveChartEvents(cIdBar) },
-        colors: ['#6b21a8', '#3b82f6', '#f59e0b'],
-        plotOptions: { bar: { horizontal: false, columnWidth: '55%', borderRadius: 4 } },
-        dataLabels: { enabled: false },
-        xaxis: { categories: podNames, labels: { style: { colors: '#64748b', fontSize: '12px' } } },
-        yaxis: { labels: { style: { colors: '#64748b' } } },
-        legend: { position: 'top', horizontalAlign: 'right' },
-        grid: { borderColor: '#f1f5f9', strokeDashArray: 4 },
-        tooltip: { custom: function(opt) { return buildTooltipHtml(cIdBar, opt.seriesIndex, opt.dataPointIndex, opt.w); } }
+        colors: ['#6b21a8', '#3b82f6', '#f59e0b'], plotOptions: { bar: { horizontal: false, columnWidth: '55%', borderRadius: 4 } },
+        dataLabels: { enabled: false }, xaxis: { categories: podNames, labels: { style: { colors: '#64748b', fontSize: '12px' } } },
+        yaxis: { labels: { style: { colors: '#64748b' } } }, legend: { position: 'top', horizontalAlign: 'right' },
+        grid: { borderColor: '#f1f5f9', strokeDashArray: 4 }, tooltip: { custom: function(opt) { return buildTooltipHtml(cIdBar, opt.seriesIndex, opt.dataPointIndex, opt.w); } }
       };
       chartInstances[cIdBar] = new ApexCharts(document.querySelector(`#${cIdBar}`), barOptions);
       chartInstances[cIdBar].render();
     }
 
-    // --- SHARED LINE CHART LOGIC WITH CUSTOM LEGEND & FULL ID STORE ---
     function renderLineChartWithCustomLegend(chartId, legendTitleId, legendChipsId, roleField) {
       const dates = generateDateRange(globalTasks);
       let entities = (roleField === 'pod') ? [...new Set(globalTasks.map(t => t.pod))].sort() 
@@ -581,7 +578,7 @@
         tooltipStore[chartId][sIdx] = [];
         const data = dates.map((d, dIdx) => {
           const tasks = globalTasks.filter(t => t[roleField] === e && t.dateStr === d);
-          tooltipStore[chartId][sIdx][dIdx] = tasks.map(t => t.id); // Full IDs
+          tooltipStore[chartId][sIdx][dIdx] = tasks.map(t => t.id); 
           return tasks.length;
         });
         return { name: e, data };
@@ -589,18 +586,11 @@
 
       destroyChart(chartId);
       const lineOptions = {
-        series: seriesData,
-        chart: { type: 'line', height: 400, toolbar: { show: false }, fontFamily: 'Inter, sans-serif', events: getInteractiveChartEvents(chartId) },
-        colors: MULTI_COLORS,
-        stroke: { curve: 'smooth', width: 2 },
-        markers: { size: 4, hover: { size: 6 } }, // Explicit marker size to ensure user can click
-        xaxis: { categories: dates, type: 'category', tickAmount: 10, labels: { style: { colors: '#64748b' } } },
-        yaxis: { labels: { style: { colors: '#64748b' } } },
-        legend: { show: false }, 
-        grid: { borderColor: '#f1f5f9', strokeDashArray: 4 },
-        tooltip: { custom: function(opt) { return buildTooltipHtml(chartId, opt.seriesIndex, opt.dataPointIndex, opt.w); } }
+        series: seriesData, chart: { type: 'line', height: 400, toolbar: { show: false }, fontFamily: 'Inter, sans-serif', events: getInteractiveChartEvents(chartId) },
+        colors: MULTI_COLORS, stroke: { curve: 'smooth', width: 2 }, markers: { size: 4, hover: { size: 6 } },
+        xaxis: { categories: dates, type: 'category', tickAmount: 10, labels: { style: { colors: '#64748b' } } }, yaxis: { labels: { style: { colors: '#64748b' } } },
+        legend: { show: false }, grid: { borderColor: '#f1f5f9', strokeDashArray: 4 }, tooltip: { custom: function(opt) { return buildTooltipHtml(chartId, opt.seriesIndex, opt.dataPointIndex, opt.w); } }
       };
-      
       chartInstances[chartId] = new ApexCharts(document.querySelector(`#${chartId}`), lineOptions);
       chartInstances[chartId].render();
       chartSeriesMap[chartId] = entities;
@@ -609,10 +599,7 @@
       let chipHtml = '';
       entities.forEach((e, index) => {
         const color = MULTI_COLORS[index % MULTI_COLORS.length];
-        chipHtml += `
-          <div class="legend-chip" id="chip-${chartId}-${index}" onclick="toggleSingleSeries('${chartId}', '${e}', ${index})">
-            <span class="legend-dot" style="background-color: ${color};"></span>${e}
-          </div>`;
+        chipHtml += `<div class="legend-chip" id="chip-${chartId}-${index}" onclick="toggleSingleSeries('${chartId}', '${e}', ${index})"><span class="legend-dot" style="background-color: ${color};"></span>${e}</div>`;
       });
       chipContainer.innerHTML = chipHtml;
     }
@@ -633,16 +620,12 @@
       });
     }
 
-    // --- TAB 2: PODS ---
     function renderPodCharts() {
       renderLineChartWithCustomLegend('pod-line-chart', 'pod-legend-title', 'pod-legend-chips', 'pod');
-
       const container = document.getElementById('pod-cards-container');
       const podStats = {};
       
-      globalPods.forEach(p => { 
-        podStats[p.name] = { name: p.name, lead: p.lead || 'Unknown', total: 0, l1Accepted: 0, rework: 0, l2Approved: 0, trainers: p.trainers.length }; 
-      });
+      globalPods.forEach(p => { podStats[p.name] = { name: p.name, lead: p.lead || 'Unknown', total: 0, l1Accepted: 0, rework: 0, l2Approved: 0, trainers: p.trainers.length }; });
       podStats['Unassigned Pod'] = { name: 'Unassigned Pod', lead: 'N/A', total: 0, l1Accepted: 0, rework: 0, l2Approved: 0, trainers: 0 };
 
       globalTasks.forEach(t => {
@@ -658,56 +641,7 @@
         const l1Pct = p.total > 0 ? Math.round((p.l1Accepted / p.total) * 100) : 0;
         const rewPct = p.total > 0 ? Math.round((p.rework / p.total) * 100) : 0;
         const l2Pct = p.total > 0 ? Math.round((p.l2Approved / p.total) * 100) : 0;
-        
-        html += `
-          <div class="pod-card">
-            <div class="pod-card-header">
-              <div>
-                <div class="pod-title">
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-                  ${p.name}
-                </div>
-                <div class="pod-meta">
-                  <span class="pod-lead">Lead: ${p.lead}</span>
-                  <span>${p.trainers} Assigned Trainers</span>
-                </div>
-              </div>
-            </div>
-            
-            <div class="metric-grid">
-              <div class="metric-box">
-                <div class="metric-label">Total Tasks</div>
-                <div class="metric-value val-total">${p.total}</div>
-              </div>
-              <div class="metric-box">
-                <div class="metric-label">L1-Accepted</div>
-                <div class="metric-value val-l1">${p.l1Accepted}</div>
-              </div>
-              <div class="metric-box">
-                <div class="metric-label">Rework Assigned</div>
-                <div class="metric-value val-rework">${p.rework}</div>
-              </div>
-              <div class="metric-box">
-                <div class="metric-label">Final Approved</div>
-                <div class="metric-value val-l2">${p.l2Approved}</div>
-              </div>
-            </div>
-
-            <div class="progress-group">
-              <div class="progress-item">
-                <div class="progress-header"><span>L1 Approval Progress:</span> <span>${p.l1Accepted}/${p.total} (${l1Pct}%)</span></div>
-                <div class="progress-bar-bg"><div class="progress-bar-fill" style="background: var(--info); width: ${l1Pct}%"></div></div>
-              </div>
-              <div class="progress-item">
-                <div class="progress-header"><span>Rework Rate:</span> <span>${p.rework}/${p.total} (${rewPct}%)</span></div>
-                <div class="progress-bar-bg"><div class="progress-bar-fill" style="background: var(--warning); width: ${rewPct}%"></div></div>
-              </div>
-              <div class="progress-item">
-                <div class="progress-header"><span>L2 Approval Progress:</span> <span>${p.l2Approved}/${p.total} (${l2Pct}%)</span></div>
-                <div class="progress-bar-bg"><div class="progress-bar-fill" style="background: var(--secondary); width: ${l2Pct}%"></div></div>
-              </div>
-            </div>
-          </div>`;
+        html += `<div class="pod-card"><div class="pod-card-header"><div><div class="pod-title"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>${p.name}</div><div class="pod-meta"><span class="pod-lead">Lead: ${p.lead}</span><span>${p.trainers} Assigned Trainers</span></div></div></div><div class="metric-grid"><div class="metric-box"><div class="metric-label">Total Tasks</div><div class="metric-value val-total">${p.total}</div></div><div class="metric-box"><div class="metric-label">L1-Accepted</div><div class="metric-value val-l1">${p.l1Accepted}</div></div><div class="metric-box"><div class="metric-label">Rework Assigned</div><div class="metric-value val-rework">${p.rework}</div></div><div class="metric-box"><div class="metric-label">Final Approved</div><div class="metric-value val-l2">${p.l2Approved}</div></div></div><div class="progress-group"><div class="progress-item"><div class="progress-header"><span>L1 Approval Progress:</span> <span>${p.l1Accepted}/${p.total} (${l1Pct}%)</span></div><div class="progress-bar-bg"><div class="progress-bar-fill" style="background: var(--info); width: ${l1Pct}%"></div></div></div><div class="progress-item"><div class="progress-header"><span>Rework Rate:</span> <span>${p.rework}/${p.total} (${rewPct}%)</span></div><div class="progress-bar-bg"><div class="progress-bar-fill" style="background: var(--warning); width: ${rewPct}%"></div></div></div><div class="progress-item"><div class="progress-header"><span>L2 Approval Progress:</span> <span>${p.l2Approved}/${p.total} (${l2Pct}%)</span></div><div class="progress-bar-bg"><div class="progress-bar-fill" style="background: var(--secondary); width: ${l2Pct}%"></div></div></div></div></div>`;
       });
       container.innerHTML = html;
 
@@ -720,7 +654,7 @@
         tooltipStore[cIdStack][sIdx] = [];
         const data = podNames.map((p, pIdx) => {
           const tasks = globalTasks.filter(t => t.pod === p && t.normState === status);
-          tooltipStore[cIdStack][sIdx][pIdx] = tasks.map(t => t.id); // FULL id
+          tooltipStore[cIdStack][sIdx][pIdx] = tasks.map(t => t.id); 
           return tasks.length;
         });
         return { name: status, data };
@@ -728,20 +662,15 @@
 
       destroyChart(cIdStack);
       const stackOptions = {
-        series: seriesData,
-        chart: { type: 'bar', height: 420, stacked: true, toolbar: { show: false }, fontFamily: 'Inter, sans-serif', events: getInteractiveChartEvents(cIdStack) },
-        colors: statuses.map(s => STATUS_COLORS[s]),
-        plotOptions: { bar: { horizontal: false, borderRadius: 2 } },
-        xaxis: { categories: podNames, labels: { style: { colors: '#64748b' } } },
-        yaxis: { labels: { style: { colors: '#64748b' } } },
-        legend: { position: 'top', horizontalAlign: 'right' },
-        tooltip: { custom: function(opt) { return buildTooltipHtml(cIdStack, opt.seriesIndex, opt.dataPointIndex, opt.w); } }
+        series: seriesData, chart: { type: 'bar', height: 420, stacked: true, toolbar: { show: false }, fontFamily: 'Inter, sans-serif', events: getInteractiveChartEvents(cIdStack) },
+        colors: statuses.map(s => STATUS_COLORS[s]), plotOptions: { bar: { horizontal: false, borderRadius: 2 } },
+        xaxis: { categories: podNames, labels: { style: { colors: '#64748b' } } }, yaxis: { labels: { style: { colors: '#64748b' } } },
+        legend: { position: 'top', horizontalAlign: 'right' }, tooltip: { custom: function(opt) { return buildTooltipHtml(cIdStack, opt.seriesIndex, opt.dataPointIndex, opt.w); } }
       };
       chartInstances[cIdStack] = new ApexCharts(document.querySelector(`#${cIdStack}`), stackOptions);
       chartInstances[cIdStack].render();
     }
 
-    // --- TAB 3: TRAINERS ---
     function toggleTrainerLimit() {
       showAllTrainers = !showAllTrainers;
       document.getElementById('trainer-toggle-btn').innerText = showAllTrainers ? 'Show Top 10 Only' : 'Show All Trainers';
@@ -749,17 +678,13 @@
     }
 
     function renderTrainerCharts() {
-      if (!chartInstances['trainer-line-chart']) {
-        renderLineChartWithCustomLegend('trainer-line-chart', 'trainer-legend-title', 'trainer-legend-chips', 'annotator');
-      }
-
+      if (!chartInstances['trainer-line-chart']) { renderLineChartWithCustomLegend('trainer-line-chart', 'trainer-legend-title', 'trainer-legend-chips', 'annotator'); }
       const trainerStats = {};
       globalTasks.forEach(t => {
         if (!t.annotator || t.annotator === '—' || t.annotator === 'Unassigned') return;
         if (!trainerStats[t.annotator]) trainerStats[t.annotator] = { total: 0 };
         trainerStats[t.annotator].total++;
       });
-      
       let topTrainers = Object.entries(trainerStats).sort((a,b) => b[1].total - a[1].total).map(x => x[0]);
       if (!showAllTrainers) topTrainers = topTrainers.slice(0, 10);
       
@@ -779,40 +704,30 @@
 
       destroyChart(cIdStack);
       const dynamicHeight = showAllTrainers ? (topTrainers.length * 28 + 100) : 480;
-      
       const barOptions = {
-        series: stackSeries,
-        chart: { type: 'bar', height: dynamicHeight, stacked: true, toolbar: { show: false }, fontFamily: 'Inter, sans-serif', events: getInteractiveChartEvents(cIdStack) },
-        colors: statuses.map(s => STATUS_COLORS[s]),
-        plotOptions: { bar: { horizontal: true, borderRadius: 2 } },
-        xaxis: { labels: { style: { colors: '#64748b' } } },
-        yaxis: { categories: topTrainers, labels: { style: { colors: '#64748b', fontWeight: 600 } } },
-        legend: { position: 'top', horizontalAlign: 'right' },
-        tooltip: { custom: function(opt) { return buildTooltipHtml(cIdStack, opt.seriesIndex, opt.dataPointIndex, opt.w); } }
+        series: stackSeries, chart: { type: 'bar', height: dynamicHeight, stacked: true, toolbar: { show: false }, fontFamily: 'Inter, sans-serif', events: getInteractiveChartEvents(cIdStack) },
+        colors: statuses.map(s => STATUS_COLORS[s]), plotOptions: { bar: { horizontal: true, borderRadius: 2 } },
+        xaxis: { labels: { style: { colors: '#64748b' } } }, yaxis: { categories: topTrainers, labels: { style: { colors: '#64748b', fontWeight: 600 } } },
+        legend: { position: 'top', horizontalAlign: 'right' }, tooltip: { custom: function(opt) { return buildTooltipHtml(cIdStack, opt.seriesIndex, opt.dataPointIndex, opt.w); } }
       };
-      
       document.querySelector(`#${cIdStack}`).style.height = `${dynamicHeight}px`;
       chartInstances[cIdStack] = new ApexCharts(document.querySelector(`#${cIdStack}`), barOptions);
       chartInstances[cIdStack].render();
     }
 
-    // --- TAB 4: REVIEWERS ---
     function renderReviewerCharts() {
       renderLineChartWithCustomLegend('reviewer-line-chart', 'reviewer-legend-title', 'reviewer-legend-chips', 'reviewer');
-
       const revStats = {};
       globalTasks.forEach(t => {
         if (!t.reviewer || t.reviewer === '—' || t.reviewer === 'Unassigned') return;
         if (!revStats[t.reviewer]) revStats[t.reviewer] = { total: 0 };
         revStats[t.reviewer].total++;
       });
-      
       const topReviewers = Object.entries(revStats).sort((a,b) => b[1].total - a[1].total).slice(0, 15).map(x => x[0]);
       
       const cIdStack = 'reviewer-stacked-chart';
       tooltipStore[cIdStack] = [];
       const statuses = Object.keys(STATUS_COLORS);
-      
       const stackSeries = statuses.map((status, sIdx) => {
         tooltipStore[cIdStack][sIdx] = [];
         const data = topReviewers.map((rev, rIdx) => {
@@ -825,26 +740,19 @@
 
       destroyChart(cIdStack);
       const barOptions = {
-        series: stackSeries,
-        chart: { type: 'bar', height: 480, stacked: true, toolbar: { show: false }, fontFamily: 'Inter, sans-serif', events: getInteractiveChartEvents(cIdStack) },
-        colors: statuses.map(s => STATUS_COLORS[s]),
-        plotOptions: { bar: { horizontal: true, borderRadius: 2 } },
-        xaxis: { labels: { style: { colors: '#64748b' } } },
-        yaxis: { categories: topReviewers, labels: { style: { colors: '#64748b', fontWeight: 600 } } },
-        legend: { position: 'top', horizontalAlign: 'right' },
-        tooltip: { custom: function(opt) { return buildTooltipHtml(cIdStack, opt.seriesIndex, opt.dataPointIndex, opt.w); } }
+        series: stackSeries, chart: { type: 'bar', height: 480, stacked: true, toolbar: { show: false }, fontFamily: 'Inter, sans-serif', events: getInteractiveChartEvents(cIdStack) },
+        colors: statuses.map(s => STATUS_COLORS[s]), plotOptions: { bar: { horizontal: true, borderRadius: 2 } },
+        xaxis: { labels: { style: { colors: '#64748b' } } }, yaxis: { categories: topReviewers, labels: { style: { colors: '#64748b', fontWeight: 600 } } },
+        legend: { position: 'top', horizontalAlign: 'right' }, tooltip: { custom: function(opt) { return buildTooltipHtml(cIdStack, opt.seriesIndex, opt.dataPointIndex, opt.w); } }
       };
       chartInstances[cIdStack] = new ApexCharts(document.querySelector(`#${cIdStack}`), barOptions);
       chartInstances[cIdStack].render();
     }
 
-    // --- TAB 5: L2 REVIEW (Final Tagging) ---
     function renderL2Charts() {
       const dates = generateDateRange(globalTasks);
-      
       const cIdTL = 'l2-timeline-chart';
       tooltipStore[cIdTL] = [[]];
-      
       const approvedData = dates.map((d, dIdx) => {
         const tasks = globalTasks.filter(t => t.normState === 'Approved' && t.dateStr === d);
         tooltipStore[cIdTL][0][dIdx] = tasks.map(t => t.id);
@@ -853,23 +761,17 @@
 
       destroyChart(cIdTL);
       const areaOptions = {
-        series: [{ name: 'L2 Final Approvals', data: approvedData }],
-        chart: { type: 'area', height: 380, toolbar: { show: false }, fontFamily: 'Inter, sans-serif', events: getInteractiveChartEvents(cIdTL) },
-        colors: ['#10b981'], 
-        dataLabels: { enabled: false }, stroke: { curve: 'smooth', width: 2 },
-        markers: { size: 4, hover: { size: 6 } }, 
+        series: [{ name: 'L2 Final Approvals', data: approvedData }], chart: { type: 'area', height: 380, toolbar: { show: false }, fontFamily: 'Inter, sans-serif', events: getInteractiveChartEvents(cIdTL) },
+        colors: ['#10b981'], dataLabels: { enabled: false }, stroke: { curve: 'smooth', width: 2 }, markers: { size: 4, hover: { size: 6 } }, 
         fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0.05, stops: [0, 90, 100] } },
-        xaxis: { categories: dates, type: 'category', tickAmount: 10, labels: { style: { colors: '#64748b' } } },
-        yaxis: { labels: { style: { colors: '#64748b' } } },
-        grid: { borderColor: '#f1f5f9', strokeDashArray: 4 },
-        tooltip: { custom: function(opt) { return buildTooltipHtml(cIdTL, opt.seriesIndex, opt.dataPointIndex, opt.w); } }
+        xaxis: { categories: dates, type: 'category', tickAmount: 10, labels: { style: { colors: '#64748b' } } }, yaxis: { labels: { style: { colors: '#64748b' } } },
+        grid: { borderColor: '#f1f5f9', strokeDashArray: 4 }, tooltip: { custom: function(opt) { return buildTooltipHtml(cIdTL, opt.seriesIndex, opt.dataPointIndex, opt.w); } }
       };
       chartInstances[cIdTL] = new ApexCharts(document.querySelector(`#${cIdTL}`), areaOptions);
       chartInstances[cIdTL].render();
 
       const cIdPod = 'l2-pod-bar-chart';
       tooltipStore[cIdPod] = [[]];
-      
       const podStats = {};
       globalTasks.forEach(t => {
         if (t.normState === 'Approved') {
@@ -880,28 +782,20 @@
       globalPods.forEach(p => { if (!podStats[p.name]) podStats[p.name] = []; });
       
       const podNames = Object.keys(podStats).sort();
-      const podData = podNames.map((p, pIdx) => {
-        tooltipStore[cIdPod][0][pIdx] = podStats[p];
-        return podStats[p].length;
-      });
+      const podData = podNames.map((p, pIdx) => { tooltipStore[cIdPod][0][pIdx] = podStats[p]; return podStats[p].length; });
       
       destroyChart(cIdPod);
       const barOptions = {
-        series: [{ name: 'Total Approved', data: podData }],
-        chart: { type: 'bar', height: 380, toolbar: { show: false }, fontFamily: 'Inter, sans-serif', events: getInteractiveChartEvents(cIdPod) },
-        colors: ['#10b981'],
-        plotOptions: { bar: { horizontal: false, columnWidth: '45%', borderRadius: 4 } },
-        dataLabels: { enabled: true, style: { colors: ['#fff'] } },
-        xaxis: { categories: podNames, labels: { style: { colors: '#64748b', fontSize: '12px' } } },
-        yaxis: { labels: { style: { colors: '#64748b' } } },
-        grid: { borderColor: '#f1f5f9', strokeDashArray: 4 },
-        tooltip: { custom: function(opt) { return buildTooltipHtml(cIdPod, opt.seriesIndex, opt.dataPointIndex, opt.w); } }
+        series: [{ name: 'Total Approved', data: podData }], chart: { type: 'bar', height: 380, toolbar: { show: false }, fontFamily: 'Inter, sans-serif', events: getInteractiveChartEvents(cIdPod) },
+        colors: ['#10b981'], plotOptions: { bar: { horizontal: false, columnWidth: '45%', borderRadius: 4 } }, dataLabels: { enabled: true, style: { colors: ['#fff'] } },
+        xaxis: { categories: podNames, labels: { style: { colors: '#64748b', fontSize: '12px' } } }, yaxis: { labels: { style: { colors: '#64748b' } } },
+        grid: { borderColor: '#f1f5f9', strokeDashArray: 4 }, tooltip: { custom: function(opt) { return buildTooltipHtml(cIdPod, opt.seriesIndex, opt.dataPointIndex, opt.w); } }
       };
       chartInstances[cIdPod] = new ApexCharts(document.querySelector(`#${cIdPod}`), barOptions);
       chartInstances[cIdPod].render();
     }
 
-    // --- TAB 6: SLACK INTEGRATION ---
+    // --- TAB 6: SLACK INTEGRATION (Click to select text node correctly) ---
     window.selectSlackNode = function(el, event) {
       event.stopPropagation();
       const selection = window.getSelection();
@@ -909,19 +803,29 @@
       range.selectNodeContents(el);
       selection.removeAllRanges();
       selection.addRange(range);
-      showToast('Text automatically selected! Press Cmd+C or Ctrl+C to copy.');
+      showToast('Slack text selected! Press Cmd+C or Ctrl+C to copy.');
     };
+
+    function getSlackHandle(name) {
+        if (!name || name === '—' || name === 'Unassigned') return '@unknown';
+        const safeName = name.trim().toLowerCase();
+        const email = userToEmail[safeName] || `${safeName.replace(/\s/g, '.')}@turing.com`;
+        return '@' + email.split('@')[0];
+    }
 
     function renderSlackTab() {
       const slackData = {}; 
       
-      // Filter out tasks that are finalized (Approved). Collect pending for the hierarchy.
       globalTasks.forEach(t => {
-        if (t.normState === 'Approved') return; 
+        // ONLY pull Pending L1 or Quarantined tasks for actioning 
+        if (t.normState !== 'L1 Review' && t.normState !== 'Quarantined') return; 
         if (!t.annotator || t.annotator === '—' || t.annotator === 'Unassigned') return;
         if (!t.reviewer || t.reviewer === '—' || t.reviewer === 'Unassigned') return;
         
         const pod = t.pod || 'Unassigned Pod';
+        // ONLY pull data for trainers actively in PODs
+        if (pod === 'Unassigned Pod') return; 
+        
         const rev = t.reviewer;
         const train = t.annotator;
         
@@ -929,57 +833,56 @@
         if (!slackData[pod][rev]) slackData[pod][rev] = {};
         if (!slackData[pod][rev][train]) slackData[pod][rev][train] = [];
         
-        slackData[pod][rev][train].push(t.id);
+        const stateLabel = t.normState === 'Quarantined' ? 'Quarantined' : 'Pending L1';
+        slackData[pod][rev][train].push({ id: t.id, state: stateLabel });
       });
 
       let html = '';
       const sortedPods = Object.keys(slackData).sort();
       
       if (sortedPods.length === 0) {
-        document.getElementById('slack-render-area').innerHTML = '<div style="padding: 40px; text-align: center; color: var(--text-sub);">No pending tasks found requiring Slack messaging.</div>';
+        document.getElementById('slack-render-area').innerHTML = '<div style="padding: 40px; text-align: center; color: var(--text-sub);">No pending/quarantined tasks found in Pods requiring Slack messaging.</div>';
         return;
       }
 
       sortedPods.forEach(podName => {
         html += `
-          <div class="slack-box" ondblclick="selectSlackNode(this, event)">
-            <div class="slack-box-label no-select">
+          <div class="slack-box">
+            <div class="slack-box-label">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
-              POD: ${podName} (Double-Click to Copy Complete Pod)
+              POD: ${podName} (Click text below to select ENTIRE POD)
             </div>
-            <div class="slack-content-area">`;
+            <div class="slack-text slack-pod-block selectable-area" onclick="selectSlackNode(this, event)">`;
         
         const sortedRevs = Object.keys(slackData[podName]).sort();
         sortedRevs.forEach(revName => {
+          const revHandle = getSlackHandle(revName);
+          
           html += `
-            <div class="slack-rev-box" ondblclick="selectSlackNode(this, event)">
-              <div class="slack-box-label no-select">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                REVIEWER: ${revName} (Double-Click to Copy Reviewer Hierarchy)
-              </div>
-              <div class="slack-text">🧵 @${revName}, pending tasks in ${podName}<br><br></div>
-              <div class="slack-content-area">`;
+            <div class="slack-rev-block selectable-area" onclick="selectSlackNode(this, event)">
+              🧵 <strong>${revHandle}</strong>, pending tasks in ${podName}<br><br>`;
           
           const sortedTrains = Object.keys(slackData[podName][revName]).sort();
           sortedTrains.forEach(trainName => {
+            const trainHandle = getSlackHandle(trainName);
             const tasks = slackData[podName][revName][trainName];
-            const taskStr = tasks.join('<br>');
             
-            // Nested independent target that maintains whitespace perfectly upon browser selection.
+            // Rendering properly formatted block with explicit labels inline code tags
             html += `
-              <div class="slack-train-box" ondblclick="selectSlackNode(this, event)">
-                <div class="slack-box-label no-select">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
-                  TRAINER: ${trainName} (Double-Click to Copy Trainer Only)
-                </div>
-                <div class="slack-text">Trainer: @${trainName}<br>Pending Tasks: ${tasks.length}<br>Task IDs:<br><br>${taskStr}<br></div>
+              <div class="slack-train-block selectable-area" onclick="selectSlackNode(this, event)">
+                <strong>Trainer:</strong> ${trainHandle}<br>
+                <strong>Pending Tasks:</strong> ${tasks.length}<br>
+                <strong>Task IDs:</strong><br>
+                <ul class="slack-code-list">
+                  ${tasks.map(t => `<li><code>${t.id} (${t.state})</code></li>`).join('')}
+                </ul>
               </div>`;
           });
           
-          html += `</div></div>`; // Close train-container and rev-box
+          html += `</div>`; // Close rev block
         });
         
-        html += `</div></div>`; // Close rev-container and pod-box
+        html += `</div></div>`; // Close pod block and slack box
       });
 
       document.getElementById('slack-render-area').innerHTML = html;
