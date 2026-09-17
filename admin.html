@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CTP Chemistry · Team Builder</title>
+  <style>
+    :root { --bg: #f8fafc; --card: #ffffff; --border: #e2e8f0; --text-main: #0f172a; --text-sub: #64748b; --primary: #4f46e5; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text-main); }
+    
+    nav { background: var(--card); padding: 0 30px; display: flex; gap: 30px; border-bottom: 1px solid var(--border); }
+    nav a { text-decoration: none; color: var(--text-sub); font-weight: 600; font-size: 14px; padding: 20px 0; border-bottom: 2px solid transparent; }
+    nav a.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+    .container { padding: 30px; max-width: 1400px; margin: 0 auto; }
+    
+    .total-team-header { background: white; border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; margin-bottom: 24px; display: flex; justify-content: space-between; align-items: center; }
+    .blinking-wrapper { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: bold;}
+    .pulse-green { width: 9px; height: 9px; background: #10b981; border-radius: 50%; animation: pulseGreen 1.5s infinite; }
+    .pulse-red { width: 9px; height: 9px; background: #ef4444; border-radius: 50%; animation: pulseRed 1.5s infinite; }
+    @keyframes pulseGreen { 0% { box-shadow: 0 0 0 0 rgba(16,185,129,0.7); } 70% { box-shadow: 0 0 0 6px rgba(16,185,129,0); } }
+    @keyframes pulseRed { 0% { box-shadow: 0 0 0 0 rgba(239,68,68,0.7); } 70% { box-shadow: 0 0 0 6px rgba(239,68,68,0); } }
+
+    .btn { background: var(--primary); color: white; border: none; padding: 10px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; }
+    .btn-secondary { background: #e2e8f0; color: #0f172a; }
+
+    .pod-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
+    .pod-card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+    .pod-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid #f1f5f9; padding-bottom: 12px; margin-bottom: 12px; }
+    .pod-title input { font-size: 15px; font-weight: 800; border: 1px solid transparent; width: 100%; color: var(--text-main); }
+    .pod-title input:focus { border-bottom: 1px solid var(--primary); outline: none; }
+    .pod-lead input { font-size: 11px; color: #1e40af; border: none; background: #dbeafe; padding: 4px 8px; border-radius: 4px; font-weight: 600; width: 100%; margin-top: 6px;}
+
+    .trainer-card { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #f8fafc; position: relative; }
+    .trainer-info { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+    .trainer-info input { font-size: 13px; font-weight: 600; border: 1px solid transparent; width: 100%; }
+    .trainer-info input.email { font-family: ui-monospace, monospace; font-size: 11px; color: var(--text-sub); font-weight: normal; }
+    .trainer-info input:focus { border-bottom: 1px solid var(--border); outline: none; }
+    
+    .status-select { font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 4px; border: none; text-transform: uppercase; cursor: pointer; outline: none;}
+    .status-select[value="Active"] { background: #ecfdf5; color: #047857; }
+    .status-select[value="MIA"] { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+    .status-select[value="Offboarded"] { background: #f1f5f9; color: #64748b; border: 1px solid #cbd5e1; }
+
+    .delete-btn { background: none; border: none; color: #ef4444; cursor: pointer; font-weight: bold; padding: 0 4px;}
+    .add-btn { width: 100%; padding: 10px; background: transparent; border: 1px dashed var(--border); color: var(--text-sub); border-radius: 8px; cursor: pointer; font-weight: 600; margin-top: 10px; }
+    .add-btn:hover { border-color: var(--primary); color: var(--primary); }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <a href="index.html">Task Ledger</a>
+    <a href="analytics.html">Analytics & Reporting</a>
+    <a href="admin.html" class="active">Team Builder (Admin)</a>
+  </nav>
+
+  <div class="container">
+    <div class="total-team-header">
+      <div class="blinking-wrapper">
+        <span class="pulse-green"></span><span class="pulse-red"></span>
+        CHEMISTRY TEAM BUILDER (LIVE SYNC)
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <button class="btn btn-secondary" onclick="addPod()">+ Add Pod</button>
+        <button class="btn" onclick="saveRoster()">Save to Cloudflare</button>
+      </div>
+    </div>
+
+    <div class="pod-grid" id="roster-grid"></div>
+  </div>
+
+  <script>
+    const API_URL = 'https://turing-api.dineshkashyaparya.workers.dev/roster';
+    let roster = { pods: [] };
+
+    async function loadRoster() {
+      try {
+        const res = await fetch(API_URL);
+        roster = await res.json();
+        renderRoster();
+      } catch (err) {
+        console.error("Failed to load roster", err);
+      }
+    }
+
+    function renderRoster() {
+      const grid = document.getElementById('roster-grid');
+      grid.innerHTML = roster.pods.map((pod, pIdx) => `
+        <div class="pod-card">
+          <div class="pod-header">
+            <div style="flex: 1;">
+              <div class="pod-title"><input type="text" value="${pod.name}" onchange="updatePod(${pIdx}, 'name', this.value)"></div>
+              <div class="pod-lead"><input type="text" value="${pod.lead}" placeholder="Lead: Name" onchange="updatePod(${pIdx}, 'lead', this.value)"></div>
+            </div>
+            <button class="delete-btn" onclick="deletePod(${pIdx})">✕</button>
+          </div>
+          
+          <div>
+            ${pod.trainers.map((t, tIdx) => `
+              <div class="trainer-card">
+                <span style="color:#94a3b8; font-family:monospace;">├─</span>
+                <div class="trainer-info">
+                  <input type="text" value="${t.name}" placeholder="Trainer Name" style="${t.status==='Offboarded' ? 'text-decoration:line-through; color:#94a3b8;' : ''}" onchange="updateTrainer(${pIdx}, ${tIdx}, 'name', this.value)">
+                  <input type="text" class="email" value="${t.email || ''}" placeholder="email@turing.com" onchange="updateTrainer(${pIdx}, ${tIdx}, 'email', this.value)">
+                </div>
+                <select class="status-select" value="${t.status || 'Active'}" onchange="updateTrainer(${pIdx}, ${tIdx}, 'status', this.value)">
+                  <option value="Active" ${t.status === 'Active' ? 'selected' : ''}>Active</option>
+                  <option value="MIA" ${t.status === 'MIA' ? 'selected' : ''}>MIA</option>
+                  <option value="Offboarded" ${t.status === 'Offboarded' ? 'selected' : ''}>Offboarded</option>
+                </select>
+                <button class="delete-btn" onclick="deleteTrainer(${pIdx}, ${tIdx})">✕</button>
+              </div>
+            `).join('')}
+          </div>
+          <button class="add-btn" onclick="addTrainer(${pIdx})">+ Add Trainer</button>
+        </div>
+      `).join('');
+    }
+
+    function updatePod(pIdx, field, val) { roster.pods[pIdx][field] = val; }
+    function updateTrainer(pIdx, tIdx, field, val) { roster.pods[pIdx].trainers[tIdx][field] = val; renderRoster(); }
+    function addPod() { roster.pods.push({ id: Date.now().toString(), name: "New Pod", lead: "Lead Name", trainers: [] }); renderRoster(); }
+    function deletePod(pIdx) { if(confirm("Delete this pod?")) { roster.pods.splice(pIdx, 1); renderRoster(); } }
+    function addTrainer(pIdx) { roster.pods[pIdx].trainers.push({ name: "New Trainer", email: "new@turing.com", status: "Active" }); renderRoster(); }
+    function deleteTrainer(pIdx, tIdx) { roster.pods[pIdx].trainers.splice(tIdx, 1); renderRoster(); }
+
+    async function saveRoster() {
+      const password = prompt("Enter Admin Password:");
+      if (!password) return;
+      try {
+        const res = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${password}` }, body: JSON.stringify(roster) });
+        if (res.ok) alert("Chemistry Roster saved successfully!");
+        else alert("Failed to save. Incorrect password.");
+      } catch (err) { alert("Network error."); }
+    }
+
+    loadRoster();
+  </script>
+</body>
+</html>

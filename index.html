@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Turing Task Ledger</title>
+  <style>
+    :root {
+      --bg-page: #f9f8fc;
+      --bg-card: #ffffff;
+      --border: #e2e0e7;
+      --text-main: #1f1d24;
+      --text-sub: #8a8894;
+      --primary: #6b21a8;
+      --primary-light: #f3e8ff;
+      --accent-blue: #3b82f6;
+      --accent-blue-light: #eff6ff;
+      --warning: #b45309;
+      --warning-light: #fffbeb;
+      --success: #047857;
+      --success-light: #d1fae5;
+      --quarantine: #9f1239;
+      --quarantine-light: #ffe4e6;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background-color: var(--bg-page);
+      color: var(--text-main);
+      margin: 0;
+      padding: 0;
+    }
+
+    /* Navigation */
+    nav {
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border);
+      padding: 0 30px;
+      display: flex;
+      gap: 30px;
+    }
+    nav a {
+      text-decoration: none;
+      color: var(--text-sub);
+      font-weight: 600;
+      font-size: 14px;
+      padding: 20px 0;
+      border-bottom: 2px solid transparent;
+    }
+    nav a.active { color: var(--primary); border-bottom-color: var(--primary); }
+    nav a:hover:not(.active) { color: var(--text-main); }
+
+    .main-content { padding: 30px; }
+
+    /* --- Filters Section --- */
+    .filters-container {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 24px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+      align-items: center;
+    }
+
+    .filter-input {
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 13px;
+      color: var(--text-main);
+      outline: none;
+      min-width: 170px;
+      flex: 1;
+      cursor: pointer;
+    }
+    .filter-input:focus { border-color: var(--primary); }
+    
+    .filter-group { display: flex; gap: 8px; flex: 1.5; min-width: 250px; }
+    #custom-date-range { display: none; gap: 8px; align-items: center; flex: 2; }
+
+    /* --- Ledger Table --- */
+    .ledger-container {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow-x: auto;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
+
+    table { width: 100%; border-collapse: collapse; text-align: left; }
+    th { background: #faf9fb; padding: 16px; font-size: 12px; font-weight: 700; color: var(--text-main); border-bottom: 1px solid var(--border); white-space: nowrap; }
+    td { padding: 16px; border-bottom: 1px solid var(--border); font-size: 13px; vertical-align: top; cursor: pointer; }
+    tr:hover td { background-color: #f8f7fa; }
+
+    .task-id-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--primary-light);
+      color: var(--primary);
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-family: ui-monospace, monospace;
+      font-weight: 600;
+      font-size: 12px;
+    }
+
+    .copy-icon { cursor: pointer; color: var(--primary); opacity: 0.6; transition: opacity 0.2s; }
+    .copy-icon:hover { opacity: 1; }
+
+    .user-block { display: flex; flex-direction: column; gap: 4px; }
+    .user-name { font-weight: 600; color: var(--text-main); }
+    .user-email { font-family: ui-monospace, monospace; font-size: 11.5px; color: var(--text-sub); }
+
+    .status-badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      border: 1px solid currentColor;
+      white-space: nowrap;
+    }
+    .status-rework { background: var(--warning-light); color: var(--warning); border-color: #fcd34d; }
+    .status-approved { background: var(--success-light); color: var(--success); border-color: #6ee7b7; }
+    .status-l1 { background: var(--primary-light); color: var(--primary); border-color: #d8b4fe; }
+    .status-l2 { background: var(--accent-blue-light); color: var(--accent-blue); border-color: #93c5fd; }
+    .status-quarantined { background: var(--quarantine-light); color: var(--quarantine); border-color: #fda4af; }
+
+    .mini-history { display: flex; flex-direction: column; gap: 6px; font-size: 11.5px; color: var(--text-sub); }
+    .mini-history-item span { font-weight: 600; color: var(--text-main); }
+    .mini-history-date { display: inline-block; width: 45px; }
+
+    .action-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      background: var(--accent-blue-light);
+      color: var(--accent-blue);
+      border: 1px solid #bfdbfe;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+    .action-btn:hover { background: #dbeafe; }
+
+    /* --- Modal / Side Panel --- */
+    .modal-overlay {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.4);
+      display: none; justify-content: center; align-items: center;
+      z-index: 1000;
+    }
+    .modal-overlay.active { display: flex; }
+
+    .modal-content {
+      background: var(--bg-card); width: 100%; max-width: 700px;
+      border-radius: 12px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+      display: flex; flex-direction: column; max-height: 90vh;
+    }
+
+    .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 24px; border-bottom: 1px solid var(--border); }
+    .modal-title { font-size: 16px; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 12px; }
+    .modal-subtitle { font-size: 10px; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-top: 4px; }
+    .close-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-sub); line-height: 1; }
+
+    .modal-body { padding: 30px 24px; overflow-y: auto; }
+    .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 30px; }
+    .meta-label { font-size: 10px; font-weight: 700; color: var(--text-sub); text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.05em; }
+
+    .timeline-container { margin-top: 10px; }
+    .timeline-title { font-size: 11px; font-weight: 700; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 16px; }
+    .timeline-box { border: 1px solid var(--border); border-radius: 12px; padding: 24px; background: #faf9fb; }
+    .timeline { border-left: 2px solid var(--border); margin-left: 10px; padding-left: 24px; position: relative; }
+
+    .timeline-item { position: relative; margin-bottom: 24px; }
+    .timeline-item:last-child { margin-bottom: 0; }
+    .timeline-dot {
+      position: absolute; left: -31px; top: 4px; width: 12px; height: 12px;
+      border-radius: 50%; background: var(--bg-card); border: 3px solid var(--primary);
+    }
+    .timeline-dot.reviewer { border-color: var(--primary); }
+    .timeline-dot.trainer { border-color: var(--accent-blue); }
+    .timeline-dot.system { border-color: var(--text-sub); }
+
+    .tl-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+    .tl-role { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+    .tl-role.reviewer { color: var(--primary); }
+    .tl-role.trainer { color: var(--accent-blue); }
+    .tl-role.system { color: var(--text-sub); }
+    
+    .tl-date { font-size: 11.5px; color: var(--text-sub); font-family: ui-monospace, monospace; }
+    .tl-action { font-size: 14px; font-weight: 600; color: var(--text-main); margin-bottom: 4px; }
+    .tl-name { font-size: 13px; color: var(--text-sub); }
+    .tl-detail { margin-top: 10px; font-size: 13px; color: #4b5563; background: #fff; padding: 12px; border-radius: 8px; border: 1px solid var(--border); white-space: pre-wrap; }
+
+    .modal-footer { padding: 20px 24px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: #faf9fb; border-radius: 0 0 12px 12px; }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <a href="index.html" class="active">Task Ledger</a>
+    <a href="analytics.html">Analytics & Reporting</a>
+  </nav>
+
+  <div class="main-content">
+    <!-- Filters -->
+    <div class="filters-container">
+      <input type="text" id="search-id" class="filter-input" placeholder="Search Task ID (e.g. 01a081d2...)" oninput="renderTable()">
+      
+      <!-- Date Filters -->
+      <div class="filter-group">
+        <select id="filter-date" class="filter-input" onchange="toggleCustomDate()">
+          <option value="All">All Time</option>
+          <option value="Today">Today</option>
+          <option value="7">Last 7 Days</option>
+          <option value="30">Last 30 Days</option>
+          <option value="Custom">Custom Range</option>
+        </select>
+        <div id="custom-date-range">
+          <input type="date" id="date-start" class="filter-input" onchange="renderTable()">
+          <span style="color:var(--text-sub); font-size: 12px;">to</span>
+          <input type="date" id="date-end" class="filter-input" onchange="renderTable()">
+        </div>
+      </div>
+
+      <!-- Status Filters -->
+      <select id="filter-state" class="filter-input" onchange="renderTable()">
+        <option value="All">All Current Statuses</option>
+        <option value="L1 review">Awaiting L1 Review</option>
+        <option value="L2 review">Awaiting L2 Review</option>
+        <option value="Rework">Rework</option>
+        <option value="Quarantined">Quarantined</option>
+        <option value="Approved">Approved</option>
+      </select>
+
+      <select id="filter-milestone" class="filter-input" onchange="renderTable()">
+        <option value="All">All Progress Milestones</option>
+        <option value="L1">Cleared L1 (Inc. L2/Quarantine)</option>
+        <option value="L2">Cleared L2 (Approved)</option>
+      </select>
+
+      <select id="filter-trainer" class="filter-input" onchange="renderTable()">
+        <option value="All">All Trainers</option>
+      </select>
+
+      <select id="filter-reviewer" class="filter-input" onchange="renderTable()">
+        <option value="All">All Reviewers</option>
+      </select>
+    </div>
+
+    <!-- Ledger Table -->
+    <div class="ledger-container">
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 40px;"><input type="checkbox"></th>
+            <th>Task ID</th>
+            <th>Trainer</th>
+            <th>Domain</th>
+            <th>Report Date</th>
+            <th>Current Status</th>
+            <th>Status History</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="table-body">
+          <tr><td colspan="8" style="text-align:center; color:#8a8894; padding: 40px;">Loading data...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal-overlay" id="task-modal" onclick="closeModal(event)">
+    <div class="modal-content" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-title">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--primary)"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+          <div style="display:flex; flex-direction:column;">
+            <span id="modal-task-id"></span>
+            <span class="modal-subtitle">Task Details</span>
+          </div>
+        </div>
+        <button class="close-btn" onclick="closeModal()">&times;</button>
+      </div>
+      
+      <div class="modal-body">
+        <div class="meta-grid">
+          <div>
+            <div class="meta-label">Trainer</div>
+            <div class="user-block">
+              <span class="user-name" id="modal-trainer-name"></span>
+              <span class="user-email" id="modal-trainer-email"></span>
+            </div>
+          </div>
+          <div>
+            <div class="meta-label">Reviewer</div>
+            <div class="user-block">
+              <span class="user-name" id="modal-reviewer-name"></span>
+              <span class="user-email" id="modal-reviewer-email"></span>
+            </div>
+          </div>
+          <div>
+            <div class="meta-label">Domain</div>
+            <div style="font-size: 14px; font-weight: 500;" id="modal-domain"></div>
+          </div>
+          <div>
+            <div class="meta-label">Report Date</div>
+            <div style="font-size: 14px; font-weight: 500;" id="modal-date"></div>
+          </div>
+        </div>
+
+        <div class="timeline-container">
+          <div class="timeline-title">Complete Status History</div>
+          <div class="timeline-box">
+            <div class="timeline" id="modal-timeline"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <span class="meta-label">Current Status</span>
+          <span id="modal-status-badge"></span>
+        </div>
+        <a href="#" id="modal-action-btn" class="action-btn" target="_blank">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+          L2 Audit
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const CLOUDFLARE_URL = 'https://turing-api.dineshkashyaparya.workers.dev';
+    let globalData = [];
+
+    async function init() {
+      try {
+        const res = await fetch(CLOUDFLARE_URL);
+        const json = await res.json();
+        globalData = json.tasks || [];
+      } catch (err) {
+        console.warn("Using fallback data due to fetch error:", err);
+        // Fallback dummy data
+        globalData = [
+          {
+            id: "01a081d2-933a-70ee-bcdc-b9df8caf7fd1",
+            annotator: "Apeksha Jagdale",
+            reviewer: "Jônathan Dambros",
+            domain: "Chemistry",
+            state: "Quarantined",
+            submitted_at: "2026-09-12T12:57:58.245Z",
+            history: [
+              { kind: "submitted", label: "Submitted", detail: "Initial submission", occurred_at: "2026-09-12T12:57:58.245Z", actor_name: "Apeksha Jagdale" },
+              { kind: "review_approved", label: "Review approved", detail: "Approved", occurred_at: "2026-09-17T09:27:51.117Z", actor_name: "Jônathan Dambros" },
+              { kind: "review_cleared", label: "Cleared for claim pool", detail: "review_l2", occurred_at: "2026-09-17T09:27:51.117Z", actor_name: "System" },
+              { kind: "quarantined", label: "Quarantined", detail: "Flagged by system.", occurred_at: "2026-09-18T10:00:00.000Z", actor_name: "System" }
+            ]
+          }
+        ];
+      }
+      populateFilters();
+      renderTable();
+    }
+
+    function populateFilters() {
+      const trainers = new Set();
+      const reviewers = new Set();
+
+      globalData.forEach(t => {
+        if (t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned') trainers.add(t.annotator);
+        if (t.reviewer && t.reviewer !== '—' && t.reviewer !== 'Unassigned') reviewers.add(t.reviewer);
+      });
+
+      const fillOptions = (id, set) => {
+        const select = document.getElementById(id);
+        Array.from(set).sort().forEach(item => {
+          const opt = document.createElement('option');
+          opt.value = item;
+          opt.textContent = item;
+          select.appendChild(opt);
+        });
+      };
+
+      fillOptions('filter-trainer', trainers);
+      fillOptions('filter-reviewer', reviewers);
+    }
+
+    /* --- Filters Logic --- */
+    function toggleCustomDate() {
+      const val = document.getElementById('filter-date').value;
+      document.getElementById('custom-date-range').style.display = val === 'Custom' ? 'flex' : 'none';
+      renderTable();
+    }
+
+    function checkDateMatch(dateStr, filterVal) {
+      if (!dateStr || filterVal === 'All') return true;
+      const taskDate = new Date(dateStr);
+      const now = new Date();
+      now.setHours(23, 59, 59, 999);
+
+      if (filterVal === 'Today') return taskDate.toDateString() === new Date().toDateString();
+      if (filterVal === '7' || filterVal === '30') {
+        const past = new Date();
+        past.setDate(now.getDate() - parseInt(filterVal));
+        return taskDate >= past && taskDate <= now;
+      }
+      if (filterVal === 'Custom') {
+        const s = document.getElementById('date-start').value;
+        const e = document.getElementById('date-end').value;
+        let match = true;
+        if (s) match = match && taskDate >= new Date(s);
+        if (e) {
+          const eDate = new Date(e);
+          eDate.setHours(23, 59, 59, 999);
+          match = match && taskDate <= eDate;
+        }
+        return match;
+      }
+      return true;
+    }
+
+    function hasClearedL1(task) {
+      if (['Approved', 'L2 review'].includes(task.state)) return true;
+      if (!task.history) return false;
+      return task.history.some(h => 
+        (h.kind === 'review_cleared' && h.detail && h.detail.includes('review_l2')) ||
+        (h.label && h.label.toLowerCase().includes('cleared for claim pool'))
+      );
+    }
+
+    function hasClearedL2(task) {
+      if (task.state === 'Approved') return true;
+      if (!task.history) return false;
+      return task.history.some(h => h.label === 'Approved' || h.kind === 'approved' || h.state === 'Approved');
+    }
+
+    /* --- Formatting & UI Helpers --- */
+    function getBadgeClass(state) {
+      const s = state.toLowerCase();
+      if (s.includes('rework')) return 'status-rework';
+      if (s.includes('approved')) return 'status-approved';
+      if (s.includes('l2')) return 'status-l2';
+      if (s.includes('quarantined')) return 'status-quarantined';
+      return 'status-l1';
+    }
+
+    function formatDateShort(dateStr) {
+      if (!dateStr) return '—';
+      return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+
+    function formatTimeShort(dateStr) {
+      if (!dateStr) return '';
+      return new Date(dateStr).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('table-body');
+      const qSearch = document.getElementById('search-id').value.toLowerCase();
+      const qDate = document.getElementById('filter-date').value;
+      const qState = document.getElementById('filter-state').value;
+      const qMilestone = document.getElementById('filter-milestone').value;
+      const qTrainer = document.getElementById('filter-trainer').value;
+      const qReviewer = document.getElementById('filter-reviewer').value;
+
+      const filtered = globalData.filter(t => {
+        const matchSearch = t.id.toLowerCase().includes(qSearch);
+        const matchDate = checkDateMatch(t.submitted_at, qDate);
+        const matchState = qState === 'All' || t.state.toLowerCase().includes(qState.toLowerCase());
+        const matchTrainer = qTrainer === 'All' || t.annotator === qTrainer;
+        const matchReviewer = qReviewer === 'All' || t.reviewer === qReviewer;
+        
+        let matchMilestone = true;
+        if (qMilestone === 'L1') matchMilestone = hasClearedL1(t);
+        if (qMilestone === 'L2') matchMilestone = hasClearedL2(t);
+
+        return matchSearch && matchDate && matchState && matchMilestone && matchTrainer && matchReviewer;
+      });
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; color:var(--text-sub); padding: 40px;">No tasks found matching criteria.</td></tr>';
+        return;
+      }
+
+      filtered.sort((a, b) => new Date(b.submitted_at || 0) - new Date(a.submitted_at || 0));
+
+      tbody.innerHTML = filtered.map(t => {
+        const shortId = t.id.split('-')[0] + '-' + t.id.split('-')[1] + '...';
+        const badgeCls = getBadgeClass(t.state);
+        
+        let miniHistoryHTML = '<span style="color:#ccc">—</span>';
+        if (t.history && t.history.length > 0) {
+          const recent = t.history.slice(-2);
+          miniHistoryHTML = recent.map(h => {
+            const rolePrefix = (h.actor_name === t.reviewer) ? 'RV' : (h.actor_name === t.annotator ? 'TR' : 'SYS');
+            return `<div class="mini-history-item"><span class="mini-history-date">${formatDateShort(h.occurred_at)}</span> &rarr; <span>${rolePrefix}: ${esc(h.label)}</span></div>`;
+          }).join('');
+        }
+
+        const trEmail = t.annotator !== 'Unassigned' ? t.annotator.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '';
+
+        return `
+          <tr onclick="openModal('${t.id}')">
+            <td onclick="event.stopPropagation()"><input type="checkbox"></td>
+            <td>
+              <div class="task-id-pill">
+                ${shortId}
+                <svg class="copy-icon" onclick="copyId(event, '${t.id}')" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+              </div>
+            </td>
+            <td>
+              <div class="user-block">
+                <span class="user-name">${esc(t.annotator)}</span>
+                <span class="user-email">${trEmail}</span>
+              </div>
+            </td>
+            <td style="color:var(--text-sub);">${esc(t.domain)}</td>
+            <td style="font-weight:600;">${formatDateShort(t.submitted_at)}</td>
+            <td><span class="status-badge ${badgeCls}">${esc(t.state)}</span></td>
+            <td><div class="mini-history">${miniHistoryHTML}</div></td>
+            <td onclick="event.stopPropagation()">
+              <a href="https://task.turing.com/admin/projects/43b7da4f-5f31-41a0-b51d-1c64c7fd0a38/delivery-quality/tasks/${t.id}?view=task-review-queue" target="_blank" class="action-btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+                Audit
+              </a>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    /* --- Modal Logic --- */
+    function copyId(event, id) {
+      event.stopPropagation();
+      navigator.clipboard.writeText(id);
+      alert('Task ID copied!');
+    }
+
+    function openModal(id) {
+      const task = globalData.find(t => t.id === id);
+      if (!task) return;
+
+      document.getElementById('modal-task-id').textContent = task.id;
+      document.getElementById('modal-trainer-name').textContent = task.annotator;
+      document.getElementById('modal-trainer-email').textContent = task.annotator !== 'Unassigned' ? task.annotator.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '—';
+      document.getElementById('modal-reviewer-name').textContent = task.reviewer;
+      document.getElementById('modal-reviewer-email').textContent = task.reviewer !== '—' ? task.reviewer.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '—';
+      document.getElementById('modal-domain').textContent = task.domain;
+      document.getElementById('modal-date').textContent = task.submitted_at ? formatDateShort(task.submitted_at) + ', ' + new Date(task.submitted_at).getFullYear() : '—';
+      
+      const badgeCls = getBadgeClass(task.state);
+      document.getElementById('modal-status-badge').className = `status-badge ${badgeCls}`;
+      document.getElementById('modal-status-badge').textContent = task.state;
+      
+      document.getElementById('modal-action-btn').href = `https://task.turing.com/admin/projects/43b7da4f-5f31-41a0-b51d-1c64c7fd0a38/delivery-quality/tasks/${task.id}?view=task-review-queue`;
+
+      // Timeline Rendering
+      let timelineHTML = '<div style="color:var(--text-sub); font-size:13px;">No history available</div>';
+      if (task.history && task.history.length > 0) {
+        timelineHTML = task.history.slice().reverse().map(h => {
+          let roleLabel = 'SYSTEM';
+          let roleClass = 'system';
+          
+          if (h.actor_name === task.reviewer) {
+            roleLabel = 'REVIEWER';
+            roleClass = 'reviewer';
+          } else if (h.actor_name === task.annotator) {
+            roleLabel = 'TRAINER';
+            roleClass = 'trainer';
+          }
+          
+          const detailHTML = h.detail && h.detail.trim() !== '' && h.detail !== h.label && h.detail !== 'null' && !['review_l1', 'review_l2'].includes(h.detail)
+            ? `<div class="tl-detail">${esc(h.detail)}</div>` : '';
+
+          return `
+            <div class="timeline-item">
+              <div class="timeline-dot ${roleClass}"></div>
+              <div class="tl-header">
+                <span class="tl-role ${roleClass}">${roleLabel}</span>
+                <span class="tl-date">${formatDateShort(h.occurred_at)}, ${new Date(h.occurred_at).getFullYear()}, ${formatTimeShort(h.occurred_at)}</span>
+              </div>
+              <div class="tl-action">${esc(h.label)}</div>
+              <div class="tl-name">${esc(h.actor_name || 'System')}</div>
+              ${detailHTML}
+            </div>
+          `;
+        }).join('');
+      }
+      
+      document.getElementById('modal-timeline').innerHTML = timelineHTML;
+      document.getElementById('task-modal').classList.add('active');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeModal(event) {
+      if (event && event.target.id !== 'task-modal') return;
+      document.getElementById('task-modal').classList.remove('active');
+      document.body.style.overflow = '';
+    }
+
+    function esc(str) { return String(str||'').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+
+    init();
+  </script>
+</body>
+</html>
