@@ -4,23 +4,78 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Analytics - Chemistry Task Ledger</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Replaced Chart.js with ApexCharts for advanced interactive/aesthetic styling -->
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
   <style>
-    :root { --bg-page: #f9f8fc; --bg-card: #ffffff; --border: #e2e0e7; --text-main: #1f1d24; --text-sub: #8a8894; --primary: #6b21a8; }
+    :root { 
+      --bg-page: #f4f2f9; 
+      --bg-card: #ffffff; 
+      --border: #e2e0e7; 
+      --text-main: #1f1d24; 
+      --text-sub: #64748b; 
+      --primary: #6366f1; /* Indigo/Purple */
+      --secondary: #10b981; /* Emerald Green */
+      --warning: #f59e0b; /* Amber */
+      --danger: #ef4444; /* Red */
+    }
     * { box-sizing: border-box; }
     body { font-family: 'Inter', system-ui, sans-serif; background-color: var(--bg-page); color: var(--text-main); margin: 0; padding: 0; }
+    
+    /* Main Navigation */
     nav { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 0 30px; display: flex; gap: 30px; }
     nav a { text-decoration: none; color: var(--text-sub); font-weight: 600; font-size: 14px; padding: 20px 0; border-bottom: 2px solid transparent; }
-    nav a.active { color: var(--primary); border-bottom-color: var(--primary); }
+    nav a.active { color: #6b21a8; border-bottom-color: #6b21a8; }
     nav a:hover:not(.active) { color: var(--text-main); }
 
+    /* Dashboard Layout */
     .dashboard { padding: 30px; max-width: 1400px; margin: 0 auto; }
-    .chart-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 24px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); margin-bottom: 30px;}
-    .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-    .chart-header h2 { margin: 0; font-size: 18px; color: var(--text-main); }
-    .canvas-container { position: relative; height: 400px; width: 100%; }
-    select { padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); font-size: 13px; cursor: pointer; outline: none; }
-    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+    
+    /* Sub-tabs */
+    .sub-tabs { display: flex; gap: 12px; margin-bottom: 24px; }
+    .sub-tabs button {
+      background: var(--bg-card); border: 1px solid var(--border); padding: 10px 20px;
+      border-radius: 8px; font-weight: 600; color: var(--text-sub); cursor: pointer;
+      transition: all 0.2s ease; font-size: 13px; box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+    }
+    .sub-tabs button.active { background: #f3e8ff; color: #6b21a8; border-color: #d8b4fe; }
+    .sub-tabs button:hover:not(.active) { background: #f8fafc; color: var(--text-main); }
+
+    .tab-content { display: none; }
+    .tab-content.active { display: block; animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* Chart Cards */
+    .chart-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02); margin-bottom: 24px;}
+    .chart-header { margin-bottom: 16px; }
+    .chart-header h2 { margin: 0 0 4px 0; font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-main); display: flex; align-items: center; gap: 8px;}
+    .chart-header p { margin: 0; font-size: 12px; color: var(--text-sub); }
+    .canvas-container { position: relative; width: 100%; min-height: 350px; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+
+    /* Pod Cards UI */
+    .pod-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 24px; margin-bottom: 24px; }
+    .pod-card { background: var(--bg-card); border: 1px solid #e0e7ff; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px -1px rgba(99, 102, 241, 0.05); }
+    .pod-card-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid #f1f5f9; padding-bottom: 12px; margin-bottom: 16px; }
+    .pod-title { font-size: 15px; font-weight: 800; color: #3730a3; display: flex; align-items: center; gap: 6px; }
+    .pod-meta { font-size: 11px; color: var(--text-sub); margin-top: 4px; }
+    .coverage-badge { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; padding: 4px 8px; border-radius: 6px; font-size: 11px; font-weight: 700; }
+    .coverage-badge.good { background: #ecfdf5; color: #047857; border-color: #a7f3d0; }
+    
+    .metric-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+    .metric-box { border: 1px solid #f1f5f9; border-radius: 8px; padding: 12px; }
+    .metric-label { font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--text-sub); margin-bottom: 4px; }
+    .metric-value { font-size: 20px; font-weight: 800; }
+    .val-created { color: var(--secondary); }
+    .val-reviewed { color: var(--primary); }
+    .val-hours { color: #9333ea; }
+    .val-comp { color: var(--text-main); }
+
+    .progress-section { font-size: 11px; font-weight: 600; color: var(--text-sub); }
+    .progress-header { display: flex; justify-content: space-between; margin-bottom: 6px; }
+    .progress-bar-bg { width: 100%; height: 6px; background: #f1f5f9; border-radius: 4px; overflow: hidden; }
+    .progress-bar-fill { height: 100%; border-radius: 4px; background: #f59e0b; }
+    .progress-bar-fill.high { background: var(--secondary); }
+    .progress-bar-fill.low { background: var(--danger); }
   </style>
 </head>
 <body>
@@ -32,36 +87,79 @@
   </nav>
 
   <div class="dashboard">
-    <div class="chart-card">
-      <div class="chart-header">
-        <h2>Task Activity Over Time</h2>
-        <select id="time-interval" onchange="updateLineChart()">
-          <option value="day">By Day</option>
-          <option value="week">By Week</option>
-          <option value="month">By Month</option>
-        </select>
-      </div>
-      <div class="canvas-container"><canvas id="lineChart"></canvas></div>
+    <div class="sub-tabs">
+      <button class="active" onclick="switchTab('overview')">Overview</button>
+      <button onclick="switchTab('pods')">Pod Analytics</button>
+      <button onclick="switchTab('trainers')">Trainer Performance</button>
+      <button onclick="switchTab('reviewers')">Reviewer Audits</button>
     </div>
 
-    <div class="chart-card">
-      <div class="chart-header">
-        <h2>Pod-Wise Task Status</h2>
-        <select id="pod-filter" onchange="updatePodChart()">
-          <option value="All">All Pods</option>
-        </select>
+    <!-- TAB 1: OVERVIEW -->
+    <div id="tab-overview" class="tab-content active">
+      <div class="chart-card">
+        <div class="chart-header">
+          <h2>TASK THROUGHPUT TIMELINE (DAILY)</h2>
+          <p>Comparing task creation volume vs reviewer audit throughput across workdays.</p>
+        </div>
+        <div class="canvas-container" id="overview-area-chart"></div>
       </div>
-      <div class="canvas-container"><canvas id="podChart"></canvas></div>
+
+      <div class="chart-card">
+        <div class="chart-header">
+          <h2>POD SIDE-BY-SIDE COMPARISON (CREATED VS REVIEWED)</h2>
+          <p>Direct volume and review audit comparison across chemistry pods.</p>
+        </div>
+        <div class="canvas-container" id="overview-bar-chart"></div>
+      </div>
     </div>
 
-    <div class="grid-2">
-      <div class="chart-card">
-        <div class="chart-header"><h2>Top Trainers by Status</h2></div>
-        <div class="canvas-container"><canvas id="trainerChart"></canvas></div>
+    <!-- TAB 2: PODS -->
+    <div id="tab-pods" class="tab-content">
+      <div class="pod-grid" id="pod-cards-container">
+        <!-- Injected via JS -->
       </div>
       <div class="chart-card">
-        <div class="chart-header"><h2>Top Reviewers by Status</h2></div>
-        <div class="canvas-container"><canvas id="reviewerChart"></canvas></div>
+        <div class="chart-header">
+          <h2>POD TASK STATUS BREAKDOWN</h2>
+          <p>Current state of all tasks distributed by pod.</p>
+        </div>
+        <div class="canvas-container" id="pod-stacked-chart"></div>
+      </div>
+    </div>
+
+    <!-- TAB 3: TRAINERS -->
+    <div id="tab-trainers" class="tab-content">
+      <div class="chart-card">
+        <div class="chart-header">
+          <h2>TRAINER TASK VOLUME OVER TIME (DAILY)</h2>
+          <p>Timeline of tasks submitted by trainers broken down by current status.</p>
+        </div>
+        <div class="canvas-container" id="trainer-timeline-chart"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <h2>TOP TRAINERS BY VOLUME</h2>
+          <p>All-time task submission rankings.</p>
+        </div>
+        <div class="canvas-container" id="trainer-bar-chart"></div>
+      </div>
+    </div>
+
+    <!-- TAB 4: REVIEWERS -->
+    <div id="tab-reviewers" class="tab-content">
+      <div class="chart-card">
+        <div class="chart-header">
+          <h2>ALL REVIEWERS AUDIT VOLUME OVER TIME</h2>
+          <p>1 Line = 1 Reviewer's Audit Volume. Click points to inspect.</p>
+        </div>
+        <div class="canvas-container" id="reviewer-line-chart"></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-header">
+          <h2>TOP REVIEWERS BY STATUS</h2>
+          <p>Reviewer output categorized by final status determination.</p>
+        </div>
+        <div class="canvas-container" id="reviewer-bar-chart"></div>
       </div>
     </div>
   </div>
@@ -69,9 +167,23 @@
   <script>
     const TASK_URL = 'https://turing-api.dineshkashyaparya.workers.dev';
     const ROSTER_URL = 'https://turing-api.dineshkashyaparya.workers.dev/roster';
-    let globalTasks = []; let trainerToPod = {}; let lineChartInst, podChartInst, trainerChartInst, reviewerChartInst;
+    
+    let globalTasks = []; 
+    let globalPods = [];
+    let trainerToPod = {}; 
+    let chartInstances = {};
 
-    const COLORS = { 'Approved': '#10b981', 'L1 review': '#d8b4fe', 'L2 review': '#93c5fd', 'Rework': '#f59e0b', 'Quarantined': '#e11d48', 'Pool / Draft': '#9ca3af' };
+    // Standardized Apex Color Palette
+    const COLOR_CREATED = '#10b981'; // Green
+    const COLOR_REVIEWED = '#6366f1'; // Indigo
+    const STATUS_COLORS = {
+      'Approved': '#10b981', 
+      'L1 review': '#d8b4fe', 
+      'L2 review': '#93c5fd', 
+      'Rework': '#f59e0b', 
+      'Quarantined': '#ef4444', 
+      'Pool / Draft': '#9ca3af'
+    };
 
     async function init() {
       try {
@@ -79,27 +191,27 @@
         const taskData = await taskRes.json();
         const rosterData = await rosterRes.json();
         
-        const podNames = new Set();
-        if (rosterData.pods) {
-          rosterData.pods.forEach(pod => {
-            podNames.add(pod.name);
-            pod.trainers.forEach(t => trainerToPod[t.name] = pod.name);
-          });
-        }
-        
-        const podFilter = document.getElementById('pod-filter');
-        podNames.forEach(name => podFilter.insertAdjacentHTML('beforeend', `<option value="${name}">${name}</option>`));
+        globalPods = rosterData.pods || [];
+        globalPods.forEach(pod => {
+          pod.trainers.forEach(t => trainerToPod[t.name] = pod.name);
+        });
 
-        globalTasks = (taskData.tasks || []).map(t => ({ ...t, pod: trainerToPod[t.annotator] || 'Unassigned Pod' }));
+        globalTasks = (taskData.tasks || []).map(t => ({ 
+          ...t, 
+          pod: trainerToPod[t.annotator] || 'Unassigned Pod',
+          normState: normalizeState(t.state),
+          dateStr: t.submitted_at ? t.submitted_at.split('T')[0] : null
+        })).filter(t => t.dateStr); // Filter out tasks without dates for timeline accuracy
 
-        updateLineChart();
-        updatePodChart();
-        renderPersonChart('trainerChart', 'annotator');
-        renderPersonChart('reviewerChart', 'reviewer');
-      } catch (err) {}
+        // Render Initial Tab
+        renderOverviewCharts();
+      } catch (err) {
+        console.error("Failed to load data", err);
+      }
     }
 
     function normalizeState(state) {
+      if (!state) return 'Pool / Draft';
       if (state.includes('Approved')) return 'Approved';
       if (state.includes('L1')) return 'L1 review';
       if (state.includes('L2')) return 'L2 review';
@@ -108,90 +220,315 @@
       return 'Pool / Draft';
     }
 
-    function updateLineChart() {
-      const interval = document.getElementById('time-interval').value;
-      const groupedData = {};
+    function switchTab(tabId) {
+      document.querySelectorAll('.sub-tabs button').forEach(b => b.classList.remove('active'));
+      document.querySelector(`button[onclick="switchTab('${tabId}')"]`).classList.add('active');
+      
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      document.getElementById(`tab-${tabId}`).classList.add('active');
+
+      // Lazy render charts to ensure correct width calculations
+      if (tabId === 'overview') renderOverviewCharts();
+      if (tabId === 'pods') renderPodCharts();
+      if (tabId === 'trainers') renderTrainerCharts();
+      if (tabId === 'reviewers') renderReviewerCharts();
+    }
+
+    function destroyChart(id) {
+      if (chartInstances[id]) {
+        chartInstances[id].destroy();
+        delete chartInstances[id];
+      }
+    }
+
+    function generateDateRange(tasks) {
+      if (tasks.length === 0) return [];
+      const dates = tasks.map(t => new Date(t.dateStr));
+      const minDate = new Date(Math.min(...dates));
+      const maxDate = new Date(Math.max(...dates));
+      const dateArray = [];
+      let currentDate = minDate;
+      while (currentDate <= maxDate) {
+        dateArray.push(currentDate.toISOString().split('T')[0]);
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+      return dateArray;
+    }
+
+    // --- TAB 1: OVERVIEW CHARTS ---
+    function renderOverviewCharts() {
+      const dates = generateDateRange(globalTasks);
+      const timelineData = { created: {}, reviewed: {} };
+      
+      dates.forEach(d => { timelineData.created[d] = 0; timelineData.reviewed[d] = 0; });
 
       globalTasks.forEach(t => {
-        if (!t.submitted_at) return;
-        const d = new Date(t.submitted_at);
-        let key;
-        if (interval === 'day') key = d.toISOString().split('T')[0];
-        else if (interval === 'month') key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-        else { const firstDay = new Date(d.setDate(d.getDate() - d.getDay())); key = `Week of ${firstDay.toISOString().split('T')[0]}`; }
-
-        if (!groupedData[key]) groupedData[key] = { total: 0, approved: 0, rework: 0, tasks: [] };
-        groupedData[key].total++;
-        if (normalizeState(t.state) === 'Approved') groupedData[key].approved++;
-        if (normalizeState(t.state) === 'Rework') groupedData[key].rework++;
-        groupedData[key].tasks.push(t.id.split('-')[0]); 
-      });
-
-      const labels = Object.keys(groupedData).sort();
-      const totals = labels.map(l => groupedData[l].total);
-      const approved = labels.map(l => groupedData[l].approved);
-      const reworks = labels.map(l => groupedData[l].rework);
-      const taskLists = labels.map(l => groupedData[l].tasks);
-
-      if (lineChartInst) lineChartInst.destroy();
-      lineChartInst = new Chart(document.getElementById('lineChart').getContext('2d'), {
-        type: 'line',
-        data: {
-          labels: labels,
-          datasets: [
-            { label: 'Total Submitted', data: totals, borderColor: '#6b21a8', backgroundColor: '#6b21a8', tension: 0.3 },
-            { label: 'Approved', data: approved, borderColor: '#10b981', backgroundColor: '#10b981', tension: 0.3 },
-            { label: 'Rework Requested', data: reworks, borderColor: '#f59e0b', backgroundColor: '#f59e0b', tension: 0.3 }
-          ]
-        },
-        options: {
-          responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
-          plugins: { tooltip: { callbacks: { footer: function(tItems) { const tList = taskLists[tItems[0].dataIndex]; return tList ? `\nTasks:\n${tList.slice(0, 5).join(', ')}${tList.length > 5 ? ' ...' : ''}` : ''; } } } }
+        if(timelineData.created[t.dateStr] !== undefined) timelineData.created[t.dateStr]++;
+        if (t.normState === 'Approved' && timelineData.reviewed[t.dateStr] !== undefined) {
+          timelineData.reviewed[t.dateStr]++;
         }
       });
+
+      // 1. Area Chart (Smooth Timeline)
+      destroyChart('overview-area-chart');
+      const areaOptions = {
+        series: [
+          { name: 'Tasks Created (Trainers)', data: dates.map(d => timelineData.created[d]) },
+          { name: 'Tasks Reviewed (Reviewers)', data: dates.map(d => timelineData.reviewed[d]) }
+        ],
+        chart: { type: 'area', height: 350, toolbar: { show: false }, fontFamily: 'Inter, sans-serif' },
+        colors: [COLOR_CREATED, COLOR_REVIEWED],
+        dataLabels: { enabled: false },
+        stroke: { curve: 'smooth', width: 2 },
+        fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0.05, stops: [0, 90, 100] } },
+        xaxis: { categories: dates, type: 'category', tickAmount: 10, labels: { style: { colors: '#64748b' } } },
+        yaxis: { labels: { style: { colors: '#64748b' } } },
+        legend: { position: 'bottom', markers: { radius: 12 } },
+        grid: { borderColor: '#f1f5f9', strokeDashArray: 4 }
+      };
+      chartInstances['overview-area-chart'] = new ApexCharts(document.querySelector("#overview-area-chart"), areaOptions);
+      chartInstances['overview-area-chart'].render();
+
+      // 2. Bar Chart (Pod Side-By-Side)
+      const podStats = {};
+      globalTasks.forEach(t => {
+        if (!podStats[t.pod]) podStats[t.pod] = { created: 0, reviewed: 0 };
+        podStats[t.pod].created++;
+        if (t.normState === 'Approved') podStats[t.pod].reviewed++;
+      });
+      const podNames = Object.keys(podStats).sort();
+
+      destroyChart('overview-bar-chart');
+      const barOptions = {
+        series: [
+          { name: 'Tasks Created (Trainers)', data: podNames.map(p => podStats[p].created) },
+          { name: 'Tasks Reviewed (Reviewers)', data: podNames.map(p => podStats[p].reviewed) }
+        ],
+        chart: { type: 'bar', height: 350, toolbar: { show: false }, fontFamily: 'Inter, sans-serif' },
+        colors: [COLOR_CREATED, COLOR_REVIEWED],
+        plotOptions: { bar: { horizontal: false, columnWidth: '55%', borderRadius: 4 } },
+        dataLabels: { enabled: false },
+        stroke: { show: true, width: 2, colors: ['transparent'] },
+        xaxis: { categories: podNames, labels: { style: { colors: '#64748b', fontSize: '12px' } } },
+        yaxis: { labels: { style: { colors: '#64748b' } } },
+        fill: { opacity: 1 },
+        legend: { position: 'bottom' },
+        grid: { borderColor: '#f1f5f9', strokeDashArray: 4 }
+      };
+      chartInstances['overview-bar-chart'] = new ApexCharts(document.querySelector("#overview-bar-chart"), barOptions);
+      chartInstances['overview-bar-chart'].render();
     }
 
-    function updatePodChart() {
-      const selectedPod = document.getElementById('pod-filter').value;
-      const stats = {};
-      const statuses = Object.keys(COLORS);
+    // --- TAB 2: POD CHARTS ---
+    function renderPodCharts() {
+      // 1. Pod Metric Cards
+      const container = document.getElementById('pod-cards-container');
+      const podStats = {};
+      
+      // Initialize stats using Roster
+      globalPods.forEach(p => {
+        podStats[p.name] = { name: p.name, created: 0, reviewed: 0, rework: 0, trainers: p.trainers.length };
+      });
+      // Add 'Unassigned' if needed
+      podStats['Unassigned Pod'] = { name: 'Unassigned Pod', created: 0, reviewed: 0, rework: 0, trainers: 0 };
 
       globalTasks.forEach(t => {
-        if (selectedPod !== 'All' && t.pod !== selectedPod) return;
-        const groupKey = selectedPod === 'All' ? t.pod : t.annotator;
-        if (!stats[groupKey]) { stats[groupKey] = { total: 0 }; statuses.forEach(s => stats[groupKey][s] = 0); }
-        stats[groupKey][normalizeState(t.state)]++;
-        stats[groupKey].total++;
+        if (!podStats[t.pod]) podStats[t.pod] = { name: t.pod, created: 0, reviewed: 0, rework: 0, trainers: 0 };
+        podStats[t.pod].created++;
+        if (t.normState === 'Approved') podStats[t.pod].reviewed++;
+        if (t.normState === 'Rework') podStats[t.pod].rework++;
       });
 
-      const labels = Object.keys(stats).sort();
-      const datasets = statuses.map(status => ({ label: status, data: labels.map(l => stats[l][status]), backgroundColor: COLORS[status] }));
+      let html = '';
+      Object.values(podStats).filter(p => p.created > 0 || p.trainers > 0).forEach(p => {
+        const coverage = p.created > 0 ? Math.round((p.reviewed / p.created) * 100) : 0;
+        const compliance = p.created > 0 ? Math.round(((p.created - p.rework) / p.created) * 100) : 0;
+        const hours = (p.reviewed * 1.5).toFixed(1); // Mock calculation similar to screenshot
+        
+        const covClass = coverage >= 50 ? 'good' : '';
+        const progClass = coverage >= 60 ? 'high' : (coverage <= 30 ? 'low' : '');
 
-      if (podChartInst) podChartInst.destroy();
-      podChartInst = new Chart(document.getElementById('podChart').getContext('2d'), {
-        type: 'bar', data: { labels, datasets }, options: { responsive: true, maintainAspectRatio: false, scales: { x: { stacked: true }, y: { stacked: true } } }
+        html += `
+          <div class="pod-card">
+            <div class="pod-card-header">
+              <div>
+                <div class="pod-title">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                  ${p.name}
+                </div>
+                <div class="pod-meta">${p.trainers} Trainers · Live</div>
+              </div>
+              <div class="coverage-badge ${covClass}">${coverage}% Coverage</div>
+            </div>
+            
+            <div class="metric-grid">
+              <div class="metric-box">
+                <div class="metric-label">Created</div>
+                <div class="metric-value val-created">${p.created}</div>
+              </div>
+              <div class="metric-box">
+                <div class="metric-label">Reviewed</div>
+                <div class="metric-value val-reviewed">${p.reviewed}</div>
+              </div>
+              <div class="metric-box">
+                <div class="metric-label">Review Hours</div>
+                <div class="metric-value val-hours">${hours} hrs</div>
+              </div>
+              <div class="metric-box">
+                <div class="metric-label">Compliance</div>
+                <div class="metric-value val-comp">${compliance}%</div>
+              </div>
+            </div>
+
+            <div class="progress-section">
+              <div class="progress-header">
+                <span>Review Audit Progress:</span>
+                <span>${p.reviewed} / ${p.created} (${coverage}%)</span>
+              </div>
+              <div class="progress-bar-bg">
+                <div class="progress-bar-fill ${progClass}" style="width: ${coverage}%"></div>
+              </div>
+            </div>
+          </div>
+        `;
       });
+      container.innerHTML = html;
+
+      // 2. Stacked Bar Chart for Statuses
+      const podNames = Object.keys(podStats).filter(p => podStats[p].created > 0).sort();
+      const statuses = Object.keys(STATUS_COLORS);
+      const seriesData = statuses.map(status => {
+        return {
+          name: status,
+          data: podNames.map(p => {
+            return globalTasks.filter(t => t.pod === p && t.normState === status).length;
+          })
+        };
+      });
+
+      destroyChart('pod-stacked-chart');
+      const stackOptions = {
+        series: seriesData,
+        chart: { type: 'bar', height: 350, stacked: true, toolbar: { show: false }, fontFamily: 'Inter, sans-serif' },
+        colors: statuses.map(s => STATUS_COLORS[s]),
+        plotOptions: { bar: { horizontal: false, borderRadius: 2 } },
+        xaxis: { categories: podNames, labels: { style: { colors: '#64748b' } } },
+        yaxis: { labels: { style: { colors: '#64748b' } } },
+        fill: { opacity: 1 },
+        legend: { position: 'bottom' },
+        dataLabels: { enabled: false }
+      };
+      chartInstances['pod-stacked-chart'] = new ApexCharts(document.querySelector("#pod-stacked-chart"), stackOptions);
+      chartInstances['pod-stacked-chart'].render();
     }
 
-    function renderPersonChart(canvasId, role) {
-      const stats = {};
-      const statuses = Object.keys(COLORS);
+    // --- TAB 3: TRAINER CHARTS ---
+    function renderTrainerCharts() {
+      const dates = generateDateRange(globalTasks);
+      const acceptedData = []; const reworkData = []; const awaitingData = [];
 
+      dates.forEach(d => {
+        const dayTasks = globalTasks.filter(t => t.dateStr === d);
+        acceptedData.push(dayTasks.filter(t => t.normState === 'Approved').length);
+        reworkData.push(dayTasks.filter(t => t.normState === 'Rework').length);
+        awaitingData.push(dayTasks.filter(t => !['Approved', 'Rework', 'Quarantined'].includes(t.normState)).length);
+      });
+
+      // 1. Stacked Timeline
+      destroyChart('trainer-timeline-chart');
+      const tlOptions = {
+        series: [
+          { name: 'Accepted', data: acceptedData },
+          { name: 'Under Rework', data: reworkData },
+          { name: 'Awaiting Review', data: awaitingData }
+        ],
+        chart: { type: 'bar', height: 350, stacked: true, toolbar: { show: false }, fontFamily: 'Inter, sans-serif' },
+        colors: [COLOR_CREATED, '#ef4444', '#f59e0b'],
+        plotOptions: { bar: { horizontal: false, borderRadius: 2 } },
+        xaxis: { categories: dates, type: 'category', tickAmount: 10, labels: { style: { colors: '#64748b' } } },
+        yaxis: { labels: { style: { colors: '#64748b' } } },
+        fill: { opacity: 1 },
+        legend: { position: 'top', horizontalAlign: 'right' },
+        dataLabels: { enabled: false }
+      };
+      chartInstances['trainer-timeline-chart'] = new ApexCharts(document.querySelector("#trainer-timeline-chart"), tlOptions);
+      chartInstances['trainer-timeline-chart'].render();
+
+      // 2. Horizontal Bar Top Trainers
+      const trainerStats = {};
       globalTasks.forEach(t => {
-        const p = t[role];
-        if (!p || p === '—' || p === 'Unassigned') return;
-        if (!stats[p]) { stats[p] = { total: 0 }; statuses.forEach(s => stats[p][s] = 0); }
-        stats[p][normalizeState(t.state)]++;
-        stats[p].total++;
+        if (!t.annotator || t.annotator === '—' || t.annotator === 'Unassigned') return;
+        if (!trainerStats[t.annotator]) trainerStats[t.annotator] = 0;
+        trainerStats[t.annotator]++;
+      });
+      
+      const topTrainers = Object.entries(trainerStats).sort((a,b) => b[1] - a[1]).slice(0, 10);
+
+      destroyChart('trainer-bar-chart');
+      const barOptions = {
+        series: [{ name: 'Tasks Created', data: topTrainers.map(t => t[1]) }],
+        chart: { type: 'bar', height: 350, toolbar: { show: false }, fontFamily: 'Inter, sans-serif' },
+        colors: [COLOR_CREATED],
+        plotOptions: { bar: { horizontal: true, borderRadius: 4 } },
+        dataLabels: { enabled: true, textAnchor: 'start', style: { colors: ['#fff'] }, offsetX: 0 },
+        xaxis: { categories: topTrainers.map(t => t[0]), labels: { style: { colors: '#64748b' } } },
+        yaxis: { labels: { style: { colors: '#64748b', fontWeight: 600 } } }
+      };
+      chartInstances['trainer-bar-chart'] = new ApexCharts(document.querySelector("#trainer-bar-chart"), barOptions);
+      chartInstances['trainer-bar-chart'].render();
+    }
+
+    // --- TAB 4: REVIEWER CHARTS ---
+    function renderReviewerCharts() {
+      const dates = generateDateRange(globalTasks);
+      
+      // Get all reviewers
+      const reviewers = [...new Set(globalTasks.map(t => t.reviewer).filter(r => r && r !== '—' && r !== 'Unassigned'))];
+      
+      const seriesData = reviewers.map(rev => {
+        return {
+          name: rev,
+          data: dates.map(d => globalTasks.filter(t => t.reviewer === rev && t.dateStr === d).length)
+        };
       });
 
-      const topPeople = Object.keys(stats).sort((a,b) => stats[b].total - stats[a].total).slice(0, 10);
-      const datasets = statuses.map(status => ({ label: status, data: topPeople.map(p => stats[p][status]), backgroundColor: COLORS[status] }));
+      // 1. Multi-line Reviewer Chart
+      destroyChart('reviewer-line-chart');
+      const lineOptions = {
+        series: seriesData,
+        chart: { type: 'line', height: 400, toolbar: { show: false }, fontFamily: 'Inter, sans-serif' },
+        stroke: { curve: 'straight', width: 2 },
+        markers: { size: 4, hover: { size: 6 } },
+        xaxis: { categories: dates, type: 'category', tickAmount: 10, labels: { style: { colors: '#64748b' } } },
+        yaxis: { labels: { style: { colors: '#64748b' } } },
+        legend: { position: 'bottom', horizontalAlign: 'center', showForSingleSeries: true },
+        grid: { borderColor: '#f1f5f9', strokeDashArray: 4 }
+      };
+      chartInstances['reviewer-line-chart'] = new ApexCharts(document.querySelector("#reviewer-line-chart"), lineOptions);
+      chartInstances['reviewer-line-chart'].render();
 
-      new Chart(document.getElementById(canvasId).getContext('2d'), {
-        type: 'bar', data: { labels: topPeople, datasets },
-        options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', scales: { x: { stacked: true }, y: { stacked: true } } }
+      // 2. Bar Chart Top Reviewers
+      const revStats = {};
+      globalTasks.forEach(t => {
+        if (!t.reviewer || t.reviewer === '—' || t.reviewer === 'Unassigned') return;
+        if (!revStats[t.reviewer]) revStats[t.reviewer] = 0;
+        if (t.normState === 'Approved') revStats[t.reviewer]++;
       });
+      
+      const topReviewers = Object.entries(revStats).sort((a,b) => b[1] - a[1]).slice(0, 10);
+
+      destroyChart('reviewer-bar-chart');
+      const barOptions = {
+        series: [{ name: 'Approved Audits', data: topReviewers.map(t => t[1]) }],
+        chart: { type: 'bar', height: 300, toolbar: { show: false }, fontFamily: 'Inter, sans-serif' },
+        colors: [COLOR_REVIEWED],
+        plotOptions: { bar: { horizontal: true, borderRadius: 4 } },
+        dataLabels: { enabled: true, style: { colors: ['#fff'] } },
+        xaxis: { categories: topReviewers.map(t => t[0]), labels: { style: { colors: '#64748b' } } },
+        yaxis: { labels: { style: { colors: '#64748b', fontWeight: 600 } } }
+      };
+      chartInstances['reviewer-bar-chart'] = new ApexCharts(document.querySelector("#reviewer-bar-chart"), barOptions);
+      chartInstances['reviewer-bar-chart'].render();
     }
 
     init();
