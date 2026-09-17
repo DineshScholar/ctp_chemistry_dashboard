@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Analytics - Chemistry Task Ledger</title>
-  <script src="[https://cdn.jsdelivr.net/npm/apexcharts](https://cdn.jsdelivr.net/npm/apexcharts)"></script>
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
   <style>
     :root { 
       --bg-page: #f9f8fc; 
@@ -135,12 +135,15 @@
     
     .selectable-area { cursor: pointer; border-radius: 6px; transition: background 0.2s, box-shadow 0.2s; }
     .selectable-area:hover { background: #f8fafc; }
-    .slack-pod-block { padding: 16px; margin: -10px; border: 1px dashed transparent; }
-    .slack-pod-block:hover { border-color: #cbd5e1; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
-    .slack-train-block { margin-top: 14px; margin-bottom: 8px; padding: 14px; border-left: 3px solid #e2e8f0; background: #ffffff; }
-    .slack-train-block:hover { border-left-color: var(--primary); box-shadow: 0 2px 6px rgba(0,0,0,0.04); }
+    .slack-pod-block { padding: 10px; margin: -10px; }
+    .slack-rev-block { margin-top: 10px; margin-bottom: 10px; padding: 12px; border: 1px dashed transparent; }
+    .slack-rev-block:hover { border-color: #cbd5e1; background: #ffffff; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+    .slack-train-block { margin-left: 10px; margin-top: 8px; margin-bottom: 8px; padding: 12px; border-left: 3px solid #e2e8f0; }
+    .slack-train-block:hover { background: #ffffff; border-left-color: var(--primary); box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
     
-    .slack-code-list { margin: 8px 0 0 0; color: var(--text-main); font-family: ui-monospace, monospace; font-size: 13px; background: #f1f5f9; padding: 12px; border-radius: 6px; }
+    .slack-code-list { margin: 6px 0 0 0; padding-left: 24px; color: var(--text-sub); }
+    .slack-code-list li { margin-bottom: 4px; }
+    .slack-code-list code { font-family: ui-monospace, monospace; font-size: 12px; background: #f1f5f9; padding: 2px 6px; border-radius: 4px; color: var(--primary); }
   </style>
 </head>
 <body>
@@ -316,8 +319,8 @@
       <div class="chart-card">
         <div class="chart-header">
           <div class="chart-header-text">
-            <h2>SLACK MESSAGE GENERATOR (POD-WISE TRAINERS)</h2>
-            <p>Click any Pod container to copy the entire Pod, or click a specific Trainer to copy just them. The output is structured to render perfectly in Slack with native bolding and code blocks.</p>
+            <h2>SLACK MESSAGE GENERATOR (PENDING TASKS)</h2>
+            <p>One-click copy interface. Click any nested boundary (Pod, Reviewer, or Trainer) to automatically select exactly that container's rendered content perfectly formatted for Slack.</p>
           </div>
         </div>
         <div class="slack-container" id="slack-render-area">
@@ -331,8 +334,8 @@
   <div id="toast" class="toast"></div>
 
   <script>
-    const TASK_URL = '[https://turing-api.dineshkashyaparya.workers.dev](https://turing-api.dineshkashyaparya.workers.dev)';
-    const ROSTER_URL = '[https://turing-api.dineshkashyaparya.workers.dev/roster](https://turing-api.dineshkashyaparya.workers.dev/roster)';
+    const TASK_URL = 'https://turing-api.dineshkashyaparya.workers.dev';
+    const ROSTER_URL = 'https://turing-api.dineshkashyaparya.workers.dev/roster';
     
     let globalTasks = []; 
     let globalPods = [];
@@ -378,20 +381,15 @@
           });
         }
 
-        globalTasks = (taskData.tasks || []).map(t => {
-            // Remove Dinesh Kashyap completely and map to Unassigned
-            let a = t.annotator === 'Dinesh Kashyap' ? 'Unassigned' : t.annotator;
-            let r = t.reviewer === 'Dinesh Kashyap' ? 'Unassigned' : t.reviewer;
-            return {
-                ...t,
-                annotator: a,
-                reviewer: r,
-                shortId: t.id ? t.id.split('-')[0] : 'Unknown',
-                pod: trainerToPod[a] || 'Unassigned Pod',
-                normState: normalizeState(t.state),
-                dateStr: t.submitted_at ? t.submitted_at.split('T')[0] : null
-            };
-        }).filter(t => t.dateStr);
+        globalTasks = (taskData.tasks || [])
+          .filter(t => t.annotator !== 'Dinesh Kashyap' && t.reviewer !== 'Dinesh Kashyap') // Exclude globally as requested
+          .map(t => ({ 
+            ...t, 
+            shortId: t.id ? t.id.split('-')[0] : 'Unknown',
+            pod: trainerToPod[t.annotator] || 'Unassigned Pod',
+            normState: normalizeState(t.state),
+            dateStr: t.submitted_at ? t.submitted_at.split('T')[0] : null
+        })).filter(t => t.dateStr);
 
         renderOverviewCharts();
       } catch (err) {
@@ -500,7 +498,9 @@
     }
 
     function renderOverviewCharts() {
+      // (Original chart logic unedited for space)
       const dates = generateDateRange(globalTasks);
+      
       const cIdArea = 'overview-area-chart';
       tooltipStore[cIdArea] = [[], [], []];
       const sData = { sub: [], l1: [], rew: [] };
@@ -536,8 +536,8 @@
       const cIdBar = 'overview-bar-chart';
       tooltipStore[cIdBar] = [[], [], []];
       const podNames = [...new Set(globalTasks.map(t => t.pod))].sort();
-      const bData = { sub: [], l1: [], rew: [] };
       
+      const bData = { sub: [], l1: [], rew: [] };
       podNames.forEach((p, i) => {
         const pTasks = globalTasks.filter(t => t.pod === p);
         const subTasks = pTasks;
@@ -795,7 +795,7 @@
       chartInstances[cIdPod].render();
     }
 
-    // --- TAB 6: SLACK INTEGRATION ---
+    // --- TAB 6: SLACK INTEGRATION (Click to select text node correctly) ---
     window.selectSlackNode = function(el, event) {
       event.stopPropagation();
       const selection = window.getSelection();
@@ -803,7 +803,7 @@
       range.selectNodeContents(el);
       selection.removeAllRanges();
       selection.addRange(range);
-      showToast('Text selected! Press Cmd+C or Ctrl+C to copy formatted text.');
+      showToast('Slack text selected! Press Cmd+C or Ctrl+C to copy.');
     };
 
     function getSlackHandle(name) {
@@ -817,26 +817,31 @@
       const slackData = {}; 
       
       globalTasks.forEach(t => {
-        // Collect ONLY tasks that require Trainer actioning
+        // ONLY pull Pending L1 or Quarantined tasks for actioning 
         if (t.normState !== 'L1 Review' && t.normState !== 'Quarantined') return; 
-        
-        let train = t.annotator;
-        if (!train || train === '—') train = 'Unassigned';
+        if (!t.annotator || t.annotator === '—' || t.annotator === 'Unassigned') return;
+        if (!t.reviewer || t.reviewer === '—' || t.reviewer === 'Unassigned') return;
         
         const pod = t.pod || 'Unassigned Pod';
+        // ONLY pull data for trainers actively in PODs
+        if (pod === 'Unassigned Pod') return; 
+        
+        const rev = t.reviewer;
+        const train = t.annotator;
         
         if (!slackData[pod]) slackData[pod] = {};
-        if (!slackData[pod][train]) slackData[pod][train] = [];
+        if (!slackData[pod][rev]) slackData[pod][rev] = {};
+        if (!slackData[pod][rev][train]) slackData[pod][rev][train] = [];
         
         const stateLabel = t.normState === 'Quarantined' ? 'Quarantined' : 'Pending L1';
-        slackData[pod][train].push({ id: t.id, state: stateLabel });
+        slackData[pod][rev][train].push({ id: t.id, state: stateLabel });
       });
 
       let html = '';
       const sortedPods = Object.keys(slackData).sort();
       
       if (sortedPods.length === 0) {
-        document.getElementById('slack-render-area').innerHTML = '<div style="padding: 40px; text-align: center; color: var(--text-sub);">No pending L1 or quarantined tasks found.</div>';
+        document.getElementById('slack-render-area').innerHTML = '<div style="padding: 40px; text-align: center; color: var(--text-sub);">No pending/quarantined tasks found in Pods requiring Slack messaging.</div>';
         return;
       }
 
@@ -845,31 +850,39 @@
           <div class="slack-box">
             <div class="slack-box-label">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
-              POD: ${podName} (Click text container below to select ENTIRE POD block)
+              POD: ${podName} (Click text below to select ENTIRE POD)
             </div>
-            <div class="slack-text slack-pod-block selectable-area" onclick="selectSlackNode(this, event)">
-              <b>🧵 Pending tasks in ${podName}</b><br><br>`;
+            <div class="slack-text slack-pod-block selectable-area" onclick="selectSlackNode(this, event)">`;
         
-        const sortedTrains = Object.keys(slackData[podName]).sort();
-        
-        sortedTrains.forEach(trainName => {
-          const trainHandle = getSlackHandle(trainName);
-          const tasks = slackData[podName][trainName];
+        const sortedRevs = Object.keys(slackData[podName]).sort();
+        sortedRevs.forEach(revName => {
+          const revHandle = getSlackHandle(revName);
           
           html += `
-            <div class="slack-train-block selectable-area" onclick="selectSlackNode(this, event)">
-              <b>Trainer:</b> ${trainHandle}<br>
-              <b>Pending Tasks:</b> ${tasks.length}<br>
-              <b>Task IDs:</b><br>
-              <div class="slack-code-list">
-                \`\`\`<br>
-                ${tasks.map(t => `${t.id} (${t.state})`).join('<br>')}<br>
-                \`\`\`
-              </div>
-            </div>`;
+            <div class="slack-rev-block selectable-area" onclick="selectSlackNode(this, event)">
+              🧵 <strong>${revHandle}</strong>, pending tasks in ${podName}<br><br>`;
+          
+          const sortedTrains = Object.keys(slackData[podName][revName]).sort();
+          sortedTrains.forEach(trainName => {
+            const trainHandle = getSlackHandle(trainName);
+            const tasks = slackData[podName][revName][trainName];
+            
+            // Rendering properly formatted block with explicit labels inline code tags
+            html += `
+              <div class="slack-train-block selectable-area" onclick="selectSlackNode(this, event)">
+                <strong>Trainer:</strong> ${trainHandle}<br>
+                <strong>Pending Tasks:</strong> ${tasks.length}<br>
+                <strong>Task IDs:</strong><br>
+                <ul class="slack-code-list">
+                  ${tasks.map(t => `<li><code>${t.id} (${t.state})</code></li>`).join('')}
+                </ul>
+              </div>`;
+          });
+          
+          html += `</div>`; // Close rev block
         });
         
-        html += `</div></div>`; // Close selectable block & Pod Box
+        html += `</div></div>`; // Close pod block and slack box
       });
 
       document.getElementById('slack-render-area').innerHTML = html;
