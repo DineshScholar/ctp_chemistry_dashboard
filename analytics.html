@@ -100,7 +100,7 @@
     
     /* Custom Tooltip Container & Interactive Elements */
     .apexcharts-tooltip { box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1) !important; border: 1px solid #e2e0e7 !important; border-radius: 6px !important; }
-    .apexcharts-series path, .apexcharts-marker { cursor: pointer; } /* Show pointer to indicate clickability */
+    .apexcharts-series path, .apexcharts-marker { cursor: pointer; }
     
     /* Toast Notification */
     .toast {
@@ -126,6 +126,21 @@
       transform: translateX(-50%) translateY(0);
       opacity: 1;
     }
+
+    /* Slack Integration Styles */
+    .slack-container { max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; padding: 10px; }
+    .slack-box { background: var(--bg-card); border: 2px solid var(--border); border-radius: 12px; padding: 20px; transition: border-color 0.2s; cursor: pointer; }
+    .slack-box:hover { border-color: var(--primary); }
+    .slack-box-label { font-size: 11px; font-weight: 800; color: var(--text-sub); text-transform: uppercase; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    
+    .slack-rev-box { border: 2px dashed #cbd5e1; border-radius: 10px; padding: 16px; margin-bottom: 16px; background: #f8fafc; cursor: pointer; transition: border-color 0.2s;}
+    .slack-rev-box:hover { border-color: var(--info); }
+    
+    .slack-train-box { border: 2px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-top: 12px; background: #ffffff; cursor: pointer; transition: border-color 0.2s; }
+    .slack-train-box:hover { border-color: var(--secondary); }
+    
+    .slack-text { font-family: ui-monospace, monospace; font-size: 13px; color: var(--text-main); line-height: 1.5; margin: 0; }
+    .no-select { user-select: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; }
   </style>
 </head>
 <body>
@@ -143,6 +158,7 @@
       <button onclick="switchTab('trainers')">Trainers</button>
       <button onclick="switchTab('reviewers')">Quality Oversight (Reviewers)</button>
       <button onclick="switchTab('l2-review')">Final Tagging (L2 Accepted)</button>
+      <button onclick="switchTab('slack')">Slack</button>
     </div>
 
     <!-- TAB 1: OVERVIEW -->
@@ -294,6 +310,21 @@
         <div class="canvas-container" id="l2-pod-bar-chart"></div>
       </div>
     </div>
+
+    <!-- TAB 6: SLACK INTEGRATION -->
+    <div id="tab-slack" class="tab-content">
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-header-text">
+            <h2>SLACK MESSAGE GENERATOR (PENDING TASKS)</h2>
+            <p>Double-click any box (Pod, Reviewer, or Trainer) to instantly select its formatted content. Selected text maintains perfect whitespace and spacing when pasted natively into Slack. Use Cmd+C / Ctrl+C after selection.</p>
+          </div>
+        </div>
+        <div class="slack-container" id="slack-render-area">
+          <!-- Injected via JS -->
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Toast Notification Element -->
@@ -430,6 +461,7 @@
       if (tabId === 'trainers') renderTrainerCharts();
       if (tabId === 'reviewers') renderReviewerCharts();
       if (tabId === 'l2-review') renderL2Charts();
+      if (tabId === 'slack') renderSlackTab();
     }
 
     function destroyChart(id) {
@@ -469,7 +501,7 @@
         sData.l1.push(l1Tasks.length);
         sData.rew.push(rewTasks.length);
 
-        tooltipStore[cIdArea][0][i] = subTasks.map(t => t.id); // Storing FULL id for copying
+        tooltipStore[cIdArea][0][i] = subTasks.map(t => t.id);
         tooltipStore[cIdArea][1][i] = l1Tasks.map(t => t.id);
         tooltipStore[cIdArea][2][i] = rewTasks.map(t => t.id);
       });
@@ -867,6 +899,90 @@
       };
       chartInstances[cIdPod] = new ApexCharts(document.querySelector(`#${cIdPod}`), barOptions);
       chartInstances[cIdPod].render();
+    }
+
+    // --- TAB 6: SLACK INTEGRATION ---
+    window.selectSlackNode = function(el, event) {
+      event.stopPropagation();
+      const selection = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      selection.removeAllRanges();
+      selection.addRange(range);
+      showToast('Text automatically selected! Press Cmd+C or Ctrl+C to copy.');
+    };
+
+    function renderSlackTab() {
+      const slackData = {}; 
+      
+      // Filter out tasks that are finalized (Approved). Collect pending for the hierarchy.
+      globalTasks.forEach(t => {
+        if (t.normState === 'Approved') return; 
+        if (!t.annotator || t.annotator === '—' || t.annotator === 'Unassigned') return;
+        if (!t.reviewer || t.reviewer === '—' || t.reviewer === 'Unassigned') return;
+        
+        const pod = t.pod || 'Unassigned Pod';
+        const rev = t.reviewer;
+        const train = t.annotator;
+        
+        if (!slackData[pod]) slackData[pod] = {};
+        if (!slackData[pod][rev]) slackData[pod][rev] = {};
+        if (!slackData[pod][rev][train]) slackData[pod][rev][train] = [];
+        
+        slackData[pod][rev][train].push(t.id);
+      });
+
+      let html = '';
+      const sortedPods = Object.keys(slackData).sort();
+      
+      if (sortedPods.length === 0) {
+        document.getElementById('slack-render-area').innerHTML = '<div style="padding: 40px; text-align: center; color: var(--text-sub);">No pending tasks found requiring Slack messaging.</div>';
+        return;
+      }
+
+      sortedPods.forEach(podName => {
+        html += `
+          <div class="slack-box" ondblclick="selectSlackNode(this, event)">
+            <div class="slack-box-label no-select">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
+              POD: ${podName} (Double-Click to Copy Complete Pod)
+            </div>
+            <div class="slack-content-area">`;
+        
+        const sortedRevs = Object.keys(slackData[podName]).sort();
+        sortedRevs.forEach(revName => {
+          html += `
+            <div class="slack-rev-box" ondblclick="selectSlackNode(this, event)">
+              <div class="slack-box-label no-select">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                REVIEWER: ${revName} (Double-Click to Copy Reviewer Hierarchy)
+              </div>
+              <div class="slack-text">🧵 @${revName}, pending tasks in ${podName}<br><br></div>
+              <div class="slack-content-area">`;
+          
+          const sortedTrains = Object.keys(slackData[podName][revName]).sort();
+          sortedTrains.forEach(trainName => {
+            const tasks = slackData[podName][revName][trainName];
+            const taskStr = tasks.join('<br>');
+            
+            // Nested independent target that maintains whitespace perfectly upon browser selection.
+            html += `
+              <div class="slack-train-box" ondblclick="selectSlackNode(this, event)">
+                <div class="slack-box-label no-select">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                  TRAINER: ${trainName} (Double-Click to Copy Trainer Only)
+                </div>
+                <div class="slack-text">Trainer: @${trainName}<br>Pending Tasks: ${tasks.length}<br>Task IDs:<br><br>${taskStr}<br></div>
+              </div>`;
+          });
+          
+          html += `</div></div>`; // Close train-container and rev-box
+        });
+        
+        html += `</div></div>`; // Close rev-container and pod-box
+      });
+
+      document.getElementById('slack-render-area').innerHTML = html;
     }
 
     init();
