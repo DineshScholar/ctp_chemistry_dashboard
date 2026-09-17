@@ -54,7 +54,7 @@
 
     .main-content { padding: 30px; }
 
-    /* --- Filters Section --- */
+    /* Filters Section */
     .filters-container {
       background: var(--bg-card);
       border: 1px solid var(--border);
@@ -84,7 +84,7 @@
     .filter-group { display: flex; gap: 8px; flex: 1.5; min-width: 250px; }
     #custom-date-range { display: none; gap: 8px; align-items: center; flex: 2; }
 
-    /* --- Ledger Table --- */
+    /* Ledger Table */
     .ledger-container {
       background: var(--bg-card);
       border: 1px solid var(--border);
@@ -155,7 +155,7 @@
     }
     .action-btn:hover { background: #dbeafe; }
 
-    /* --- Modal / Side Panel --- */
+    /* Modal */
     .modal-overlay {
       position: fixed; top: 0; left: 0; right: 0; bottom: 0;
       background: rgba(0,0,0,0.4);
@@ -213,6 +213,7 @@
   <nav>
     <a href="index.html" class="active">Task Ledger</a>
     <a href="analytics.html">Analytics & Reporting</a>
+    <a href="admin.html">Team Builder (Admin)</a>
   </nav>
 
   <div class="main-content">
@@ -220,7 +221,6 @@
     <div class="filters-container">
       <input type="text" id="search-id" class="filter-input" placeholder="Search Task ID (e.g. 01a081d2...)" oninput="renderTable()">
       
-      <!-- Date Filters -->
       <div class="filter-group">
         <select id="filter-date" class="filter-input" onchange="toggleCustomDate()">
           <option value="All">All Time</option>
@@ -236,7 +236,6 @@
         </div>
       </div>
 
-      <!-- Status Filters -->
       <select id="filter-state" class="filter-input" onchange="renderTable()">
         <option value="All">All Current Statuses</option>
         <option value="L1 review">Awaiting L1 Review</option>
@@ -337,8 +336,7 @@
           <span id="modal-status-badge"></span>
         </div>
         <a href="#" id="modal-action-btn" class="action-btn" target="_blank">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-          L2 Audit
+          Audit Task
         </a>
       </div>
     </div>
@@ -354,24 +352,7 @@
         const json = await res.json();
         globalData = json.tasks || [];
       } catch (err) {
-        console.warn("Using fallback data due to fetch error:", err);
-        // Fallback dummy data
-        globalData = [
-          {
-            id: "01a081d2-933a-70ee-bcdc-b9df8caf7fd1",
-            annotator: "Apeksha Jagdale",
-            reviewer: "Jônathan Dambros",
-            domain: "Chemistry",
-            state: "Quarantined",
-            submitted_at: "2026-09-12T12:57:58.245Z",
-            history: [
-              { kind: "submitted", label: "Submitted", detail: "Initial submission", occurred_at: "2026-09-12T12:57:58.245Z", actor_name: "Apeksha Jagdale" },
-              { kind: "review_approved", label: "Review approved", detail: "Approved", occurred_at: "2026-09-17T09:27:51.117Z", actor_name: "Jônathan Dambros" },
-              { kind: "review_cleared", label: "Cleared for claim pool", detail: "review_l2", occurred_at: "2026-09-17T09:27:51.117Z", actor_name: "System" },
-              { kind: "quarantined", label: "Quarantined", detail: "Flagged by system.", occurred_at: "2026-09-18T10:00:00.000Z", actor_name: "System" }
-            ]
-          }
-        ];
+        console.warn("Using fallback data due to fetch error.", err);
       }
       populateFilters();
       renderTable();
@@ -389,10 +370,7 @@
       const fillOptions = (id, set) => {
         const select = document.getElementById(id);
         Array.from(set).sort().forEach(item => {
-          const opt = document.createElement('option');
-          opt.value = item;
-          opt.textContent = item;
-          select.appendChild(opt);
+          select.insertAdjacentHTML('beforeend', `<option value="${item}">${item}</option>`);
         });
       };
 
@@ -400,7 +378,6 @@
       fillOptions('filter-reviewer', reviewers);
     }
 
-    /* --- Filters Logic --- */
     function toggleCustomDate() {
       const val = document.getElementById('filter-date').value;
       document.getElementById('custom-date-range').style.display = val === 'Custom' ? 'flex' : 'none';
@@ -449,7 +426,6 @@
       return task.history.some(h => h.label === 'Approved' || h.kind === 'approved' || h.state === 'Approved');
     }
 
-    /* --- Formatting & UI Helpers --- */
     function getBadgeClass(state) {
       const s = state.toLowerCase();
       if (s.includes('rework')) return 'status-rework';
@@ -535,7 +511,6 @@
             <td><div class="mini-history">${miniHistoryHTML}</div></td>
             <td onclick="event.stopPropagation()">
               <a href="https://task.turing.com/admin/projects/43b7da4f-5f31-41a0-b51d-1c64c7fd0a38/delivery-quality/tasks/${t.id}?view=task-review-queue" target="_blank" class="action-btn">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
                 Audit
               </a>
             </td>
@@ -544,7 +519,6 @@
       }).join('');
     }
 
-    /* --- Modal Logic --- */
     function copyId(event, id) {
       event.stopPropagation();
       navigator.clipboard.writeText(id);
@@ -569,7 +543,6 @@
       
       document.getElementById('modal-action-btn').href = `https://task.turing.com/admin/projects/43b7da4f-5f31-41a0-b51d-1c64c7fd0a38/delivery-quality/tasks/${task.id}?view=task-review-queue`;
 
-      // Timeline Rendering
       let timelineHTML = '<div style="color:var(--text-sub); font-size:13px;">No history available</div>';
       if (task.history && task.history.length > 0) {
         timelineHTML = task.history.slice().reverse().map(h => {
@@ -613,7 +586,10 @@
       document.body.style.overflow = '';
     }
 
-    function esc(str) { return String(str||'').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+    function esc(str) {
+      if (!str) return '';
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
 
     init();
   </script>
