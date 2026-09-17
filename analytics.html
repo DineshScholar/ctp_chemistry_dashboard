@@ -32,7 +32,7 @@
     .dashboard { padding: 32px; max-width: 1440px; margin: 0 auto; }
     
     /* Tabs */
-    .sub-tabs { display: flex; gap: 12px; margin-bottom: 24px; border-bottom: 1px solid var(--border); padding-bottom: 16px; }
+    .sub-tabs { display: flex; gap: 12px; margin-bottom: 24px; border-bottom: 1px solid var(--border); padding-bottom: 16px; flex-wrap: wrap;}
     .sub-tabs button {
       background: transparent; border: 1px solid transparent; padding: 8px 16px;
       border-radius: 6px; font-weight: 600; color: var(--text-sub); cursor: pointer;
@@ -85,9 +85,9 @@
     .metric-value { font-size: 22px; font-weight: 800; }
     
     .val-total { color: var(--text-main); }
+    .val-reviewed { color: var(--primary); }
+    .val-pending { color: var(--text-sub); }
     .val-approved { color: var(--secondary); }
-    .val-reviewing { color: var(--info); }
-    .val-action { color: var(--warning); }
 
     .progress-section { font-size: 11.5px; font-weight: 600; color: var(--text-sub); }
     .progress-header { display: flex; justify-content: space-between; margin-bottom: 8px; }
@@ -108,8 +108,9 @@
     <div class="sub-tabs">
       <button class="active" onclick="switchTab('overview')">Overview</button>
       <button onclick="switchTab('pods')">Pod Performance</button>
-      <button onclick="switchTab('trainers')">Trainers (Annotators)</button>
+      <button onclick="switchTab('trainers')">Trainers</button>
       <button onclick="switchTab('reviewers')">Quality Oversight (Reviewers)</button>
+      <button onclick="switchTab('l2-review')">Final Tagging (L2 Accepted)</button>
     </div>
 
     <!-- TAB 1: OVERVIEW -->
@@ -118,7 +119,7 @@
         <div class="chart-header">
           <div class="chart-header-text">
             <h2>TASK THROUGHPUT TIMELINE (DAILY)</h2>
-            <p>Comparing total tasks submitted vs tasks fully approved over time.</p>
+            <p>Comparing total tasks submitted vs tasks reviewed (includes L1 Approved, Rework, Quarantined, and Final Approved).</p>
           </div>
         </div>
         <div class="canvas-container" id="overview-area-chart"></div>
@@ -127,8 +128,8 @@
       <div class="chart-card">
         <div class="chart-header">
           <div class="chart-header-text">
-            <h2>POD SIDE-BY-SIDE COMPARISON (SUBMITTED VS APPROVED)</h2>
-            <p>Direct volume and approval completion comparison across chemistry pods.</p>
+            <h2>POD SIDE-BY-SIDE COMPARISON (SUBMITTED VS REVIEWED)</h2>
+            <p>Direct volume and review audit action comparison across chemistry pods.</p>
           </div>
         </div>
         <div class="canvas-container" id="overview-bar-chart"></div>
@@ -138,7 +139,7 @@
     <!-- TAB 2: PODS -->
     <div id="tab-pods" class="tab-content">
       <div class="pod-grid" id="pod-cards-container">
-        <!-- Injected via JS to reflect accurate Real-Data Metrics -->
+        <!-- Injected via JS -->
       </div>
       <div class="chart-card">
         <div class="chart-header">
@@ -210,10 +211,33 @@
         <div class="chart-header">
           <div class="chart-header-text">
             <h2>TOP REVIEWERS BY STATUS</h2>
-            <p>Reviewer pipeline overview categorized by final task determination.</p>
+            <p>Reviewer pipeline overview categorized by task determination (includes L1 Approved, Rework, Quarantined).</p>
           </div>
         </div>
         <div class="canvas-container" id="reviewer-stacked-chart"></div>
+      </div>
+    </div>
+    
+    <!-- TAB 5: L2 REVIEW (FINAL APPROVALS) -->
+    <div id="tab-l2-review" class="tab-content">
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-header-text">
+            <h2>L2 FINAL APPROVALS OVER TIME</h2>
+            <p>Timeline of tasks reaching final 'Approved' / 'Accepted' status.</p>
+          </div>
+        </div>
+        <div class="canvas-container" id="l2-timeline-chart"></div>
+      </div>
+      
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-header-text">
+            <h2>POD L2 ACCEPTANCE VOLUME</h2>
+            <p>Final approved task volume categorized by Pod.</p>
+          </div>
+        </div>
+        <div class="canvas-container" id="l2-pod-bar-chart"></div>
       </div>
     </div>
   </div>
@@ -226,18 +250,19 @@
     let globalPods = [];
     let trainerToPod = {}; 
     let chartInstances = {};
-    let chartSeriesMap = {}; // Tracks series for custom legends
+    let chartSeriesMap = {}; 
 
+    // Explicit Status Colors based on the updated logic
     const STATUS_COLORS = {
-      'Approved': '#10b981', 
-      'L1 Review': '#d8b4fe', 
-      'L2 Review': '#3b82f6', 
-      'Rework': '#f59e0b', 
-      'Quarantined': '#ef4444', 
-      'Draft': '#9ca3af'
+      'Approved': '#10b981',       // Emerald Green (L2 Final)
+      'L1 Approved': '#3b82f6',    // Blue (Cleared L1, awaiting L2)
+      'L1 Review': '#d8b4fe',      // Light Purple (Awaiting Review)
+      'Rework': '#f59e0b',         // Amber (Reviewer action)
+      'Quarantined': '#ef4444',    // Red (Reviewer action)
+      'Draft': '#9ca3af'           // Gray
     };
 
-    // Color Palette for Multi-line charts
+    // Palette for Multi-line chips
     const MULTI_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16', '#f97316', '#14b8a6', '#64748b', '#d946ef', '#0ea5e9'];
 
     async function init() {
@@ -265,12 +290,18 @@
     function normalizeState(state) {
       if (!state) return 'Draft';
       const s = state.toLowerCase();
+      // If it has been explicitly L1-approved or pushed to L2
+      if (s.includes('l1-approved') || s.includes('l2 review') || s.includes('l2')) return 'L1 Approved';
       if (s.includes('approved')) return 'Approved';
-      if (s.includes('l1')) return 'L1 Review';
-      if (s.includes('l2')) return 'L2 Review';
+      if (s.includes('l1')) return 'L1 Review'; // Awaiting L1
       if (s.includes('rework')) return 'Rework';
       if (s.includes('quarantine')) return 'Quarantined';
       return 'Draft';
+    }
+
+    // A reviewer has successfully "reviewed" a task if it is no longer drafting or awaiting L1
+    function isReviewedAction(normState) {
+      return ['Approved', 'L1 Approved', 'Rework', 'Quarantined'].includes(normState);
     }
 
     function switchTab(tabId) {
@@ -283,6 +314,7 @@
       if (tabId === 'pods') renderPodCharts();
       if (tabId === 'trainers') renderTrainerCharts();
       if (tabId === 'reviewers') renderReviewerCharts();
+      if (tabId === 'l2-review') renderL2Charts();
     }
 
     function destroyChart(id) {
@@ -306,13 +338,13 @@
     // --- TAB 1: OVERVIEW ---
     function renderOverviewCharts() {
       const dates = generateDateRange(globalTasks);
-      const timelineData = { submitted: {}, approved: {} };
-      dates.forEach(d => { timelineData.submitted[d] = 0; timelineData.approved[d] = 0; });
+      const timelineData = { submitted: {}, reviewed: {} };
+      dates.forEach(d => { timelineData.submitted[d] = 0; timelineData.reviewed[d] = 0; });
 
       globalTasks.forEach(t => {
         if(timelineData.submitted[t.dateStr] !== undefined) timelineData.submitted[t.dateStr]++;
-        if (t.normState === 'Approved' && timelineData.approved[t.dateStr] !== undefined) {
-          timelineData.approved[t.dateStr]++;
+        if (isReviewedAction(t.normState) && timelineData.reviewed[t.dateStr] !== undefined) {
+          timelineData.reviewed[t.dateStr]++;
         }
       });
 
@@ -320,10 +352,10 @@
       const areaOptions = {
         series: [
           { name: 'Total Tasks Submitted', data: dates.map(d => timelineData.submitted[d]) },
-          { name: 'Tasks Approved', data: dates.map(d => timelineData.approved[d]) }
+          { name: 'Tasks Reviewed (Actioned)', data: dates.map(d => timelineData.reviewed[d]) }
         ],
         chart: { type: 'area', height: 380, toolbar: { show: false }, fontFamily: 'Inter, sans-serif' },
-        colors: ['#6b21a8', '#10b981'],
+        colors: ['#6b21a8', '#3b82f6'],
         dataLabels: { enabled: false }, stroke: { curve: 'smooth', width: 2 },
         fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0.05, stops: [0, 90, 100] } },
         xaxis: { categories: dates, type: 'category', tickAmount: 10, labels: { style: { colors: '#64748b' } } },
@@ -336,9 +368,9 @@
 
       const podStats = {};
       globalTasks.forEach(t => {
-        if (!podStats[t.pod]) podStats[t.pod] = { submitted: 0, approved: 0 };
+        if (!podStats[t.pod]) podStats[t.pod] = { submitted: 0, reviewed: 0 };
         podStats[t.pod].submitted++;
-        if (t.normState === 'Approved') podStats[t.pod].approved++;
+        if (isReviewedAction(t.normState)) podStats[t.pod].reviewed++;
       });
       const podNames = Object.keys(podStats).sort();
 
@@ -346,10 +378,10 @@
       const barOptions = {
         series: [
           { name: 'Total Submitted', data: podNames.map(p => podStats[p].submitted) },
-          { name: 'Approved Completion', data: podNames.map(p => podStats[p].approved) }
+          { name: 'Tasks Reviewed (Actioned)', data: podNames.map(p => podStats[p].reviewed) }
         ],
         chart: { type: 'bar', height: 380, toolbar: { show: false }, fontFamily: 'Inter, sans-serif' },
-        colors: ['#6b21a8', '#10b981'],
+        colors: ['#6b21a8', '#3b82f6'],
         plotOptions: { bar: { horizontal: false, columnWidth: '55%', borderRadius: 4 } },
         dataLabels: { enabled: false }, stroke: { show: true, width: 2, colors: ['transparent'] },
         xaxis: { categories: podNames, labels: { style: { colors: '#64748b', fontSize: '12px' } } },
@@ -366,21 +398,22 @@
       const container = document.getElementById('pod-cards-container');
       const podStats = {};
       
-      globalPods.forEach(p => { podStats[p.name] = { name: p.name, total: 0, approved: 0, reviewing: 0, action: 0, trainers: p.trainers.length }; });
-      podStats['Unassigned Pod'] = { name: 'Unassigned Pod', total: 0, approved: 0, reviewing: 0, action: 0, trainers: 0 };
+      globalPods.forEach(p => { podStats[p.name] = { name: p.name, total: 0, reviewed: 0, pending: 0, approved: 0, trainers: p.trainers.length }; });
+      podStats['Unassigned Pod'] = { name: 'Unassigned Pod', total: 0, reviewed: 0, pending: 0, approved: 0, trainers: 0 };
 
       globalTasks.forEach(t => {
-        if (!podStats[t.pod]) podStats[t.pod] = { name: t.pod, total: 0, approved: 0, reviewing: 0, action: 0, trainers: 0 };
+        if (!podStats[t.pod]) podStats[t.pod] = { name: t.pod, total: 0, reviewed: 0, pending: 0, approved: 0, trainers: 0 };
         podStats[t.pod].total++;
+        
+        if (isReviewedAction(t.normState)) podStats[t.pod].reviewed++;
+        if (t.normState === 'L1 Review' || t.normState === 'Draft') podStats[t.pod].pending++;
         if (t.normState === 'Approved') podStats[t.pod].approved++;
-        else if (t.normState === 'L1 Review' || t.normState === 'L2 Review') podStats[t.pod].reviewing++;
-        else if (t.normState === 'Rework' || t.normState === 'Quarantined') podStats[t.pod].action++;
       });
 
       let html = '';
       Object.values(podStats).filter(p => p.total > 0 || p.trainers > 0).forEach(p => {
-        const approvedPct = p.total > 0 ? Math.round((p.approved / p.total) * 100) : 0;
-        const covClass = approvedPct >= 75 ? '' : 'warning';
+        const reviewedPct = p.total > 0 ? Math.round((p.reviewed / p.total) * 100) : 0;
+        const covClass = reviewedPct >= 75 ? '' : 'warning';
         
         html += `
           <div class="pod-card">
@@ -392,7 +425,7 @@
                 </div>
                 <div class="pod-meta">${p.trainers} Assigned Trainers</div>
               </div>
-              <div class="coverage-badge ${covClass}">${approvedPct}% Approved</div>
+              <div class="coverage-badge ${covClass}">${reviewedPct}% Reviewed</div>
             </div>
             
             <div class="metric-grid">
@@ -401,26 +434,26 @@
                 <div class="metric-value val-total">${p.total}</div>
               </div>
               <div class="metric-box">
-                <div class="metric-label">Approved</div>
+                <div class="metric-label">Reviewed (Actioned)</div>
+                <div class="metric-value val-reviewed">${p.reviewed}</div>
+              </div>
+              <div class="metric-box">
+                <div class="metric-label">Pending Review</div>
+                <div class="metric-value val-pending">${p.pending}</div>
+              </div>
+              <div class="metric-box">
+                <div class="metric-label">Final Approved</div>
                 <div class="metric-value val-approved">${p.approved}</div>
-              </div>
-              <div class="metric-box">
-                <div class="metric-label">In Review (L1/L2)</div>
-                <div class="metric-value val-reviewing">${p.reviewing}</div>
-              </div>
-              <div class="metric-box">
-                <div class="metric-label">Action Req.</div>
-                <div class="metric-value val-action">${p.action}</div>
               </div>
             </div>
 
             <div class="progress-section">
               <div class="progress-header">
-                <span>Approval Progress:</span>
-                <span>${p.approved} / ${p.total} (${approvedPct}%)</span>
+                <span>Review Audit Progress:</span>
+                <span>${p.reviewed} / ${p.total} (${reviewedPct}%)</span>
               </div>
               <div class="progress-bar-bg">
-                <div class="progress-bar-fill ${covClass}" style="width: ${approvedPct}%"></div>
+                <div class="progress-bar-fill ${covClass}" style="width: ${reviewedPct}%"></div>
               </div>
             </div>
           </div>
@@ -449,7 +482,7 @@
       chartInstances['pod-stacked-chart'].render();
     }
 
-    // --- TAB 3: TRAINERS & TAB 4: REVIEWERS (Logic for custom legends) ---
+    // --- TAB 3 & 4: Shared Legend Functionality (SMOOTH CURVES) ---
     function renderLineChartWithCustomLegend(chartId, legendTitleId, legendChipsId, roleField) {
       const dates = generateDateRange(globalTasks);
       const personnel = [...new Set(globalTasks.map(t => t[roleField]).filter(p => p && p !== '—' && p !== 'Unassigned'))].sort();
@@ -465,11 +498,11 @@
         series: seriesData,
         chart: { type: 'line', height: 400, toolbar: { show: false }, fontFamily: 'Inter, sans-serif' },
         colors: MULTI_COLORS,
-        stroke: { curve: 'straight', width: 2 },
-        markers: { size: 3, hover: { size: 6 } },
+        stroke: { curve: 'smooth', width: 2 }, // Updated to 'smooth' per instructions
+        markers: { size: 0, hover: { size: 6 } },
         xaxis: { categories: dates, type: 'category', tickAmount: 10, labels: { style: { colors: '#64748b' } } },
         yaxis: { labels: { style: { colors: '#64748b' } } },
-        legend: { show: false }, // Hide native legend to use custom interactive HTML legend
+        legend: { show: false }, 
         grid: { borderColor: '#f1f5f9', strokeDashArray: 4 }
       };
       
@@ -477,7 +510,6 @@
       chartInstances[chartId].render();
       chartSeriesMap[chartId] = personnel;
 
-      // Build Custom HTML Chips
       const chipContainer = document.getElementById(legendChipsId);
       let chipHtml = '';
       personnel.forEach((p, index) => {
@@ -518,7 +550,6 @@
     function renderTrainerCharts() {
       renderLineChartWithCustomLegend('trainer-line-chart', 'trainer-legend-title', 'trainer-legend-chips', 'annotator');
 
-      // Stacked Bar for Trainers
       const trainerStats = {};
       globalTasks.forEach(t => {
         if (!t.annotator || t.annotator === '—' || t.annotator === 'Unassigned') return;
@@ -527,7 +558,6 @@
       });
       
       const topTrainers = Object.entries(trainerStats).sort((a,b) => b[1].total - a[1].total).slice(0, 15).map(x => x[0]);
-      
       const statuses = Object.keys(STATUS_COLORS);
       const stackSeries = statuses.map(status => {
         return { name: status, data: topTrainers.map(tr => globalTasks.filter(t => t.annotator === tr && t.normState === status).length) };
@@ -551,7 +581,6 @@
     function renderReviewerCharts() {
       renderLineChartWithCustomLegend('reviewer-line-chart', 'reviewer-legend-title', 'reviewer-legend-chips', 'reviewer');
 
-      // Stacked Bar for Reviewers
       const revStats = {};
       globalTasks.forEach(t => {
         if (!t.reviewer || t.reviewer === '—' || t.reviewer === 'Unassigned') return;
@@ -560,7 +589,6 @@
       });
       
       const topReviewers = Object.entries(revStats).sort((a,b) => b[1].total - a[1].total).slice(0, 15).map(x => x[0]);
-      
       const statuses = Object.keys(STATUS_COLORS);
       const stackSeries = statuses.map(status => {
         return { name: status, data: topReviewers.map(rev => globalTasks.filter(t => t.reviewer === rev && t.normState === status).length) };
@@ -579,6 +607,58 @@
       };
       chartInstances['reviewer-stacked-chart'] = new ApexCharts(document.querySelector("#reviewer-stacked-chart"), barOptions);
       chartInstances['reviewer-stacked-chart'].render();
+    }
+
+    // --- TAB 5: L2 REVIEW (Final Tagging) ---
+    function renderL2Charts() {
+      const dates = generateDateRange(globalTasks);
+      
+      const approvedData = dates.map(d => globalTasks.filter(t => t.normState === 'Approved' && t.dateStr === d).length);
+
+      // 1. Timeline of Approvals
+      destroyChart('l2-timeline-chart');
+      const areaOptions = {
+        series: [{ name: 'L2 Final Approvals', data: approvedData }],
+        chart: { type: 'area', height: 380, toolbar: { show: false }, fontFamily: 'Inter, sans-serif' },
+        colors: ['#10b981'], 
+        dataLabels: { enabled: false }, stroke: { curve: 'smooth', width: 2 },
+        fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0.05, stops: [0, 90, 100] } },
+        xaxis: { categories: dates, type: 'category', tickAmount: 10, labels: { style: { colors: '#64748b' } } },
+        yaxis: { labels: { style: { colors: '#64748b' } } },
+        grid: { borderColor: '#f1f5f9', strokeDashArray: 4 }
+      };
+      chartInstances['l2-timeline-chart'] = new ApexCharts(document.querySelector("#l2-timeline-chart"), areaOptions);
+      chartInstances['l2-timeline-chart'].render();
+
+      // 2. Pod Acceptance Distribution Bar
+      const podStats = {};
+      globalTasks.forEach(t => {
+        if (t.normState === 'Approved') {
+          if (!podStats[t.pod]) podStats[t.pod] = 0;
+          podStats[t.pod]++;
+        }
+      });
+      
+      // Ensure pods with 0 approvals still appear on the chart
+      globalPods.forEach(p => {
+        if (!podStats[p.name]) podStats[p.name] = 0;
+      });
+
+      const podNames = Object.keys(podStats).sort();
+      
+      destroyChart('l2-pod-bar-chart');
+      const barOptions = {
+        series: [{ name: 'Total Approved', data: podNames.map(p => podStats[p]) }],
+        chart: { type: 'bar', height: 380, toolbar: { show: false }, fontFamily: 'Inter, sans-serif' },
+        colors: ['#10b981'],
+        plotOptions: { bar: { horizontal: false, columnWidth: '45%', borderRadius: 4 } },
+        dataLabels: { enabled: true, style: { colors: ['#fff'] } },
+        xaxis: { categories: podNames, labels: { style: { colors: '#64748b', fontSize: '12px' } } },
+        yaxis: { labels: { style: { colors: '#64748b' } } },
+        grid: { borderColor: '#f1f5f9', strokeDashArray: 4 }
+      };
+      chartInstances['l2-pod-bar-chart'] = new ApexCharts(document.querySelector("#l2-pod-bar-chart"), barOptions);
+      chartInstances['l2-pod-bar-chart'].render();
     }
 
     init();
