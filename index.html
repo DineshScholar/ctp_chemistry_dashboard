@@ -342,6 +342,7 @@
 
       <select id="filter-pod" class="filter-input" onchange="renderTable()">
         <option value="All">All Pods</option>
+        <option value="All_No_Unassigned">All Pods - Unassigned Pod</option>
       </select>
 
       <select id="filter-state" class="filter-input" onchange="renderTable()">
@@ -957,7 +958,7 @@
         
         const matchTrainer = qTrainer === 'All' || t.annotator === qTrainer;
         const matchReviewer = qReviewer === 'All' || t.reviewer === qReviewer;
-        const matchPod = qPod === 'All' || t.pod === qPod;
+        const matchPod = qPod === 'All_No_Unassigned' ? t.pod !== 'Unassigned Pod' : (qPod === 'All' || t.pod === qPod);
         
         let matchMilestone = true;
         if (qMilestone === 'L1') matchMilestone = hasClearedL1(t);
