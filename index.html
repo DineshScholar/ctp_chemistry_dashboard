@@ -376,6 +376,10 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
           Copy Pending & Pre-L1 Table
         </button>
+        <button class="action-btn" onclick="downloadPendingHTML()" style="background: #ecfdf5; color: #059669; border-color: #a7f3d0;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2-2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          Download Report
+        </button>
         <button class="action-btn action-btn-secondary" onclick="downloadOfflineLedger()">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2-2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
           Download Offline Ledger
@@ -480,6 +484,7 @@
     let trainerToPod = {};
     let userToEmail = {};
     let l2ReviewersSet = new Set();
+    window.currentFilteredTasks = [];
 
     function getReviewCycles(task) {
       if (task.review_cycles !== undefined) return task.review_cycles;
@@ -630,7 +635,6 @@
       return true;
     }
 
-    // Checking Historical Milestones for Accuracy
     function hasClearedL1(task) {
       if (['Approved', 'L2 review'].includes(task.state)) return true;
       if (!task.history) return false;
@@ -795,7 +799,7 @@
 
       document.getElementById('selectAllCheckbox').checked = false;
 
-      const filtered = globalData.filter(t => {
+      window.currentFilteredTasks = globalData.filter(t => {
         const matchSearch = t.id.toLowerCase().includes(qSearch);
         const matchDate = checkDateMatch(t.submitted_at, qDate);
         let matchState = true;
@@ -819,6 +823,7 @@
         return matchSearch && matchDate && matchState && matchMilestone && matchTrainer && matchReviewer && matchPod;
       });
 
+      const filtered = window.currentFilteredTasks;
       updateSummaryMetrics(filtered);
 
       if (filtered.length === 0) {
@@ -978,7 +983,7 @@
     }
     
     function copyPendingL1Table() {
-      const targetTasks = globalData.filter(t => {
+      const targetTasks = (window.currentFilteredTasks || globalData).filter(t => {
         const s = (t.state || '').toLowerCase();
         const isL2App = s.includes('approved');
         const isL1App = s.includes('l2') || s.includes('l1-approved');
@@ -993,7 +998,7 @@
       });
 
       if (targetTasks.length === 0) {
-        alert("No tasks match the Pending L1 or Pre-L1 Quarantine criteria.");
+        alert("No tasks match the filtered Pending L1 or Pre-L1 Quarantine criteria.");
         return;
       }
 
@@ -1073,6 +1078,138 @@
       }
       
       document.body.removeChild(tempDiv);
+    }
+    
+    function downloadPendingHTML() {
+      const targetTasks = (window.currentFilteredTasks || globalData).filter(t => {
+        const s = (t.state || '').toLowerCase();
+        const isL2App = s.includes('approved');
+        const isL1App = s.includes('l2') || s.includes('l1-approved');
+        const isRework = s.includes('rework');
+        const isQuar = s.includes('quarantine');
+        const isDraft = s.includes('pool') || s.includes('draft') || s === '' || s === 'unassigned' || s === '—';
+        
+        const isPendingL1 = !isL2App && !isL1App && !isRework && !isQuar && !isDraft;
+        const isPreL1Quarantine = isQuar && !hasClearedL1(t);
+        
+        return isPendingL1 || isPreL1Quarantine;
+      });
+
+      if (targetTasks.length === 0) {
+        alert("No tasks match the filtered Pending L1 or Pre-L1 Quarantine criteria.");
+        return;
+      }
+
+      // Sort alphabetically by trainer name
+      targetTasks.sort((a, b) => {
+        const nameA = (a.annotator && a.annotator !== '—' && a.annotator !== 'Unassigned') ? a.annotator.toLowerCase() : 'zzz';
+        const nameB = (b.annotator && b.annotator !== '—' && b.annotator !== 'Unassigned') ? b.annotator.toLowerCase() : 'zzz';
+        return nameA.localeCompare(nameB);
+      });
+
+      let html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pending & Pre-L1 Tasks Report</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f8fafc; color: #0f172a; padding: 40px; margin: 0; }
+    .container { max-width: 1000px; margin: 0 auto; }
+    .header { text-align: center; margin-bottom: 30px; }
+    .header h1 { margin: 0 0 10px 0; color: #4f46e5; font-size: 24px; font-weight: 800; }
+    .header p { color: #64748b; margin: 0; font-size: 14px; }
+    .report-card { background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 24px; overflow-x: auto; border: 1px solid #e2e8f0; }
+    table { width: 100%; border-collapse: collapse; text-align: left; }
+    th { background: #f8fafc; padding: 14px 16px; font-size: 12px; font-weight: 700; color: #475569; border-bottom: 2px solid #e2e8f0; text-transform: uppercase; letter-spacing: 0.05em; }
+    td { padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #e2e8f0; color: #1e293b; }
+    tr:hover td { background: #f1f5f9; }
+    .status-badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; background: #e0e7ff; color: #3730a3; border: 1px solid #c7d2fe; }
+    .status-quar { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+    .status-rework { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+    .taskId { font-family: ui-monospace, monospace; color: #4f46e5; font-weight: 600; font-size: 13px; background: #f8fafc; padding: 4px 8px; border-radius: 4px; border: 1px solid #e2e8f0; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Pending & Pre-L1 Task Queue</h1>
+      <p>Generated on ${new Date().toLocaleString()} · Total Actionable Tasks: <strong>${targetTasks.length}</strong></p>
+    </div>
+    <div class="report-card">
+      <table>
+        <thead>
+          <tr>
+            <th>Sr. No.</th>
+            <th>Trainer Name</th>
+            <th>Task ID</th>
+            <th>Previous Reviewer</th>
+            <th>Submission Status</th>
+          </tr>
+        </thead>
+        <tbody>`;
+      
+      targetTasks.forEach((t, index) => {
+        const trainer = t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned' ? t.annotator : 'Unassigned';
+        const taskId = t.id || '—';
+        
+        let reviewer = 'None';
+        if (t.history) {
+          const revEvents = t.history.filter(h => 
+            h.actor_name && h.actor_name !== 'System' && h.actor_name !== t.annotator && h.actor_name !== '—' && !l2ReviewersSet.has(h.actor_name)
+          );
+          if (revEvents.length > 0) reviewer = revEvents[revEvents.length - 1].actor_name;
+        }
+        if (reviewer === 'None' && t.reviewer && t.reviewer !== '—' && t.reviewer !== 'Unassigned' && !l2ReviewersSet.has(t.reviewer)) {
+          reviewer = t.reviewer;
+        }
+        
+        let status = 'Fresh Submission';
+        let badgeClass = '';
+        const s = (t.state || '').toLowerCase();
+        
+        let reworks = 0;
+        if (t.history) {
+          t.history.forEach(h => {
+            if (h.label && h.label.toLowerCase().includes('rework')) reworks++;
+          });
+        }
+
+        if (s.includes('quarantine')) {
+          status = 'Quarantined';
+          badgeClass = 'status-quar';
+        } else if (reworks > 0) {
+          status = 'Rework';
+          badgeClass = 'status-rework';
+        }
+
+        html += `
+          <tr>
+            <td style="color:#64748b; font-weight:600;">${index + 1}</td>
+            <td style="font-weight: 600;">${esc(trainer)}</td>
+            <td><span class="taskId">${esc(taskId)}</span></td>
+            <td>${esc(reviewer)}</td>
+            <td><span class="status-badge ${badgeClass}">${status}</span></td>
+          </tr>`;
+      });
+      
+      html += `
+        </tbody>
+      </table>
+    </div>
+  </div>
+</body>
+</html>`;
+
+      const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Pending_Queue_Report_${new Date().toISOString().split('T')[0]}.html`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     }
 
     init();
