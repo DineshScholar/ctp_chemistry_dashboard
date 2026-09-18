@@ -336,10 +336,7 @@
     
     let globalTasks = []; 
     let globalPods = [];
-    let emailToPod = {};
-    let nameToPod = {};
-    let l2Emails = new Set();
-    let l2Names = new Set();
+    let trainerToPod = {}; 
     let chartInstances = {};
     let chartSeriesMap = {}; 
     
@@ -358,25 +355,15 @@
     };
     const MULTI_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16', '#f97316', '#14b8a6', '#64748b', '#d946ef', '#0ea5e9'];
 
-    function normalizeName(name) {
-      if (!name) return '';
-      return String(name).trim().toLowerCase().replace(/\s+/g, ' ');
-    }
-
-    function extractEmail(str) {
-      if (!str) return null;
-      const match = String(str).match(/([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)/);
-      return match ? match[1].toLowerCase() : null;
-    }
-
-    function findEmail(task, rolePrefix) {
-      const e1 = extractEmail(task[rolePrefix + '_email']);
-      if (e1) return e1;
-      const e2 = extractEmail(task[rolePrefix + 'Email']);
-      if (e2) return e2;
-      const e3 = extractEmail(task[rolePrefix]);
-      if (e3) return e3;
-      return null;
+    function resolveAnnotator(rawName, members, mappings) {
+      if (!rawName || rawName === '—' || rawName === 'Unassigned') return rawName;
+      if (mappings && mappings[rawName]) return mappings[rawName];
+      const exactMatch = members.find(r => r.name.toLowerCase() === rawName.toLowerCase());
+      if (exactMatch) return exactMatch.name;
+      const rawFirstName = rawName.trim().split(' ')[0].toLowerCase();
+      const firstMatch = members.find(r => r.name.trim().split(' ')[0].toLowerCase() === rawFirstName);
+      if (firstMatch) return firstMatch.name;
+      return rawName;
     }
 
     async function init() {
@@ -385,52 +372,28 @@
         const taskData = await taskRes.json();
         const rosterData = await rosterRes.json();
         
+        let globalMappings = rosterData.mappings || {};
+        let allRosterMembers = [];
+
         globalPods = rosterData.pods || [];
         globalPods.forEach(pod => {
           pod.trainers.forEach(t => {
-            const norm = normalizeName(t.name);
-            if (t.email) emailToPod[t.email.toLowerCase().trim()] = pod.name;
-            if (norm) nameToPod[norm] = pod.name;
+            trainerToPod[t.name] = pod.name;
+            allRosterMembers.push(t);
           });
         });
 
         if (rosterData.l2_reviewers) {
-          rosterData.l2_reviewers.forEach(r => {
-             const norm = normalizeName(r.name);
-             if (r.email) l2Emails.add(r.email.toLowerCase().trim());
-             if (norm) l2Names.add(norm);
-          });
+          rosterData.l2_reviewers.forEach(r => allRosterMembers.push(r));
         }
 
         globalTasks = (taskData.tasks || []).map(t => {
-          const normAnnotator = normalizeName(t.annotator);
-          const normReviewer = normalizeName(t.reviewer);
-          
-          const annEmail = findEmail(t, 'annotator') || extractEmail(t.email);
-          const revEmail = findEmail(t, 'reviewer');
-
-          const isRealAnnotator = t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned';
-          const isRealReviewer = t.reviewer && t.reviewer !== '—' && t.reviewer !== 'Unassigned';
-
-          let matchedPod = (annEmail && emailToPod[annEmail]) ? emailToPod[annEmail] : nameToPod[normAnnotator];
-          let isL2Trainer = (annEmail && l2Emails.has(annEmail)) || l2Names.has(normAnnotator);
-          let isUnidTrainer = isRealAnnotator && !matchedPod && !isL2Trainer;
-
-          let revMatchedPod = (revEmail && emailToPod[revEmail]) ? emailToPod[revEmail] : nameToPod[normReviewer];
-          let isL2Rev = (revEmail && l2Emails.has(revEmail)) || l2Names.has(normReviewer);
-          let isUnidReviewer = isRealReviewer && !revMatchedPod && !isL2Rev;
-
-          let podName = 'Unassigned Pod'; 
-          if (isUnidTrainer || isUnidReviewer) {
-              podName = 'UNIDENTIFIED';
-          } else if (matchedPod) {
-              podName = matchedPod;
-          }
-
+          let resolvedAnnotator = resolveAnnotator(t.annotator, allRosterMembers, globalMappings);
           return { 
             ...t, 
+            annotator: resolvedAnnotator, 
             shortId: t.id ? t.id.split('-')[0] : 'Unknown',
-            pod: podName,
+            pod: trainerToPod[resolvedAnnotator] || 'Unassigned Pod',
             normState: normalizeState(t.state),
             dateStr: t.submitted_at ? t.submitted_at.split('T')[0] : null
           };
@@ -477,12 +440,13 @@
       });
     };
 
+    // Helper to generate the exact HTML string for the Apex custom tooltip
     function buildTooltipHtml(chartId, seriesIndex, dataPointIndex, w) {
       const val = w.globals.initialSeries[seriesIndex].data[dataPointIndex];
       if (!val) return '';
       
       const fullIds = tooltipStore[chartId]?.[seriesIndex]?.[dataPointIndex] || [];
-      const tListShort = fullIds.map(id => id.split('-')[0]); 
+      const tListShort = fullIds.map(id => id.split('-')[0]); // Shorten just for visual render
       
       const tStr = tListShort.length > 0 
         ? tListShort.slice(0, 8).join(', ') + (tListShort.length > 8 ? ` <br/><span style="color:#f59e0b;">(+${tListShort.length - 8} more tasks)</span>` : '') 
@@ -503,6 +467,7 @@
         </div>`;
     }
 
+    // Dynamic configuration injector to ensure all charts fire copy events
     function getInteractiveChartEvents(chartId) {
       return {
         dataPointSelection: function(e, chart, config) { window.copyFromChart(chartId, config.seriesIndex, config.dataPointIndex); },
@@ -576,7 +541,7 @@
         chart: { type: 'area', height: 380, toolbar: { show: false }, fontFamily: 'Inter, sans-serif', events: getInteractiveChartEvents(cIdArea) },
         colors: ['#6b21a8', '#3b82f6', '#f59e0b'],
         dataLabels: { enabled: false }, stroke: { curve: 'smooth', width: 2 },
-        markers: { size: 3, hover: { size: 6 } },
+        markers: { size: 3, hover: { size: 6 } }, // Ensure point clickability
         fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0.05, stops: [0, 90, 100] } },
         xaxis: { categories: dates, type: 'category', tickAmount: 10, labels: { style: { colors: '#64748b' } } },
         yaxis: { labels: { style: { colors: '#64748b' } } },
@@ -589,12 +554,7 @@
 
       const cIdBar = 'overview-bar-chart';
       tooltipStore[cIdBar] = [[], [], []];
-      
-      const podNamesSet = new Set(globalPods.map(p => p.name));
-      podNamesSet.add('Unassigned Pod');
-      podNamesSet.add('UNIDENTIFIED');
-      globalTasks.forEach(t => podNamesSet.add(t.pod));
-      const podNames = [...podNamesSet].sort();
+      const podNames = [...new Set(globalTasks.map(t => t.pod))].sort();
       
       const bData = { sub: [], l1: [], rew: [] };
       podNames.forEach((p, i) => {
@@ -636,17 +596,8 @@
     // --- SHARED LINE CHART LOGIC WITH CUSTOM LEGEND & FULL ID STORE ---
     function renderLineChartWithCustomLegend(chartId, legendTitleId, legendChipsId, roleField) {
       const dates = generateDateRange(globalTasks);
-      
-      let entities;
-      if (roleField === 'pod') {
-          const podNamesSet = new Set(globalPods.map(p => p.name));
-          podNamesSet.add('Unassigned Pod');
-          podNamesSet.add('UNIDENTIFIED');
-          globalTasks.forEach(t => podNamesSet.add(t.pod));
-          entities = [...podNamesSet].sort();
-      } else {
-          entities = [...new Set(globalTasks.map(t => t[roleField]).filter(p => p && p !== '—' && p !== 'Unassigned'))].sort();
-      }
+      let entities = (roleField === 'pod') ? [...new Set(globalTasks.map(t => t.pod))].sort() 
+                     : [...new Set(globalTasks.map(t => t[roleField]).filter(p => p && p !== '—' && p !== 'Unassigned'))].sort();
       
       document.getElementById(legendTitleId).textContent = `TOGGLE LINES (${entities.length}):`;
       tooltipStore[chartId] = [];
@@ -655,7 +606,7 @@
         tooltipStore[chartId][sIdx] = [];
         const data = dates.map((d, dIdx) => {
           const tasks = globalTasks.filter(t => t[roleField] === e && t.dateStr === d);
-          tooltipStore[chartId][sIdx][dIdx] = tasks.map(t => t.id);
+          tooltipStore[chartId][sIdx][dIdx] = tasks.map(t => t.id); // Full IDs
           return tasks.length;
         });
         return { name: e, data };
@@ -667,7 +618,7 @@
         chart: { type: 'line', height: 400, toolbar: { show: false }, fontFamily: 'Inter, sans-serif', events: getInteractiveChartEvents(chartId) },
         colors: MULTI_COLORS,
         stroke: { curve: 'smooth', width: 2 },
-        markers: { size: 4, hover: { size: 6 } }, 
+        markers: { size: 4, hover: { size: 6 } }, // Explicit marker size to ensure user can click
         xaxis: { categories: dates, type: 'category', tickAmount: 10, labels: { style: { colors: '#64748b' } } },
         yaxis: { labels: { style: { colors: '#64748b' } } },
         legend: { show: false }, 
@@ -718,7 +669,6 @@
         podStats[p.name] = { name: p.name, lead: p.lead || 'Unknown', total: 0, l1Accepted: 0, rework: 0, l2Approved: 0, trainers: p.trainers.length }; 
       });
       podStats['Unassigned Pod'] = { name: 'Unassigned Pod', lead: 'N/A', total: 0, l1Accepted: 0, rework: 0, l2Approved: 0, trainers: 0 };
-      podStats['UNIDENTIFIED'] = { name: 'UNIDENTIFIED', lead: 'System Flag', total: 0, l1Accepted: 0, rework: 0, l2Approved: 0, trainers: 0 };
 
       globalTasks.forEach(t => {
         if (!podStats[t.pod]) return;
@@ -788,14 +738,14 @@
 
       const cIdStack = 'pod-stacked-chart';
       tooltipStore[cIdStack] = [];
-      const podNames = Object.keys(podStats).sort();
+      const podNames = Object.keys(podStats).filter(p => podStats[p].total > 0).sort();
       const statuses = Object.keys(STATUS_COLORS);
       
       const seriesData = statuses.map((status, sIdx) => {
         tooltipStore[cIdStack][sIdx] = [];
         const data = podNames.map((p, pIdx) => {
           const tasks = globalTasks.filter(t => t.pod === p && t.normState === status);
-          tooltipStore[cIdStack][sIdx][pIdx] = tasks.map(t => t.id);
+          tooltipStore[cIdStack][sIdx][pIdx] = tasks.map(t => t.id); // FULL id
           return tasks.length;
         });
         return { name: status, data };
@@ -953,8 +903,6 @@
         }
       });
       globalPods.forEach(p => { if (!podStats[p.name]) podStats[p.name] = []; });
-      if (!podStats['Unassigned Pod']) podStats['Unassigned Pod'] = [];
-      if (!podStats['UNIDENTIFIED']) podStats['UNIDENTIFIED'] = [];
       
       const podNames = Object.keys(podStats).sort();
       const podData = podNames.map((p, pIdx) => {
@@ -992,6 +940,7 @@
     function renderSlackTab() {
       const slackData = {}; 
       
+      // Filter out tasks that are finalized (Approved). Collect pending for the hierarchy.
       globalTasks.forEach(t => {
         if (t.normState === 'Approved') return; 
         if (!t.annotator || t.annotator === '—' || t.annotator === 'Unassigned') return;
@@ -1041,6 +990,7 @@
             const tasks = slackData[podName][revName][trainName];
             const taskStr = tasks.join('<br>');
             
+            // Nested independent target that maintains whitespace perfectly upon browser selection.
             html += `
               <div class="slack-train-box" ondblclick="selectSlackNode(this, event)">
                 <div class="slack-box-label no-select">
@@ -1051,10 +1001,10 @@
               </div>`;
           });
           
-          html += `</div></div>`; 
+          html += `</div></div>`; // Close train-container and rev-box
         });
         
-        html += `</div></div>`; 
+        html += `</div></div>`; // Close rev-container and pod-box
       });
 
       document.getElementById('slack-render-area').innerHTML = html;
