@@ -377,10 +377,17 @@
 
         globalTasks = (taskData.tasks || []).map(t => {
           const annKey = t.annotator ? t.annotator.trim().toLowerCase() : '';
+          
+          let podName = 'Unassigned Pod'; 
+          if (t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned') {
+             // Real name found. Default to 'UNIDENTIFIED' unless they exist in the roster pod mappings
+             podName = trainerToPod[annKey] || 'UNIDENTIFIED';
+          }
+          
           return {
             ...t, 
             shortId: t.id ? t.id.split('-')[0] : 'Unknown', // Stored for display, but full t.id is retained
-            pod: trainerToPod[annKey] || 'UNIDENTIFIED',
+            pod: podName,
             normState: normalizeState(t.state),
             dateStr: t.submitted_at ? t.submitted_at.split('T')[0] : null
           };
@@ -655,6 +662,9 @@
       globalPods.forEach(p => { 
         podStats[p.name] = { name: p.name, lead: p.lead || 'Unknown', total: 0, l1Accepted: 0, rework: 0, l2Approved: 0, trainers: p.trainers.length }; 
       });
+      
+      // Auto-initialize these so they aggregate appropriately when unknown people have data
+      podStats['Unassigned Pod'] = { name: 'Unassigned Pod', lead: 'N/A', total: 0, l1Accepted: 0, rework: 0, l2Approved: 0, trainers: 0 };
       podStats['UNIDENTIFIED'] = { name: 'UNIDENTIFIED', lead: 'N/A', total: 0, l1Accepted: 0, rework: 0, l2Approved: 0, trainers: 0 };
 
       globalTasks.forEach(t => {
@@ -933,7 +943,7 @@
         if (!t.annotator || t.annotator === '—' || t.annotator === 'Unassigned') return;
         if (!t.reviewer || t.reviewer === '—' || t.reviewer === 'Unassigned') return;
         
-        const pod = t.pod || 'UNIDENTIFIED';
+        const pod = t.pod || 'Unassigned Pod';
         const rev = t.reviewer;
         const train = t.annotator;
         
