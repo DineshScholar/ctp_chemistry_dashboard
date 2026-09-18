@@ -87,6 +87,13 @@
     .strikethrough-name { text-decoration: line-through; color: #94a3b8; }
     .add-txt-btn { background: none; border: none; font-size: 12px; color: #64748b; cursor: pointer; text-align: left; padding: 4px 0; font-weight: 600;}
     .add-txt-btn:hover { color: var(--primary); }
+
+    /* Custom Sub-Tab Styles */
+    .admin-tabs { display: flex; gap: 16px; margin-bottom: 20px; border-bottom: 1px solid #e2e8f0; }
+    .admin-tab { padding: 10px 16px; background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-weight: 600; color: #64748b; font-size: 14px; }
+    .admin-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+    .mismatch-row { display: flex; justify-content: space-between; padding: 12px; background: white; border: 1px solid #e2e8f0; margin-bottom: 8px; border-radius: 8px; align-items: center; font-size: 13px; }
+    .mismatch-name { font-weight: 600; color: #ef4444; }
   </style>
 </head>
 <body>
@@ -109,40 +116,127 @@
       </div>
     </div>
     
-    <div class="total-team-header">
-      <div class="blinking-wrapper">
-        <span class="pulse-green"></span>
-        <span class="pulse-red"></span>
-        <strong>TOTAL TEAM (ALL-TIME ROSTER)</strong>
-        <span class="sync-tag">Live Sync</span>
+    <div class="admin-tabs">
+      <button class="admin-tab active" onclick="switchTab('hierarchy')" id="tab-hierarchy">Team Hierarchy</button>
+      <button class="admin-tab" onclick="switchTab('mismatches')" id="tab-mismatches">Mismatch Resolution <span id="mismatch-badge"></span></button>
+    </div>
+
+    <div id="view-hierarchy">
+      <div class="total-team-header">
+        <div class="blinking-wrapper">
+          <span class="pulse-green"></span>
+          <span class="pulse-red"></span>
+          <strong>TOTAL TEAM (ALL-TIME ROSTER)</strong>
+          <span class="sync-tag">Live Sync</span>
+        </div>
+        <div class="legend-bar">
+          <span class="legend-item"><span class="legend-dot dot-green"></span> Active (<span id="count-active">0</span>)</span>
+          <span class="legend-item"><span class="legend-dot dot-amber"></span> Low Perf (<span id="count-lowperf">0</span>)</span>
+          <span class="legend-item"><span class="legend-dot dot-red"></span> MIA (<span id="count-mia">0</span>)</span>
+          <span class="legend-item"><span class="legend-dot dot-dark"></span> Off/Resigned (<span id="count-off">0</span>)</span>
+          <span class="legend-total"><strong id="count-total">0 Total</strong></span>
+        </div>
       </div>
-      <div class="legend-bar">
-        <span class="legend-item"><span class="legend-dot dot-green"></span> Active (<span id="count-active">0</span>)</span>
-        <span class="legend-item"><span class="legend-dot dot-amber"></span> Low Perf (<span id="count-lowperf">0</span>)</span>
-        <span class="legend-item"><span class="legend-dot dot-red"></span> MIA (<span id="count-mia">0</span>)</span>
-        <span class="legend-item"><span class="legend-dot dot-dark"></span> Off/Resigned (<span id="count-off">0</span>)</span>
-        <span class="legend-total"><strong id="count-total">0 Total</strong></span>
+
+      <div class="outline-container" id="roster-container">
+        <div style="text-align:center; padding: 40px; color:#64748b;">Loading hierarchy...</div>
       </div>
     </div>
 
-    <div class="outline-container" id="roster-container">
-      <div style="text-align:center; padding: 40px; color:#64748b;">Loading hierarchy...</div>
+    <div id="view-mismatches" style="display:none;">
+      <div class="outline-container" id="mismatches-container"></div>
     </div>
   </div>
 
   <script>
     const API_URL = 'https://turing-api.dineshkashyaparya.workers.dev/roster';
-    let roster = { pods: [], l2_reviewers: [] };
+    const TASK_URL = 'https://turing-api.dineshkashyaparya.workers.dev';
+    
+    let roster = { pods: [], l2_reviewers: [], mappings: {} };
+    let rawTasks = [];
 
     async function loadRoster() {
       try {
-        const res = await fetch(API_URL);
+        const [res, taskRes] = await Promise.all([
+          fetch(API_URL),
+          fetch(TASK_URL).catch(() => ({ json: () => ({ tasks: [] }) }))
+        ]);
+        
         roster = await res.json();
+        const taskData = await taskRes.json();
+        rawTasks = taskData.tasks || [];
+
         if (!roster.l2_reviewers) roster.l2_reviewers = [];
+        if (!roster.mappings) roster.mappings = {};
+        
         renderRoster();
+        renderMismatches();
       } catch (err) {
         console.error("Failed to load", err);
       }
+    }
+
+    function switchTab(tab) {
+      document.getElementById('tab-hierarchy').classList.toggle('active', tab === 'hierarchy');
+      document.getElementById('tab-mismatches').classList.toggle('active', tab === 'mismatches');
+      document.getElementById('view-hierarchy').style.display = tab === 'hierarchy' ? 'block' : 'none';
+      document.getElementById('view-mismatches').style.display = tab === 'mismatches' ? 'block' : 'none';
+    }
+
+    function resolveAnnotatorAdmin(rawName, members) {
+      if (!rawName || rawName === '—' || rawName === 'Unassigned') return null;
+      if (roster.mappings && roster.mappings[rawName]) return roster.mappings[rawName];
+
+      const exactMatch = members.find(r => r.name.toLowerCase() === rawName.toLowerCase());
+      if (exactMatch) return exactMatch.name;
+
+      const rawFirstName = rawName.trim().split(' ')[0].toLowerCase();
+      const firstMatch = members.find(r => r.name.trim().split(' ')[0].toLowerCase() === rawFirstName);
+      if (firstMatch) return firstMatch.name;
+
+      return null;
+    }
+
+    function renderMismatches() {
+      let members = [...roster.l2_reviewers];
+      roster.pods.forEach(p => members.push(...p.trainers));
+
+      const uniqueTaskNames = [...new Set(rawTasks.map(t => t.annotator))].filter(n => n && n !== '—' && n !== 'Unassigned');
+      let mismatches = uniqueTaskNames.filter(name => !resolveAnnotatorAdmin(name, members));
+
+      const badge = document.getElementById('mismatch-badge');
+      badge.textContent = mismatches.length > 0 ? `(${mismatches.length})` : '';
+      badge.style.color = mismatches.length > 0 ? '#ef4444' : 'inherit';
+
+      const container = document.getElementById('mismatches-container');
+      if (mismatches.length === 0) {
+        container.innerHTML = '<div style="padding: 40px; text-align: center; color: #64748b;">No mismatches found! All tasks sync perfectly to the roster.</div>';
+        return;
+      }
+
+      let optionsHtml = '<option value="">-- Select Roster Member to Map To --</option>';
+      members.sort((a,b) => a.name.localeCompare(b.name)).forEach(m => {
+        optionsHtml += `<option value="${m.name}">${m.name} (${m.email})</option>`;
+      });
+
+      let html = '<div style="margin-bottom: 16px; font-size: 13px; color: #64748b;">The following task annotators do not match any team member (by exact or first name). Map them below to permanently sync the dashboard.</div>';
+      mismatches.forEach(name => {
+        html += `
+          <div class="mismatch-row">
+            <span class="mismatch-name">Unmapped Author: ${name}</span>
+            <select class="ghost-select" style="border:1px solid #cbd5e1; padding: 6px; border-radius: 4px; background: #f8fafc;" onchange="updateMapping('${name.replace(/'/g, "\\'")}', this.value)">
+              ${optionsHtml}
+            </select>
+          </div>
+        `;
+      });
+      container.innerHTML = html;
+    }
+
+    function updateMapping(rawName, rosterName) {
+      if (rosterName) roster.mappings[rawName] = rosterName;
+      else delete roster.mappings[rawName];
+      renderMismatches();
     }
 
     function getStatusClass(status) {
