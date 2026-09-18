@@ -72,19 +72,12 @@
       flex-direction: column;
       gap: 6px;
       box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02);
-      transition: all 0.2s ease;
+      transition: transform 0.2s, box-shadow 0.2s;
       cursor: pointer;
       user-select: none;
     }
     .summary-card:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.04); }
-    
-    /* Interactive Selected State */
-    .summary-card.selected {
-      border-color: var(--primary);
-      box-shadow: 0 0 0 2px var(--primary), 0 10px 15px -3px rgba(107, 33, 168, 0.15);
-      transform: translateY(-2px);
-      background: #faf5ff;
-    }
+    .summary-card.selected { outline: 3px solid var(--primary); transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(107, 33, 168, 0.15); }
     
     .summary-label {
       font-size: 10px;
@@ -169,8 +162,7 @@
     
     .table-actions-btns {
       display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
+      gap: 12px;
     }
 
     /* Ledger Table */
@@ -284,7 +276,6 @@
     .timeline-item { position: relative; margin-bottom: 24px; }
     .timeline-item:last-child { margin-bottom: 0; }
     
-    /* Blinking Animations for Timeline Statuses */
     @keyframes pulse-green { 0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); } 100% { box-shadow: 0 0 0 0 transparent; } }
     @keyframes pulse-blue { 0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(59, 130, 246, 0); } 100% { box-shadow: 0 0 0 0 transparent; } }
     @keyframes pulse-amber { 0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(245, 158, 11, 0); } 100% { box-shadow: 0 0 0 0 transparent; } }
@@ -296,7 +287,6 @@
       transition: all 0.3s ease;
     }
     
-    /* Dynamic Dot State Classes */
     .timeline-dot.status-l2-app { border-color: var(--success) !important; background: var(--success-light) !important; animation: pulse-green 2s infinite; }
     .timeline-dot.status-l1-app { border-color: var(--accent-blue) !important; background: var(--accent-blue-light) !important; animation: pulse-blue 2s infinite; }
     .timeline-dot.status-rework { border-color: var(--warning) !important; background: var(--warning-light) !important; animation: pulse-amber 2s infinite; }
@@ -385,13 +375,13 @@
       <div class="table-actions-btns">
         <button class="action-btn" onclick="copyPendingL1Table()" style="background: #fdf4ff; color: #a21caf; border-color: #f5d0fe;">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-          Copy Pending Table
+          Copy Pending & Pre-L1 Table
         </button>
         <button class="action-btn" onclick="downloadPendingHTML()" style="background: #ecfdf5; color: #059669; border-color: #a7f3d0;">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2-2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
           Download Report
         </button>
-        <button class="action-btn" onclick="downloadCustomReport()" style="background: #e0e7ff; color: #4338ca; border-color: #c7d2fe;">
+        <button class="action-btn" onclick="downloadChipsReport()" style="background: #e0e7ff; color: #4338ca; border-color: #c7d2fe;">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2-2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
           Download Selected Chips
         </button>
@@ -499,21 +489,18 @@
     let trainerToPod = {};
     let userToEmail = {};
     let l2ReviewersSet = new Set();
+    let selectedChips = new Set();
     window.currentFilteredTasks = [];
-    
-    // Tracks selections for the top summary chips
-    let activeSummaryCards = new Set();
 
-    window.toggleSummaryCard = function(id) {
-        const el = document.getElementById('summary-' + id);
-        if (activeSummaryCards.has(id)) {
-            activeSummaryCards.delete(id);
-            el.classList.remove('selected');
-        } else {
-            activeSummaryCards.add(id);
-            el.classList.add('selected');
-        }
-    };
+    function toggleChip(chipName, el) {
+      if (selectedChips.has(chipName)) {
+        selectedChips.delete(chipName);
+        el.classList.remove('selected');
+      } else {
+        selectedChips.add(chipName);
+        el.classList.add('selected');
+      }
+    }
 
     function getReviewCycles(task) {
       if (task.review_cycles !== undefined) return task.review_cycles;
@@ -733,39 +720,39 @@
       });
 
       document.getElementById('summary-grid').innerHTML = `
-        <div id="summary-total" class="summary-card card-total ${activeSummaryCards.has('total') ? 'selected' : ''}" onclick="toggleSummaryCard('total')">
+        <div class="summary-card card-total ${selectedChips.has('Total Selected View') ? 'selected' : ''}" onclick="toggleChip('Total Selected View', this)">
           <span class="summary-label">Total Selected View</span>
           <span class="summary-value">${stats.total}</span>
         </div>
-        <div id="summary-l2Approved" class="summary-card card-l2 ${activeSummaryCards.has('l2Approved') ? 'selected' : ''}" onclick="toggleSummaryCard('l2Approved')">
+        <div class="summary-card card-l2 ${selectedChips.has('Final Approved (L2)') ? 'selected' : ''}" onclick="toggleChip('Final Approved (L2)', this)">
           <span class="summary-label">Final Approved (L2)</span>
           <span class="summary-value">${stats.l2Approved}</span>
         </div>
-        <div id="summary-l1Approved" class="summary-card card-l1 ${activeSummaryCards.has('l1Approved') ? 'selected' : ''}" onclick="toggleSummaryCard('l1Approved')">
+        <div class="summary-card card-l1 ${selectedChips.has('L1-Approved (Wait L2)') ? 'selected' : ''}" onclick="toggleChip('L1-Approved (Wait L2)', this)">
           <span class="summary-label">L1-Approved (Wait L2)</span>
           <span class="summary-value">${stats.l1Approved}</span>
         </div>
-        <div id="summary-rework" class="summary-card card-rework ${activeSummaryCards.has('rework') ? 'selected' : ''}" onclick="toggleSummaryCard('rework')">
+        <div class="summary-card card-rework ${selectedChips.has('In Rework') ? 'selected' : ''}" onclick="toggleChip('In Rework', this)">
           <span class="summary-label">In Rework</span>
           <span class="summary-value">${stats.rework}</span>
         </div>
-        <div id="summary-quarantined" class="summary-card card-quarantine ${activeSummaryCards.has('quarantined') ? 'selected' : ''}" onclick="toggleSummaryCard('quarantined')">
+        <div class="summary-card card-quarantine ${selectedChips.has('Quarantined (All)') ? 'selected' : ''}" onclick="toggleChip('Quarantined (All)', this)">
           <span class="summary-label">Quarantined (All)</span>
           <span class="summary-value">${stats.quarantined}</span>
         </div>
-        <div id="summary-pendingL1" class="summary-card card-pending ${activeSummaryCards.has('pendingL1') ? 'selected' : ''}" onclick="toggleSummaryCard('pendingL1')">
+        <div class="summary-card card-pending ${selectedChips.has('Pending L1') ? 'selected' : ''}" onclick="toggleChip('Pending L1', this)">
           <span class="summary-label">Pending L1</span>
           <span class="summary-value">${stats.pendingL1}</span>
         </div>
-        <div id="summary-draft" class="summary-card card-draft ${activeSummaryCards.has('draft') ? 'selected' : ''}" onclick="toggleSummaryCard('draft')">
+        <div class="summary-card card-draft ${selectedChips.has('Draft / Unsubmitted') ? 'selected' : ''}" onclick="toggleChip('Draft / Unsubmitted', this)">
           <span class="summary-label">Draft / Unsubmitted</span>
           <span class="summary-value">${stats.draft}</span>
         </div>
-        <div id="summary-quarPostL1" class="summary-card card-quar-l1 ${activeSummaryCards.has('quarPostL1') ? 'selected' : ''}" onclick="toggleSummaryCard('quarPostL1')">
+        <div class="summary-card card-quar-l1 ${selectedChips.has('Quarantined (Post-L1)') ? 'selected' : ''}" onclick="toggleChip('Quarantined (Post-L1)', this)">
           <span class="summary-label">Quarantined (Post-L1)</span>
           <span class="summary-value">${stats.quarPostL1}</span>
         </div>
-        <div id="summary-quarPostL2" class="summary-card card-quar-l2 ${activeSummaryCards.has('quarPostL2') ? 'selected' : ''}" onclick="toggleSummaryCard('quarPostL2')">
+        <div class="summary-card card-quar-l2 ${selectedChips.has('Quarantined (Post-L2)') ? 'selected' : ''}" onclick="toggleChip('Quarantined (Post-L2)', this)">
           <span class="summary-label">Quarantined (Post-L2)</span>
           <span class="summary-value">${stats.quarPostL2}</span>
         </div>
@@ -1093,298 +1080,233 @@
       document.body.removeChild(tempDiv);
     }
 
-    function downloadCustomReport() {
-      if (activeSummaryCards.size === 0) {
-        alert("Please select at least one Summary Chip from the top grid to download a custom report.");
+    function downloadChipsReport() {
+      if (selectedChips.size === 0) {
+        alert("Please select at least one summary chip from the top dashboard metrics to generate this report.");
         return;
+      }
+
+      function getTaskCategories(t) {
+        const cats = new Set();
+        cats.add('Total Selected View');
+        const s = (t.state || '').toLowerCase();
+        if (s.includes('approved')) {
+          cats.add('Final Approved (L2)');
+        } else if (s.includes('l2') || s.includes('l1-approved')) {
+          cats.add('L1-Approved (Wait L2)');
+        } else if (s.includes('rework')) {
+          cats.add('In Rework');
+        } else if (s.includes('quarantine')) {
+          cats.add('Quarantined (All)');
+          if (hasClearedL2(t)) cats.add('Quarantined (Post-L2)');
+          else if (hasClearedL1(t)) cats.add('Quarantined (Post-L1)');
+        } else if (s.includes('pool') || s.includes('draft') || s === '' || s === 'unassigned' || s === '—') {
+          cats.add('Draft / Unsubmitted');
+        } else {
+          cats.add('Pending L1');
+        }
+        return cats;
       }
 
       const targetTasks = (window.currentFilteredTasks || globalData).filter(t => {
-        const s = (t.state || '').toLowerCase();
-        let cats = [];
-
-        if (s.includes('approved')) { cats.push('l2Approved'); }
-        else if (s.includes('l2') || s.includes('l1-approved')) { cats.push('l1Approved'); }
-        else if (s.includes('rework')) { cats.push('rework'); }
-        else if (s.includes('quarantine')) {
-          cats.push('quarantined');
-          if (hasClearedL2(t)) cats.push('quarPostL2');
-          else if (hasClearedL1(t)) cats.push('quarPostL1');
+        const taskCats = getTaskCategories(t);
+        for (let chip of selectedChips) {
+          if (taskCats.has(chip)) return true;
         }
-        else if (s.includes('pool') || s.includes('draft') || s === '' || s === 'unassigned' || s === '—') { cats.push('draft'); }
-        else { cats.push('pendingL1'); }
-
-        cats.push('total');
-
-        // Check if task belongs to ANY of the selected active cards
-        return [...activeSummaryCards].some(activeCat => cats.includes(activeCat));
+        return false;
       });
 
       if (targetTasks.length === 0) {
-        alert("No tasks match the currently selected chips.");
+        alert("No tasks match the selected summary chips criteria.");
         return;
       }
 
-      targetTasks.sort((a, b) => {
-        const nameA = (a.annotator && a.annotator !== '—' && a.annotator !== 'Unassigned') ? a.annotator.toLowerCase() : 'zzz';
-        const nameB = (b.annotator && b.annotator !== '—' && b.annotator !== 'Unassigned') ? b.annotator.toLowerCase() : 'zzz';
-        return nameA.localeCompare(nameB);
-      });
-      
-      const uniqueTrainers = [...new Set(targetTasks.map(t => t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned' ? t.annotator : 'Unassigned'))].sort();
-      const uniqueL1Reviewers = new Set();
-      const uniqueStatuses = new Set();
+      targetTasks.sort((a, b) => new Date(b.submitted_at || 0) - new Date(a.submitted_at || 0));
+
+      function getL1Reviewer(task) {
+        let l1Rev = 'None';
+        if (task.history) {
+          for (let h of task.history) {
+            if (h.actor_name && h.actor_name !== 'System' && h.actor_name !== task.annotator && h.actor_name !== '—') {
+              const lLower = (h.label || '').toLowerCase();
+              if ((h.kind === 'review_cleared' && h.detail && h.detail.includes('review_l2')) || 
+                  lLower.includes('cleared for claim pool') || 
+                  lLower.includes('l1 approved') || 
+                  (h.label === 'Approved' && !l2ReviewersSet.has(h.actor_name))) {
+                l1Rev = h.actor_name;
+              }
+            }
+          }
+        }
+        if (l1Rev === 'None' && hasClearedL1(task) && task.reviewer && task.reviewer !== '—' && task.reviewer !== 'Unassigned') {
+          l1Rev = task.reviewer;
+        }
+        return l1Rev;
+      }
+
+      function getL2Status(task) {
+        const s = (task.state || '').toLowerCase();
+        if (s.includes('approved')) return 'Approved';
+        if (s.includes('quarantine') && hasClearedL2(task)) return 'Quarantined (Post-L2)';
+        if (hasClearedL1(task) && s.includes('rework')) return 'Rework (L2)';
+        if (hasClearedL1(task)) return 'Pending L2';
+        return 'Not Reached L2';
+      }
 
       let html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Custom Tasks Report (Selected Chips)</title>
+  <title>Custom Chips Data Report</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f8fafc; color: #0f172a; padding: 40px; margin: 0; }
     .container { max-width: 1400px; margin: 0 auto; }
     .header { text-align: center; margin-bottom: 24px; }
-    .header h1 { margin: 0 0 10px 0; color: #4338ca; font-size: 24px; font-weight: 800; }
+    .header h1 { margin: 0 0 10px 0; color: #6b21a8; font-size: 24px; font-weight: 800; }
     .header p { color: #64748b; margin: 0; font-size: 14px; }
-    .filters-bar { display: flex; gap: 16px; justify-content: center; margin-bottom: 24px; background: white; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
-    .filter-select { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #0f172a; outline: none; min-width: 200px;}
-    .filter-select:focus { border-color: #4f46e5; }
-    .report-card { background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 0; overflow-x: auto; border: 1px solid #e2e8f0; }
-    
+    .report-card { background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 24px; overflow-x: auto; border: 1px solid #e2e8f0; }
     table { width: 100%; border-collapse: collapse; text-align: left; }
-    th { background: #f8fafc; padding: 16px 24px; font-size: 12px; font-weight: 700; color: #475569; border-bottom: 2px solid #e2e8f0; text-transform: uppercase; letter-spacing: 0.05em; }
-    td { padding: 16px 24px; font-size: 14px; color: #1e293b; vertical-align: middle;}
-    
-    /* Interactive Row Styles */
-    .main-row { cursor: pointer; transition: background 0.2s; border-bottom: 1px solid #e2e8f0; }
-    .main-row:hover { background: #f8fafc; }
-    .main-row:hover td { background: transparent; }
-    .history-row { display: none; background: #faf9fb; }
-    .history-row td { padding: 0 32px 32px 32px; border-bottom: 2px solid #cbd5e1; }
+    th { background: #f8fafc; padding: 14px 16px; font-size: 12px; font-weight: 700; color: #475569; border-bottom: 2px solid #e2e8f0; text-transform: uppercase; letter-spacing: 0.05em; }
+    td { padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #e2e8f0; color: #1e293b; vertical-align: top;}
+    .main-row { cursor: pointer; transition: background 0.1s; }
+    .main-row:hover td { background: #f1f5f9; }
     
     .status-badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
-    .status-quar { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
-    .status-rework { background: #fef3c7; color: #92400e; border-color: #fde68a; }
-    .status-l1 { background: #f3e8ff; color: #6b21a8; border-color: #d8b4fe; }
-    .status-l2 { background: #eff6ff; color: #2563eb; border-color: #93c5fd; }
-    .status-approved { background: #d1fae5; color: #047857; border-color: #6ee7b7; }
-    
-    .taskId { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; color: #4f46e5; font-weight: 600; font-size: 11.5px; background: #ffffff; padding: 6px 10px; border-radius: 6px; border: 1px solid #e2e8f0; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.2s; word-break: break-all; user-select: all; }
-    .taskId:hover { background: #e0e7ff; border-color: #c7d2fe; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+    .taskId { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; color: #4f46e5; font-weight: 600; font-size: 11.5px; background: #f8fafc; padding: 6px 10px; border-radius: 6px; border: 1px solid #e2e8f0; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.2s; word-break: break-all; user-select: all; }
+    .taskId:hover { background: #e0e7ff; border-color: #c7d2fe; }
     .copy-icon { width: 14px; height: 14px; opacity: 0.5; flex-shrink: 0; }
     .taskId:hover .copy-icon { opacity: 1; color: #4338ca; }
     
-    /* Injected Timeline CSS from Modal */
-    .timeline-container { margin-top: 10px; max-width: 900px;}
-    .timeline-title { font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 16px; margin-top: 16px; }
-    .timeline-box { border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px; background: #ffffff; max-height: 400px; overflow-y: auto; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02); }
-    .timeline { border-left: 2px solid #e2e8f0; margin-left: 10px; padding-left: 24px; position: relative; }
-    .timeline-item { position: relative; margin-bottom: 24px; }
+    .timeline-container { margin-top: 4px; }
+    .timeline-box { border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; background: #ffffff; max-height: 250px; overflow-y: auto; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02); }
+    .timeline { border-left: 2px solid #e2e8f0; margin-left: 10px; padding-left: 20px; position: relative; }
+    .timeline-item { position: relative; margin-bottom: 20px; }
     .timeline-item:last-child { margin-bottom: 0; }
-    
     @keyframes pulse-green { 0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); } 100% { box-shadow: 0 0 0 0 transparent; } }
     @keyframes pulse-blue { 0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(59, 130, 246, 0); } 100% { box-shadow: 0 0 0 0 transparent; } }
     @keyframes pulse-amber { 0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(245, 158, 11, 0); } 100% { box-shadow: 0 0 0 0 transparent; } }
     @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 transparent; } }
-    
-    .timeline-dot { position: absolute; left: -31px; top: 4px; width: 12px; height: 12px; border-radius: 50%; background: #ffffff; border: 3px solid #6b21a8; transition: all 0.3s ease; }
-    .timeline-dot.status-l2-app { border-color: #047857 !important; background: #d1fae5 !important; animation: pulse-green 2s infinite; }
+    .timeline-dot { position: absolute; left: -27px; top: 4px; width: 12px; height: 12px; border-radius: 50%; background: #ffffff; border: 3px solid #4f46e5; transition: all 0.3s ease; }
+    .timeline-dot.status-l2-app { border-color: #059669 !important; background: #d1fae5 !important; animation: pulse-green 2s infinite; }
     .timeline-dot.status-l1-app { border-color: #2563eb !important; background: #dbeafe !important; animation: pulse-blue 2s infinite; }
-    .timeline-dot.status-rework { border-color: #b45309 !important; background: #fef3c7 !important; animation: pulse-amber 2s infinite; }
-    .timeline-dot.status-quar { border-color: #9f1239 !important; background: #ffe4e6 !important; animation: pulse-red 2s infinite; }
-    
-    .tl-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
-    .tl-role { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
-    .tl-role.reviewer { color: #6b21a8; }
+    .timeline-dot.status-rework { border-color: #d97706 !important; background: #fef3c7 !important; animation: pulse-amber 2s infinite; }
+    .timeline-dot.status-quar { border-color: #e11d48 !important; background: #ffe4e6 !important; animation: pulse-red 2s infinite; }
+    .tl-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; gap: 12px; }
+    .tl-role { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+    .tl-role.reviewer { color: #4f46e5; }
     .tl-role.trainer { color: #2563eb; }
     .tl-role.system { color: #64748b; }
-    .tl-date { font-size: 11.5px; color: #64748b; font-family: ui-monospace, monospace; }
-    .tl-action { font-size: 14px; font-weight: 600; color: #1e293b; margin-bottom: 4px; display: flex; align-items: center; }
-    .tl-name { font-size: 13px; color: #64748b; }
-    .tl-detail { margin-top: 10px; font-size: 13px; color: #334155; background: #f8fafc; padding: 12px; border-radius: 8px; border: 1px solid #e2e8f0; white-space: pre-wrap; line-height: 1.5; }
+    .tl-date { font-size: 11px; color: #64748b; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .tl-action { font-size: 13px; font-weight: 600; color: #0f172a; margin-bottom: 4px; display: flex; align-items: center; }
+    .tl-name { font-size: 12px; color: #64748b; }
+    .tl-detail { margin-top: 8px; font-size: 13px; color: #334155; background: #f8fafc; padding: 12px; border-radius: 6px; border: 1px solid #e2e8f0; white-space: pre-wrap; line-height: 1.5; }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
-      <h1>Custom Category Task Report</h1>
-      <p>Generated on ${new Date().toLocaleString()} · Visible Tasks: <strong id="task-count">${targetTasks.length}</strong></p>
+      <h1>Custom Selected Chips Report</h1>
+      <p>Selected Chips: <strong>${Array.from(selectedChips).join(' | ')}</strong></p>
+      <p>Generated on ${new Date().toLocaleString()} · Visible Tasks: <strong>${targetTasks.length}</strong></p>
+      <p style="font-size:12px; color: #6b21a8; margin-top: 8px; font-weight: 600;">Click any row to view its complete review history.</p>
     </div>
     
-    <div class="filters-bar">
-      <select id="filter-trainer" class="filter-select" onchange="filterTable()">
-        <option value="All">All Trainers</option>
-        ${uniqueTrainers.map(tr => `<option value="${esc(tr)}">${esc(tr)}</option>`).join('')}
-      </select>
-      <select id="filter-reviewer" class="filter-select" onchange="filterTable()">
-        <option value="All">All L1 Reviewers</option>
-        <!-- Reviewer Options Injected Below -->
-      </select>
-      <select id="filter-status" class="filter-select" onchange="filterTable()">
-        <option value="All">All Statuses</option>
-        <!-- Status Options Injected Below -->
-      </select>
-    </div>
-
     <div class="report-card">
       <table id="report-table">
         <thead>
           <tr>
             <th>Sr. No.</th>
-            <th>Trainer Name</th>
             <th style="width: 250px;">Task ID</th>
-            <th>L1 Reviewer Name</th>
+            <th>Trainer Name</th>
+            <th>Domain</th>
+            <th>Task Status</th>
+            <th>L1 Reviewer</th>
             <th>L2 Review Status</th>
-            <th>Current Status</th>
           </tr>
         </thead>
         <tbody>`;
-      
+
       let tableRowsHtml = '';
       targetTasks.forEach((t, index) => {
+        const l1Rev = getL1Reviewer(t);
+        const l2Status = getL2Status(t);
         const trainer = t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned' ? t.annotator : 'Unassigned';
         const taskId = t.id || '—';
-        
-        // 1. Find L1 Reviewer
-        let l1Reviewer = 'None';
-        if (t.history) {
-           const l1Event = t.history.slice().reverse().find(h =>
-             (h.kind === 'review_cleared' && h.detail && h.detail.includes('review_l2')) ||
-             (h.label && h.label.toLowerCase().includes('cleared for claim pool')) ||
-             (h.label && h.label.toLowerCase().includes('l1 approved')) ||
-             (h.label === 'Approved' && h.actor_name !== 'System' && !l2ReviewersSet.has(h.actor_name))
-           );
-           if (l1Event && l1Event.actor_name) l1Reviewer = l1Event.actor_name;
-        }
-        if (l1Reviewer === 'None' && t.reviewer && t.reviewer !== '—' && t.reviewer !== 'Unassigned' && !l2ReviewersSet.has(t.reviewer)) {
-           l1Reviewer = t.reviewer;
-        }
-        uniqueL1Reviewers.add(l1Reviewer);
+        const domain = t.domain || '—';
+        const status = (!t.state || t.state === '') ? 'Pool / Draft' : t.state;
 
-        // 2. Find L2 Status
-        let l2Status = 'Not Reached';
-        if (hasClearedL2(t)) l2Status = 'Approved';
-        else if (hasClearedL1(t)) {
-            const s = (t.state || '').toLowerCase();
-            if (s.includes('quarantine')) l2Status = 'Quarantined';
-            else if (s.includes('rework')) l2Status = 'Rework Assigned';
-            else l2Status = 'Pending L2';
-        }
-
-        // 3. Current General Status
-        let status = t.state && t.state !== '' ? t.state : 'Draft / Pool';
-        let badgeClass = getBadgeClass(t.state);
-        
-        const sLower = (t.state || '').toLowerCase();
-        if (sLower.includes('quarantine')) {
-          status = 'Quarantined';
-          badgeClass = 'status-quar';
-        } else if (sLower.includes('rework')) {
-          status = 'Rework';
-          badgeClass = 'status-rework';
-        }
-        
-        uniqueStatuses.add(status);
-        
-        // 4. Generate identical Timeline HTML 
         let timelineHTML = '<div style="color:#94a3b8; font-style:italic; font-size: 13px;">No history available</div>';
         
         if (t.history && t.history.length > 0) {
           timelineHTML = t.history.slice().reverse().map(h => {
             let roleLabel = 'SYSTEM';
             let roleClass = 'system';
-            
-            if (h.actor_name === t.reviewer) {
-              roleLabel = 'REVIEWER';
-              roleClass = 'reviewer';
-            } else if (h.actor_name === t.annotator) {
-              roleLabel = 'TRAINER';
-              roleClass = 'trainer';
-            }
+            if (h.actor_name === t.reviewer) { roleLabel = 'REVIEWER'; roleClass = 'reviewer'; } 
+            else if (h.actor_name === t.annotator) { roleLabel = 'TRAINER'; roleClass = 'trainer'; }
             
             let displayLabel = esc(h.label);
             let extraDotClass = '';
             let iconHtml = '';
             const lLower = (h.label || '').toLowerCase();
             const dLower = (h.detail || '').toLowerCase();
-
-            const iconL1 = \`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px; vertical-align:text-bottom; color: #2563eb;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>\`;
-            const iconL2 = \`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px; vertical-align:text-bottom; color: #059669;"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"></path><path d="m9 12 2 2 4-4"></path></svg>\`;
+            const iconL1 = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px; vertical-align:text-bottom; color: #2563eb;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>`;
+            const iconL2 = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px; vertical-align:text-bottom; color: #059669;"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"></path><path d="m9 12 2 2 4-4"></path></svg>`;
 
             if (lLower.includes('approved') || lLower.includes('cleared')) {
                 if (dLower.includes('review_l2') || lLower.includes('claim pool') || lLower.includes('l1')) {
                     displayLabel = 'L1 Approved (Advanced to L2)';
-                    extraDotClass = 'status-l1-app';
-                    iconHtml = iconL1;
+                    extraDotClass = 'status-l1-app'; iconHtml = iconL1;
                 } else if (lLower === 'approved' || h.kind === 'approved' || dLower.includes('final') || lLower.includes('l2')) {
                     displayLabel = 'L2 Final Approved';
-                    extraDotClass = 'status-l2-app';
-                    iconHtml = iconL2;
+                    extraDotClass = 'status-l2-app'; iconHtml = iconL2;
                 } else {
-                    displayLabel = 'Approved';
-                    extraDotClass = 'status-l2-app';
-                    iconHtml = iconL1;
+                    displayLabel = 'Approved'; extraDotClass = 'status-l2-app'; iconHtml = iconL1;
                 }
-            } else if (lLower.includes('rework')) {
-                extraDotClass = 'status-rework';
-            } else if (lLower.includes('quarantine')) {
-                extraDotClass = 'status-quar';
-            }
+            } else if (lLower.includes('rework')) { extraDotClass = 'status-rework'; } 
+              else if (lLower.includes('quarantine')) { extraDotClass = 'status-quar'; }
 
-            const detailHTML = h.detail && h.detail.trim() !== '' && h.detail !== h.label && h.detail !== 'null' && !['review_l1', 'review_l2'].includes(h.detail)
-              ? \`<div class="tl-detail">\${esc(h.detail)}</div>\` : '';
+            const detailHTML = h.detail && h.detail.trim() !== '' && h.detail !== h.label && h.detail !== 'null' && !['review_l1', 'review_l2'].includes(h.detail) ? `<div class="tl-detail">${esc(h.detail)}</div>` : '';
 
-            return \`
+            return `
               <div class="timeline-item">
-                <div class="timeline-dot \${roleClass} \${extraDotClass}"></div>
+                <div class="timeline-dot ${roleClass} ${extraDotClass}"></div>
                 <div class="tl-header">
-                  <span class="tl-role \${roleClass}">\${roleLabel}</span>
-                  <span class="tl-date">\${formatDateShort(h.occurred_at)}, \${new Date(h.occurred_at).getFullYear()}, \${formatTimeShort(h.occurred_at)}</span>
+                  <span class="tl-role ${roleClass}">${roleLabel}</span>
+                  <span class="tl-date">${formatDateShort(h.occurred_at)}, ${new Date(h.occurred_at).getFullYear()}, ${formatTimeShort(h.occurred_at)}</span>
                 </div>
-                <div class="tl-action" style="\${extraDotClass ? 'font-weight: 800;' : ''}">\${iconHtml}\${displayLabel}</div>
-                <div class="tl-name">\${esc(h.actor_name || 'System')}</div>
-                \${detailHTML}
-              </div>
-            \`;
+                <div class="tl-action" style="${extraDotClass ? 'font-weight: 800;' : ''}">${iconHtml}${displayLabel}</div>
+                <div class="tl-name">${esc(h.actor_name || 'System')}</div>
+                ${detailHTML}
+              </div>`;
           }).join('');
         }
+        
+        const finalTimelineHtml = `<div class="timeline-container"><div class="timeline-box"><div class="timeline">${timelineHTML}</div></div></div>`;
 
         tableRowsHtml += `
-          <tr class="main-row" onclick="toggleHistory('${t.id}')" data-trainer="${esc(trainer)}" data-reviewer="${esc(l1Reviewer)}" data-status="${esc(status)}">
-            <td style="color:#64748b; font-weight:600;" class="row-index">${index + 1}</td>
-            <td style="font-weight: 600;">${esc(trainer)}</td>
-            <td>
-              <div class="taskId" onclick="copyId(event, this, '${esc(taskId)}')">
+          <tr class="main-row" onclick="toggleHistory('hist-${t.id}')">
+            <td style="color:#64748b; font-weight:600;">${index + 1}</td>
+            <td onclick="event.stopPropagation()">
+              <div class="taskId" onclick="copyId(this, '${esc(taskId)}')">
                 ${esc(taskId)}
                 <svg class="copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
               </div>
             </td>
-            <td>${esc(l1Reviewer)}</td>
-            <td><strong>${esc(l2Status)}</strong></td>
-            <td><span class="status-badge ${badgeClass}">${status}</span></td>
+            <td style="font-weight: 600;">${esc(trainer)}</td>
+            <td style="color: #475569;">${esc(domain)}</td>
+            <td><span class="status-badge">${esc(status)}</span></td>
+            <td style="font-weight: 600;">${esc(l1Rev)}</td>
+            <td><span class="status-badge">${esc(l2Status)}</span></td>
           </tr>
-          <tr class="history-row" id="history-${t.id}">
-            <td colspan="6">
-               <div class="timeline-container">
-                 <div class="timeline-title">Complete Status History (Click Row to Collapse)</div>
-                 <div class="timeline-box">
-                    <div class="timeline">
-                       ${timelineHTML}
-                    </div>
-                 </div>
-               </div>
+          <tr id="hist-${t.id}" style="display:none;">
+            <td colspan="7" style="padding: 24px; background: #f8fafc; border-bottom: 2px solid #cbd5e1;">
+              ${finalTimelineHtml}
             </td>
           </tr>`;
       });
       
       html += tableRowsHtml;
-      
-      const revOptions = [...uniqueL1Reviewers].sort().map(r => `<option value="${esc(r)}">${esc(r)}</option>`).join('');
-      html = html.replace('<!-- Reviewer Options Injected Below -->', revOptions);
-      
-      const statusOptions = [...uniqueStatuses].sort().map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('');
-      html = html.replace('<!-- Status Options Injected Below -->', statusOptions);
       
       html += `
         </tbody>
@@ -1393,50 +1315,23 @@
   </div>
   
   <script>
-    function filterTable() {
-      var trainer = document.getElementById('filter-trainer').value;
-      var reviewer = document.getElementById('filter-reviewer').value;
-      var status = document.getElementById('filter-status').value;
-      var rows = document.querySelectorAll('tbody tr.main-row');
-      
-      var visibleCount = 0;
-      rows.forEach(function(row) {
-        var matchT = (trainer === 'All' || row.getAttribute('data-trainer') === trainer);
-        var matchR = (reviewer === 'All' || row.getAttribute('data-reviewer') === reviewer);
-        var matchS = (status === 'All' || row.getAttribute('data-status') === status);
-        
-        var historyRow = document.getElementById('history-' + row.getAttribute('onclick').match(/'([^']+)'/)[1]);
-
-        if (matchT && matchR && matchS) {
-          row.style.display = '';
-          visibleCount++;
-        } else {
-          row.style.display = 'none';
-          if(historyRow) historyRow.style.display = 'none';
-        }
-      });
-      
-      document.getElementById('task-count').innerText = visibleCount;
-    }
-    
     function toggleHistory(id) {
-        var row = document.getElementById('history-' + id);
-        if (row.style.display === 'table-row') {
-            row.style.display = 'none';
-        } else {
-            row.style.display = 'table-row';
-        }
+      var el = document.getElementById(id);
+      if (el.style.display === 'none' || el.style.display === '') {
+        el.style.display = 'table-row';
+      } else {
+        el.style.display = 'none';
+      }
     }
-    
-    function copyId(event, el, text) {
-      event.stopPropagation();
+
+    function copyId(el, text) {
       navigator.clipboard.writeText(text).then(function() {
         var oldBg = el.style.background;
         var oldColor = el.style.color;
         var oldBorder = el.style.borderColor;
-        el.style.background = '#ecfdf5';
-        el.style.color = '#047857';
-        el.style.borderColor = '#6ee7b7';
+        el.style.background = '#e0e7ff';
+        el.style.color = '#4338ca';
+        el.style.borderColor = '#c7d2fe';
         setTimeout(function() {
           el.style.background = oldBg;
           el.style.color = oldColor;
@@ -1452,7 +1347,7 @@
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `Custom_Tasks_Report_${new Date().toISOString().split('T')[0]}.html`;
+      a.download = `Custom_Chips_Report_${new Date().toISOString().split('T')[0]}.html`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
