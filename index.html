@@ -1153,79 +1153,20 @@
         return 'Not Reached L2';
       }
 
-      let html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Custom Chips Data Report</title>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f8fafc; color: #0f172a; padding: 40px; margin: 0; }
-    .container { max-width: 1400px; margin: 0 auto; }
-    .header { text-align: center; margin-bottom: 24px; }
-    .header h1 { margin: 0 0 10px 0; color: #6b21a8; font-size: 24px; font-weight: 800; }
-    .header p { color: #64748b; margin: 0; font-size: 14px; }
-    .report-card { background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 24px; overflow-x: auto; border: 1px solid #e2e8f0; }
-    table { width: 100%; border-collapse: collapse; text-align: left; }
-    th { background: #f8fafc; padding: 14px 16px; font-size: 12px; font-weight: 700; color: #475569; border-bottom: 2px solid #e2e8f0; text-transform: uppercase; letter-spacing: 0.05em; }
-    td { padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #e2e8f0; color: #1e293b; vertical-align: top;}
-    .main-row { cursor: pointer; transition: background 0.1s; }
-    .main-row:hover td { background: #f1f5f9; }
-    
-    .status-badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1; }
-    .taskId { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; color: #4f46e5; font-weight: 600; font-size: 11.5px; background: #f8fafc; padding: 6px 10px; border-radius: 6px; border: 1px solid #e2e8f0; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.2s; word-break: break-all; user-select: all; }
-    .taskId:hover { background: #e0e7ff; border-color: #c7d2fe; }
-    .copy-icon { width: 14px; height: 14px; opacity: 0.5; flex-shrink: 0; }
-    .taskId:hover .copy-icon { opacity: 1; color: #4338ca; }
-    
-    .timeline-container { margin-top: 4px; }
-    .timeline-box { border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; background: #ffffff; max-height: 250px; overflow-y: auto; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02); }
-    .timeline { border-left: 2px solid #e2e8f0; margin-left: 10px; padding-left: 20px; position: relative; }
-    .timeline-item { position: relative; margin-bottom: 20px; }
-    .timeline-item:last-child { margin-bottom: 0; }
-    @keyframes pulse-green { 0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); } 100% { box-shadow: 0 0 0 0 transparent; } }
-    @keyframes pulse-blue { 0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(59, 130, 246, 0); } 100% { box-shadow: 0 0 0 0 transparent; } }
-    @keyframes pulse-amber { 0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(245, 158, 11, 0); } 100% { box-shadow: 0 0 0 0 transparent; } }
-    @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 transparent; } }
-    .timeline-dot { position: absolute; left: -27px; top: 4px; width: 12px; height: 12px; border-radius: 50%; background: #ffffff; border: 3px solid #4f46e5; transition: all 0.3s ease; }
-    .timeline-dot.status-l2-app { border-color: #059669 !important; background: #d1fae5 !important; animation: pulse-green 2s infinite; }
-    .timeline-dot.status-l1-app { border-color: #2563eb !important; background: #dbeafe !important; animation: pulse-blue 2s infinite; }
-    .timeline-dot.status-rework { border-color: #d97706 !important; background: #fef3c7 !important; animation: pulse-amber 2s infinite; }
-    .timeline-dot.status-quar { border-color: #e11d48 !important; background: #ffe4e6 !important; animation: pulse-red 2s infinite; }
-    .tl-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; gap: 12px; }
-    .tl-role { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
-    .tl-role.reviewer { color: #4f46e5; }
-    .tl-role.trainer { color: #2563eb; }
-    .tl-role.system { color: #64748b; }
-    .tl-date { font-size: 11px; color: #64748b; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
-    .tl-action { font-size: 13px; font-weight: 600; color: #0f172a; margin-bottom: 4px; display: flex; align-items: center; }
-    .tl-name { font-size: 12px; color: #64748b; }
-    .tl-detail { margin-top: 8px; font-size: 13px; color: #334155; background: #f8fafc; padding: 12px; border-radius: 6px; border: 1px solid #e2e8f0; white-space: pre-wrap; line-height: 1.5; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h1>Custom Selected Chips Report</h1>
-      <p>Selected Chips: <strong>${Array.from(selectedChips).join(' | ')}</strong></p>
-      <p>Generated on ${new Date().toLocaleString()} · Visible Tasks: <strong>${targetTasks.length}</strong></p>
-      <p style="font-size:12px; color: #6b21a8; margin-top: 8px; font-weight: 600;">Click any row to view its complete review history.</p>
-    </div>
-    
-    <div class="report-card">
-      <table id="report-table">
-        <thead>
-          <tr>
-            <th>Sr. No.</th>
-            <th style="width: 250px;">Task ID</th>
-            <th>Trainer Name</th>
-            <th>Domain</th>
-            <th>Task Status</th>
-            <th>L1 Reviewer</th>
-            <th>L2 Review Status</th>
-          </tr>
-        </thead>
-        <tbody>`;
+      function getChipClass(val) {
+        if (!val) return 'chip-gray';
+        const v = val.toLowerCase();
+        if (v.includes('approve')) return 'chip-green';
+        if (v.includes('rework')) return 'chip-amber';
+        if (v.includes('quarantin')) return 'chip-red';
+        if (v.includes('pool') || v.includes('draft') || v === 'none' || v === 'unassigned') return 'chip-gray';
+        return 'chip-blue';
+      }
+
+      const uniqueTrainers = new Set();
+      const uniqueL1 = new Set();
+      const uniqueStatuses = new Set();
+      const uniqueL2 = new Set();
 
       let tableRowsHtml = '';
       targetTasks.forEach((t, index) => {
@@ -1235,6 +1176,11 @@
         const taskId = t.id || '—';
         const domain = t.domain || '—';
         const status = (!t.state || t.state === '') ? 'Pool / Draft' : t.state;
+
+        uniqueTrainers.add(trainer);
+        uniqueL1.add(l1Rev);
+        uniqueStatuses.add(status);
+        uniqueL2.add(l2Status);
 
         let timelineHTML = '<div style="color:#94a3b8; font-style:italic; font-size: 13px;">No history available</div>';
         
@@ -1285,7 +1231,7 @@
         const finalTimelineHtml = `<div class="timeline-container"><div class="timeline-box"><div class="timeline">${timelineHTML}</div></div></div>`;
 
         tableRowsHtml += `
-          <tr class="main-row" onclick="toggleHistory('hist-${t.id}')">
+          <tr class="main-row" onclick="toggleHistory('hist-${t.id}')" data-taskid="${esc(t.id)}" data-trainer="${esc(trainer)}" data-l1="${esc(l1Rev)}" data-status="${esc(status)}" data-l2="${esc(l2Status)}">
             <td style="color:#64748b; font-weight:600;">${index + 1}</td>
             <td onclick="event.stopPropagation()">
               <div class="taskId" onclick="copyId(this, '${esc(taskId)}')">
@@ -1293,11 +1239,11 @@
                 <svg class="copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
               </div>
             </td>
-            <td style="font-weight: 600;">${esc(trainer)}</td>
+            <td><span class="chip chip-trainer">${esc(trainer)}</span></td>
             <td style="color: #475569;">${esc(domain)}</td>
-            <td><span class="status-badge">${esc(status)}</span></td>
-            <td style="font-weight: 600;">${esc(l1Rev)}</td>
-            <td><span class="status-badge">${esc(l2Status)}</span></td>
+            <td><span class="chip ${getChipClass(status)}">${esc(status)}</span></td>
+            <td><span class="chip chip-l1">${esc(l1Rev)}</span></td>
+            <td><span class="chip ${getChipClass(l2Status)}">${esc(l2Status)}</span></td>
           </tr>
           <tr id="hist-${t.id}" style="display:none;">
             <td colspan="7" style="padding: 24px; background: #f8fafc; border-bottom: 2px solid #cbd5e1;">
@@ -1305,16 +1251,146 @@
             </td>
           </tr>`;
       });
-      
-      html += tableRowsHtml;
-      
-      html += `
+
+      let html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Eagle-SciCode-Chemistry Report</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f8fafc; color: #0f172a; padding: 40px; margin: 0; }
+    .container { max-width: 1400px; margin: 0 auto; }
+    .header { text-align: center; margin-bottom: 24px; }
+    .header h1 { margin: 0 0 10px 0; color: #6b21a8; font-size: 24px; font-weight: 800; }
+    .header p { color: #64748b; margin: 0; font-size: 14px; }
+    .filters-bar { display: flex; gap: 16px; justify-content: center; margin-bottom: 24px; background: white; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 2px 4px rgba(0,0,0,0.02); flex-wrap: wrap; }
+    .filter-select { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #0f172a; outline: none; min-width: 180px;}
+    .filter-select:focus { border-color: #6b21a8; }
+    .report-card { background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 24px; overflow-x: auto; border: 1px solid #e2e8f0; }
+    table { width: 100%; border-collapse: collapse; text-align: left; }
+    th { background: #f8fafc; padding: 14px 16px; font-size: 12px; font-weight: 700; color: #475569; border-bottom: 2px solid #e2e8f0; text-transform: uppercase; letter-spacing: 0.05em; }
+    td { padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #e2e8f0; color: #1e293b; vertical-align: middle;}
+    .main-row { cursor: pointer; transition: background 0.1s; }
+    .main-row:hover td { background: #f1f5f9; }
+    
+    .chip { display: inline-flex; align-items: center; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 700; border: 1px solid transparent; white-space: nowrap; }
+    .chip-trainer { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+    .chip-l1 { background: #f5f3ff; color: #6d28d9; border-color: #ddd6fe; }
+    .chip-gray { background: #f1f5f9; color: #475569; border-color: #cbd5e1; }
+    .chip-green { background: #ecfdf5; color: #047857; border-color: #6ee7b7; }
+    .chip-blue { background: #e0f2fe; color: #0369a1; border-color: #bae6fd; }
+    .chip-amber { background: #fffbeb; color: #b45309; border-color: #fde68a; }
+    .chip-red { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+    
+    .taskId { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; color: #4f46e5; font-weight: 600; font-size: 11.5px; background: #f8fafc; padding: 6px 10px; border-radius: 6px; border: 1px solid #e2e8f0; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.2s; word-break: break-all; user-select: all; }
+    .taskId:hover { background: #e0e7ff; border-color: #c7d2fe; }
+    .copy-icon { width: 14px; height: 14px; opacity: 0.5; flex-shrink: 0; }
+    .taskId:hover .copy-icon { opacity: 1; color: #4338ca; }
+    
+    .timeline-container { margin-top: 4px; }
+    .timeline-box { border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; background: #ffffff; max-height: 250px; overflow-y: auto; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02); }
+    .timeline { border-left: 2px solid #e2e8f0; margin-left: 10px; padding-left: 20px; position: relative; }
+    .timeline-item { position: relative; margin-bottom: 20px; }
+    .timeline-item:last-child { margin-bottom: 0; }
+    @keyframes pulse-green { 0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); } 100% { box-shadow: 0 0 0 0 transparent; } }
+    @keyframes pulse-blue { 0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(59, 130, 246, 0); } 100% { box-shadow: 0 0 0 0 transparent; } }
+    @keyframes pulse-amber { 0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(245, 158, 11, 0); } 100% { box-shadow: 0 0 0 0 transparent; } }
+    @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 transparent; } }
+    .timeline-dot { position: absolute; left: -27px; top: 4px; width: 12px; height: 12px; border-radius: 50%; background: #ffffff; border: 3px solid #4f46e5; transition: all 0.3s ease; }
+    .timeline-dot.status-l2-app { border-color: #059669 !important; background: #d1fae5 !important; animation: pulse-green 2s infinite; }
+    .timeline-dot.status-l1-app { border-color: #2563eb !important; background: #dbeafe !important; animation: pulse-blue 2s infinite; }
+    .timeline-dot.status-rework { border-color: #d97706 !important; background: #fef3c7 !important; animation: pulse-amber 2s infinite; }
+    .timeline-dot.status-quar { border-color: #e11d48 !important; background: #ffe4e6 !important; animation: pulse-red 2s infinite; }
+    .tl-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; gap: 12px; }
+    .tl-role { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+    .tl-role.reviewer { color: #4f46e5; }
+    .tl-role.trainer { color: #2563eb; }
+    .tl-role.system { color: #64748b; }
+    .tl-date { font-size: 11px; color: #64748b; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .tl-action { font-size: 13px; font-weight: 600; color: #0f172a; margin-bottom: 4px; display: flex; align-items: center; }
+    .tl-name { font-size: 12px; color: #64748b; }
+    .tl-detail { margin-top: 8px; font-size: 13px; color: #334155; background: #f8fafc; padding: 12px; border-radius: 6px; border: 1px solid #e2e8f0; white-space: pre-wrap; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Eagle-SciCode-Chemistry Report</h1>
+      <p>Selected Chips: <strong>${Array.from(selectedChips).join(' | ')}</strong></p>
+      <p>Generated on ${new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' })} IST · Visible Tasks: <strong id="task-count">${targetTasks.length}</strong></p>
+      <p style="font-size:12px; color: #6b21a8; margin-top: 8px; font-weight: 600;">Click any row to view its complete review history.</p>
+    </div>
+
+    <div class="filters-bar">
+      <select id="filter-trainer" class="filter-select" onchange="filterTable()">
+        <option value="All">All Trainers</option>
+        ${[...uniqueTrainers].sort().map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join('')}
+      </select>
+      <select id="filter-l1" class="filter-select" onchange="filterTable()">
+        <option value="All">All L1 Reviewers</option>
+        ${[...uniqueL1].sort().map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join('')}
+      </select>
+      <select id="filter-status" class="filter-select" onchange="filterTable()">
+        <option value="All">All Task Statuses</option>
+        ${[...uniqueStatuses].sort().map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join('')}
+      </select>
+      <select id="filter-l2" class="filter-select" onchange="filterTable()">
+        <option value="All">All L2 Statuses</option>
+        ${[...uniqueL2].sort().map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join('')}
+      </select>
+    </div>
+    
+    <div class="report-card">
+      <table id="report-table">
+        <thead>
+          <tr>
+            <th>Sr. No.</th>
+            <th style="width: 250px;">Task ID</th>
+            <th>Trainer Name</th>
+            <th>Domain</th>
+            <th>Task Status</th>
+            <th>L1 Reviewer</th>
+            <th>L2 Review Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${tableRowsHtml}
         </tbody>
       </table>
     </div>
   </div>
   
   <script>
+    function filterTable() {
+      var fTrainer = document.getElementById('filter-trainer').value;
+      var fL1 = document.getElementById('filter-l1').value;
+      var fStatus = document.getElementById('filter-status').value;
+      var fL2 = document.getElementById('filter-l2').value;
+      
+      var rows = document.querySelectorAll('tbody tr.main-row');
+      var visibleCount = 0;
+      
+      rows.forEach(function(row) {
+        var matchT = (fTrainer === 'All' || row.getAttribute('data-trainer') === fTrainer);
+        var matchL1 = (fL1 === 'All' || row.getAttribute('data-l1') === fL1);
+        var matchS = (fStatus === 'All' || row.getAttribute('data-status') === fStatus);
+        var matchL2 = (fL2 === 'All' || row.getAttribute('data-l2') === fL2);
+        
+        var histRow = document.getElementById('hist-' + row.getAttribute('data-taskid'));
+        
+        if (matchT && matchL1 && matchS && matchL2) {
+          row.style.display = '';
+          visibleCount++;
+        } else {
+          row.style.display = 'none';
+          if (histRow) histRow.style.display = 'none';
+        }
+      });
+      
+      document.getElementById('task-count').innerText = visibleCount;
+    }
+
     function toggleHistory(id) {
       var el = document.getElementById(id);
       if (el.style.display === 'none' || el.style.display === '') {
@@ -1347,7 +1423,7 @@
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `Custom_Chips_Report_${new Date().toISOString().split('T')[0]}.html`;
+      a.download = `Eagle_SciCode_Chemistry_Report_${new Date().toISOString().split('T')[0]}.html`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
