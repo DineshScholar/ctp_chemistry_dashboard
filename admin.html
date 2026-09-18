@@ -199,10 +199,19 @@
 
     function renderMismatches() {
       let members = [...roster.l2_reviewers];
-      roster.pods.forEach(p => members.push(...p.trainers));
+      roster.pods.forEach(p => {
+        if (p.lead) members.push({ name: p.lead, email: p.lead_email || '' });
+        members.push(...p.trainers);
+      });
 
-      const uniqueTaskNames = [...new Set(rawTasks.map(t => t.annotator))].filter(n => n && n !== '—' && n !== 'Unassigned');
-      let mismatches = uniqueTaskNames.filter(name => !resolveAnnotatorAdmin(name, members));
+      // We resolve both annotators AND reviewers so they don't get missed in the mismatch tool
+      const uniqueNames = new Set();
+      rawTasks.forEach(t => {
+        if (t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned') uniqueNames.add(t.annotator);
+        if (t.reviewer && t.reviewer !== '—' && t.reviewer !== 'Unassigned') uniqueNames.add(t.reviewer);
+      });
+
+      let mismatches = Array.from(uniqueNames).filter(name => !resolveAnnotatorAdmin(name, members));
 
       const badge = document.getElementById('mismatch-badge');
       badge.textContent = mismatches.length > 0 ? `(${mismatches.length})` : '';
@@ -216,14 +225,14 @@
 
       let optionsHtml = '<option value="">-- Select Roster Member to Map To --</option>';
       members.sort((a,b) => a.name.localeCompare(b.name)).forEach(m => {
-        optionsHtml += `<option value="${m.name}">${m.name} (${m.email})</option>`;
+        optionsHtml += `<option value="${m.name}">${m.name} (${m.email || 'No Email'})</option>`;
       });
 
-      let html = '<div style="margin-bottom: 16px; font-size: 13px; color: #64748b;">The following task annotators do not match any team member (by exact or first name). Map them below to permanently sync the dashboard.</div>';
+      let html = '<div style="margin-bottom: 16px; font-size: 13px; color: #64748b;">The following authors/reviewers do not match any team member (by exact or first name). Map them below to permanently sync the dashboard.</div>';
       mismatches.forEach(name => {
         html += `
           <div class="mismatch-row">
-            <span class="mismatch-name">Unmapped Author: ${name}</span>
+            <span class="mismatch-name">Unmapped User: ${name}</span>
             <select class="ghost-select" style="border:1px solid #cbd5e1; padding: 6px; border-radius: 4px; background: #f8fafc;" onchange="updateMapping('${name.replace(/'/g, "\\'")}', this.value)">
               ${optionsHtml}
             </select>
@@ -284,8 +293,8 @@
         return `
           <div class="outline-row ${rowClass}">
             <span class="outline-substem">├─</span>
-            <input class="ghost-input ${nameClass}" style="font-weight:600; width:220px;" value="${person.name}" onchange="updatePerson('${type}', ${podIdx}, ${personIdx}, 'name', this.value)" placeholder="Name">
-            <input class="ghost-input" style="font-family:ui-monospace, monospace; font-size:11px; color:#64748b; width:220px;" value="${person.email}" onchange="updatePerson('${type}', ${podIdx}, ${personIdx}, 'email', this.value)" placeholder="email@turing.com">
+            <input class="ghost-input ${nameClass}" style="font-weight:600; width:220px;" value="${person.name || ''}" onchange="updatePerson('${type}', ${podIdx}, ${personIdx}, 'name', this.value)" placeholder="Name">
+            <input class="ghost-input" style="font-family:ui-monospace, monospace; font-size:11px; color:#64748b; width:220px;" value="${person.email || ''}" onchange="updatePerson('${type}', ${podIdx}, ${personIdx}, 'email', this.value)" placeholder="email@turing.com">
             
             <select class="ghost-select status-badge ${badgeClass}" onchange="updatePerson('${type}', ${podIdx}, ${personIdx}, 'status', this.value)">
               <option value="Active" ${person.status === 'Active' ? 'selected' : ''}>Active</option>
@@ -337,7 +346,10 @@
                   <input class="ghost-input" style="font-size:14px; font-weight:800; min-width:200px;" value="${pod.name}" onchange="updatePod(${pIdx}, 'name', this.value)">
                   
                   <span class="micro-badge badge-blue">
-                    Lead: <input class="ghost-input" style="font-size:10px; font-weight:600; width:130px; color:inherit; margin-left:4px;" value="${pod.lead}" placeholder="Pod Lead Name" onchange="updatePod(${pIdx}, 'lead', this.value)">
+                    Lead: 
+                    <input class="ghost-input" style="font-size:10px; font-weight:600; width:110px; color:inherit; margin-left:4px;" value="${pod.lead || ''}" placeholder="Lead Name" onchange="updatePod(${pIdx}, 'lead', this.value)">
+                    <span style="opacity: 0.5;">|</span>
+                    <input class="ghost-input" style="font-size:10px; font-weight:500; width:150px; color:inherit; font-family:monospace;" value="${pod.lead_email || ''}" placeholder="lead@turing.com" onchange="updatePod(${pIdx}, 'lead_email', this.value)">
                   </span>
                   
                   <span style="font-family:ui-monospace,monospace; font-size:11px; color:#64748b; margin-left:auto;">${pod.trainers.length} Trainers</span>
@@ -357,7 +369,7 @@
     }
 
     function updatePod(pIdx, field, val) { roster.pods[pIdx][field] = val; }
-    function addPod() { roster.pods.push({ id: Date.now().toString(), name: "New Pod", lead: "New Lead", trainers: [] }); renderRoster(); }
+    function addPod() { roster.pods.push({ id: Date.now().toString(), name: "New Pod", lead: "New Lead", lead_email: "lead@turing.com", trainers: [] }); renderRoster(); }
     function deletePod(pIdx) { if(confirm("Delete this entire pod and its trainers?")) { roster.pods.splice(pIdx, 1); renderRoster(); } }
 
     function updatePerson(type, pIdx, personIdx, field, val) {
