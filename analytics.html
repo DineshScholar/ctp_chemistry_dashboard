@@ -261,7 +261,7 @@
         <div class="chart-header">
           <div class="chart-header-text">
             <h2>ALL REVIEWERS AUDIT VOLUME OVER TIME</h2>
-            <p>1 Line = 1 Reviewer's Total Audited Task Volume. Click points to copy IDs.</p>
+            <p>1 Line = 1 Reviewer's Total Actioned Audits. Pulls comprehensively from historical data. Click points to copy IDs.</p>
           </div>
         </div>
         <div class="canvas-container" id="reviewer-line-chart"></div>
@@ -281,8 +281,9 @@
         <div class="chart-header">
           <div class="chart-header-text">
             <h2>TOP REVIEWERS BY STATUS</h2>
-            <p>Reviewer pipeline overview categorized by task determination. Click bars to copy IDs.</p>
+            <p>True reviewer output segmented by recorded actions (Accepts, Reworks, Quarantines). Click bars to copy IDs.</p>
           </div>
+          <button id="reviewer-toggle-btn" class="btn-action" onclick="toggleReviewerLimit()">Show All Reviewers</button>
         </div>
         <div class="canvas-container" id="reviewer-stacked-chart"></div>
       </div>
@@ -344,6 +345,7 @@
     const tooltipStore = {};
     
     let showAllTrainers = false;
+    let showAllReviewers = false;
 
     const STATUS_COLORS = {
       'Approved': '#10b981',       // L2 Final
@@ -445,13 +447,12 @@
       });
     };
 
-    // Helper to generate the exact HTML string for the Apex custom tooltip
     function buildTooltipHtml(chartId, seriesIndex, dataPointIndex, w) {
       const val = w.globals.initialSeries[seriesIndex].data[dataPointIndex];
       if (!val) return '';
       
       const fullIds = tooltipStore[chartId]?.[seriesIndex]?.[dataPointIndex] || [];
-      const tListShort = fullIds.map(id => id.split('-')[0]); // Shorten just for visual render
+      const tListShort = fullIds.map(id => id.split('-')[0]); 
       
       const tStr = tListShort.length > 0 
         ? tListShort.slice(0, 8).join(', ') + (tListShort.length > 8 ? ` <br/><span style="color:#f59e0b;">(+${tListShort.length - 8} more tasks)</span>` : '') 
@@ -472,7 +473,6 @@
         </div>`;
     }
 
-    // Dynamic configuration injector to ensure all charts fire copy events
     function getInteractiveChartEvents(chartId) {
       return {
         dataPointSelection: function(e, chart, config) { window.copyFromChart(chartId, config.seriesIndex, config.dataPointIndex); },
@@ -546,7 +546,7 @@
         chart: { type: 'area', height: 380, toolbar: { show: false }, fontFamily: 'Inter, sans-serif', events: getInteractiveChartEvents(cIdArea) },
         colors: ['#6b21a8', '#3b82f6', '#f59e0b'],
         dataLabels: { enabled: false }, stroke: { curve: 'smooth', width: 2 },
-        markers: { size: 3, hover: { size: 6 } }, // Ensure point clickability
+        markers: { size: 3, hover: { size: 6 } }, 
         fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0.05, stops: [0, 90, 100] } },
         xaxis: { categories: dates, type: 'category', tickAmount: 10, labels: { style: { colors: '#64748b' } } },
         yaxis: { labels: { style: { colors: '#64748b' } } },
@@ -623,7 +623,7 @@
         chart: { type: 'line', height: 400, toolbar: { show: false }, fontFamily: 'Inter, sans-serif', events: getInteractiveChartEvents(chartId) },
         colors: MULTI_COLORS,
         stroke: { curve: 'smooth', width: 2 },
-        markers: { size: 4, hover: { size: 6 } }, // Explicit marker size to ensure user can click
+        markers: { size: 4, hover: { size: 6 } }, 
         xaxis: { categories: dates, type: 'category', tickAmount: 10, labels: { style: { colors: '#64748b' } } },
         yaxis: { labels: { style: { colors: '#64748b' } } },
         legend: { show: false }, 
@@ -827,43 +827,134 @@
     }
 
     // --- TAB 4: REVIEWERS ---
-    function renderReviewerCharts() {
-      renderLineChartWithCustomLegend('reviewer-line-chart', 'reviewer-legend-title', 'reviewer-legend-chips', 'reviewer');
+    window.toggleReviewerLimit = function() {
+      showAllReviewers = !showAllReviewers;
+      document.getElementById('reviewer-toggle-btn').innerText = showAllReviewers ? 'Show Top 10 Only' : 'Show All Reviewers';
+      renderReviewerCharts();
+    }
 
+    function renderReviewerCharts() {
+      const dates = generateDateRange(globalTasks);
+      
+      // Calculate TRUE reviewer actions directly from complete history
       const revStats = {};
       globalTasks.forEach(t => {
-        if (!t.reviewer || t.reviewer === '—' || t.reviewer === 'Unassigned') return;
-        if (!revStats[t.reviewer]) revStats[t.reviewer] = { total: 0 };
-        revStats[t.reviewer].total++;
+        if (!t.history) return;
+        t.history.forEach(h => {
+          const actor = h.actor_name;
+          // Filter out System generated events and trainers actions on their own tasks
+          if (!actor || actor === 'System' || actor === '—' || actor === t.annotator) return;
+          
+          const lLower = (h.label || '').toLowerCase();
+          let actionType = null;
+          
+          if (lLower.includes('approved') || lLower.includes('cleared')) actionType = 'Accepted';
+          else if (lLower.includes('rework')) actionType = 'Rework Assigned';
+          else if (lLower.includes('quarantine')) actionType = 'Quarantined';
+          
+          if (actionType) {
+            if (!revStats[actor]) {
+              revStats[actor] = { total: 0, byStatus: { 'Accepted': [], 'Rework Assigned': [], 'Quarantined': [] }, dates: {} };
+            }
+            
+            const dateStr = h.occurred_at ? h.occurred_at.split('T')[0] : t.dateStr;
+            if (!revStats[actor].dates[dateStr]) revStats[actor].dates[dateStr] = [];
+            
+            revStats[actor].total++;
+            revStats[actor].byStatus[actionType].push(t.id);
+            revStats[actor].dates[dateStr].push(t.id);
+          }
+        });
       });
+
+      const reviewers = Object.keys(revStats).sort();
       
-      const topReviewers = Object.entries(revStats).sort((a,b) => b[1].total - a[1].total).slice(0, 15).map(x => x[0]);
+      // Line Chart Setup
+      const cIdLine = 'reviewer-line-chart';
+      document.getElementById('reviewer-legend-title').textContent = `TOGGLE LINES (${reviewers.length}):`;
+      tooltipStore[cIdLine] = [];
+
+      const seriesData = reviewers.map((rev, sIdx) => {
+        tooltipStore[cIdLine][sIdx] = [];
+        const data = dates.map((d, dIdx) => {
+          const tasks = revStats[rev].dates[d] || [];
+          tooltipStore[cIdLine][sIdx][dIdx] = tasks;
+          return tasks.length;
+        });
+        return { name: rev, data };
+      });
+
+      destroyChart(cIdLine);
+      const lineOptions = {
+        series: seriesData,
+        chart: { type: 'line', height: 400, toolbar: { show: false }, fontFamily: 'Inter, sans-serif', events: getInteractiveChartEvents(cIdLine) },
+        colors: MULTI_COLORS,
+        stroke: { curve: 'smooth', width: 2 },
+        markers: { size: 4, hover: { size: 6 } }, 
+        xaxis: { categories: dates, type: 'category', tickAmount: 10, labels: { style: { colors: '#64748b' } } },
+        yaxis: { labels: { style: { colors: '#64748b' } } },
+        legend: { show: false }, 
+        grid: { borderColor: '#f1f5f9', strokeDashArray: 4 },
+        tooltip: { custom: function(opt) { return buildTooltipHtml(cIdLine, opt.seriesIndex, opt.dataPointIndex, opt.w); } }
+      };
       
+      chartInstances[cIdLine] = new ApexCharts(document.querySelector(`#${cIdLine}`), lineOptions);
+      chartInstances[cIdLine].render();
+      chartSeriesMap[cIdLine] = reviewers;
+
+      const chipContainer = document.getElementById('reviewer-legend-chips');
+      let chipHtml = '';
+      reviewers.forEach((e, index) => {
+        const color = MULTI_COLORS[index % MULTI_COLORS.length];
+        chipHtml += `
+          <div class="legend-chip" id="chip-${cIdLine}-${index}" onclick="toggleSingleSeries('${cIdLine}', '${e}', ${index})">
+            <span class="legend-dot" style="background-color: ${color};"></span>${e}
+          </div>`;
+      });
+      chipContainer.innerHTML = chipHtml;
+
+      // Stacked Bar Chart Setup
       const cIdStack = 'reviewer-stacked-chart';
       tooltipStore[cIdStack] = [];
-      const statuses = Object.keys(STATUS_COLORS);
+      
+      let topReviewers = Object.entries(revStats).sort((a,b) => b[1].total - a[1].total).map(x => x[0]);
+      if (!showAllReviewers) topReviewers = topReviewers.slice(0, 10);
+      
+      const statuses = ['Accepted', 'Rework Assigned', 'Quarantined'];
+      const actionColors = ['#10b981', '#f59e0b', '#ef4444'];
       
       const stackSeries = statuses.map((status, sIdx) => {
         tooltipStore[cIdStack][sIdx] = [];
         const data = topReviewers.map((rev, rIdx) => {
-          const tasks = globalTasks.filter(t => t.reviewer === rev && t.normState === status);
-          tooltipStore[cIdStack][sIdx][rIdx] = tasks.map(t => t.id);
+          const tasks = revStats[rev].byStatus[status] || [];
+          tooltipStore[cIdStack][sIdx][rIdx] = tasks;
           return tasks.length;
         });
         return { name: status, data };
       });
 
       destroyChart(cIdStack);
+      const dynamicHeight = showAllReviewers ? (topReviewers.length * 28 + 100) : 480;
+      
       const barOptions = {
         series: stackSeries,
-        chart: { type: 'bar', height: 480, stacked: true, toolbar: { show: false }, fontFamily: 'Inter, sans-serif', events: getInteractiveChartEvents(cIdStack) },
-        colors: statuses.map(s => STATUS_COLORS[s]),
+        chart: { type: 'bar', height: dynamicHeight, stacked: true, toolbar: { show: false }, fontFamily: 'Inter, sans-serif', events: getInteractiveChartEvents(cIdStack) },
+        colors: actionColors,
         plotOptions: { bar: { horizontal: true, borderRadius: 2 } },
         xaxis: { labels: { style: { colors: '#64748b' } } },
-        yaxis: { categories: topReviewers, labels: { style: { colors: '#64748b', fontWeight: 600 } } },
+        yaxis: { 
+          categories: topReviewers, 
+          labels: { 
+            style: { colors: '#64748b', fontWeight: 600 },
+            minWidth: 120, // Forces long reviewer names to be legible
+            maxWidth: 250
+          } 
+        },
         legend: { position: 'top', horizontalAlign: 'right' },
         tooltip: { custom: function(opt) { return buildTooltipHtml(cIdStack, opt.seriesIndex, opt.dataPointIndex, opt.w); } }
       };
+      
+      document.querySelector(`#${cIdStack}`).style.height = `${dynamicHeight}px`;
       chartInstances[cIdStack] = new ApexCharts(document.querySelector(`#${cIdStack}`), barOptions);
       chartInstances[cIdStack].render();
     }
@@ -995,7 +1086,6 @@
             const tasks = slackData[podName][revName][trainName];
             const taskStr = tasks.join('<br>');
             
-            // Nested independent target that maintains whitespace perfectly upon browser selection.
             html += `
               <div class="slack-train-box" ondblclick="selectSlackNode(this, event)">
                 <div class="slack-box-label no-select">
@@ -1005,13 +1095,10 @@
                 <div class="slack-text">Trainer: @${trainName}<br>Pending Tasks: ${tasks.length}<br>Task IDs:<br><br>${taskStr}<br></div>
               </div>`;
           });
-          
-          html += `</div></div>`; // Close train-container and rev-box
+          html += `</div></div>`;
         });
-        
-        html += `</div></div>`; // Close rev-container and pod-box
+        html += `</div></div>`;
       });
-
       document.getElementById('slack-render-area').innerHTML = html;
     }
 
