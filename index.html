@@ -285,7 +285,6 @@
       transition: all 0.3s ease;
     }
     
-    /* Dynamic Dot State Classes */
     .timeline-dot.status-l2-app { border-color: var(--success) !important; background: var(--success-light) !important; animation: pulse-green 2s infinite; }
     .timeline-dot.status-l1-app { border-color: var(--accent-blue) !important; background: var(--accent-blue-light) !important; animation: pulse-blue 2s infinite; }
     .timeline-dot.status-rework { border-color: var(--warning) !important; background: var(--warning-light) !important; animation: pulse-amber 2s infinite; }
@@ -315,12 +314,8 @@
 
   <div class="main-content">
     
-    <!-- Top Level Dashboard Summaries -->
-    <div class="summary-grid" id="summary-grid">
-      <!-- Generated via JS to accurately reflect currently filtered data -->
-    </div>
+    <div class="summary-grid" id="summary-grid"></div>
 
-    <!-- Filters -->
     <div class="filters-container">
       <input type="text" id="search-id" class="filter-input" placeholder="Search Task ID (e.g. 01a081d2...)" oninput="renderTable()">
       
@@ -368,7 +363,6 @@
       </select>
     </div>
 
-    <!-- Table Action Bar -->
     <div class="table-actions">
       <h3>Ledger Details</h3>
       <div class="table-actions-btns">
@@ -387,7 +381,6 @@
       </div>
     </div>
 
-    <!-- Ledger Table -->
     <div class="ledger-container">
       <table>
         <thead>
@@ -412,7 +405,6 @@
     </div>
   </div>
 
-  <!-- Modal -->
   <div class="modal-overlay" id="task-modal" onclick="closeModal(event)">
     <div class="modal-content" onclick="event.stopPropagation()">
       <div class="modal-header">
@@ -481,6 +473,11 @@
     let userToEmail = {};
     let l2ReviewersSet = new Set();
 
+    function normalizeName(name) {
+      if (!name) return '';
+      return String(name).trim().toLowerCase().replace(/\s+/g, ' ');
+    }
+
     function getReviewCycles(task) {
       if (task.review_cycles !== undefined) return task.review_cycles;
       if (!task.history) return 0;
@@ -499,7 +496,6 @@
     }
 
     async function init() {
-      // Check if we are running in an exported offline file
       if (window.__OFFLINE_PAYLOAD__) {
         globalData = window.__OFFLINE_PAYLOAD__.tasks || [];
         trainerToPod = window.__OFFLINE_PAYLOAD__.trainerToPod || {};
@@ -510,7 +506,6 @@
         return;
       }
 
-      // Normal Live Fetch
       try {
         const [taskRes, rosterRes] = await Promise.all([
           fetch(CLOUDFLARE_URL).catch(() => ({ json: () => ({ tasks: [] }) })),
@@ -522,23 +517,46 @@
         if (rosterJson.pods) {
           rosterJson.pods.forEach(pod => {
             pod.trainers.forEach(t => {
-                trainerToPod[t.name] = pod.name;
-                if (t.email) userToEmail[t.name] = t.email;
+                const norm = normalizeName(t.name);
+                trainerToPod[norm] = pod.name;
+                if (t.email) userToEmail[norm] = t.email;
             });
           });
         }
         
         if (rosterJson.l2_reviewers) {
           rosterJson.l2_reviewers.forEach(r => {
-             l2ReviewersSet.add(r.name);
-             if (r.email) userToEmail[r.name] = r.email;
+             const norm = normalizeName(r.name);
+             l2ReviewersSet.add(norm);
+             if (r.email) userToEmail[norm] = r.email;
           });
         }
 
-        globalData = (json.tasks || []).map(t => ({
-          ...t,
-          pod: trainerToPod[t.annotator] || 'Unassigned Pod'
-        }));
+        globalData = (json.tasks || []).map(t => {
+          const normAnnotator = normalizeName(t.annotator);
+          const normReviewer = normalizeName(t.reviewer);
+          const isRealAnnotator = t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned';
+          const isRealReviewer = t.reviewer && t.reviewer !== '—' && t.reviewer !== 'Unassigned';
+
+          const isUnidTrainer = isRealAnnotator && !trainerToPod[normAnnotator] && !l2ReviewersSet.has(normAnnotator);
+          const isUnidReviewer = isRealReviewer && !trainerToPod[normReviewer] && !l2ReviewersSet.has(normReviewer);
+
+          let podName = trainerToPod[normAnnotator] || 'Unassigned Pod';
+          if (isUnidTrainer || isUnidReviewer) {
+              podName = 'UNIDENTIFIED';
+          } else if (!isRealAnnotator) {
+              podName = 'Unassigned Pod';
+          }
+
+          return {
+            ...t,
+            normAnnotator,
+            normReviewer,
+            isUnidTrainer,
+            isUnidReviewer,
+            pod: podName
+          };
+        });
       } catch (err) {
         console.warn("Using fallback data or failed to fetch fully.", err);
       }
@@ -565,8 +583,15 @@
       };
 
       fillOptions('filter-trainer', trainers);
+      document.getElementById('filter-trainer').insertAdjacentHTML('beforeend', `<option value="UNIDENTIFIED">UNIDENTIFIED</option>`);
+
       fillOptions('filter-reviewer', reviewers);
+      document.getElementById('filter-reviewer').insertAdjacentHTML('beforeend', `<option value="UNIDENTIFIED">UNIDENTIFIED</option>`);
+
       fillOptions('filter-pod', pods);
+      if (!pods.has('UNIDENTIFIED')) {
+          document.getElementById('filter-pod').insertAdjacentHTML('beforeend', `<option value="UNIDENTIFIED">UNIDENTIFIED</option>`);
+      }
     }
 
     function toggleCustomDate() {
@@ -602,7 +627,6 @@
       return true;
     }
 
-    // Checking Historical Milestones for Accuracy
     function hasClearedL1(task) {
       if (['Approved', 'L2 review'].includes(task.state)) return true;
       if (!task.history) return false;
@@ -780,9 +804,9 @@
           }
         }
         
-        const matchTrainer = qTrainer === 'All' || t.annotator === qTrainer;
-        const matchReviewer = qReviewer === 'All' || t.reviewer === qReviewer;
-        const matchPod = qPod === 'All' || t.pod === qPod;
+        const matchTrainer = qTrainer === 'All' ? true : (qTrainer === 'UNIDENTIFIED' ? t.isUnidTrainer : t.annotator === qTrainer);
+        const matchReviewer = qReviewer === 'All' ? true : (qReviewer === 'UNIDENTIFIED' ? t.isUnidReviewer : t.reviewer === qReviewer);
+        const matchPod = qPod === 'All' ? true : t.pod === qPod;
         
         let matchMilestone = true;
         if (qMilestone === 'L1') matchMilestone = hasClearedL1(t);
@@ -812,7 +836,7 @@
           }).join('');
         }
 
-        const trEmail = userToEmail[t.annotator] || (t.annotator !== 'Unassigned' ? t.annotator.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '');
+        const trEmail = userToEmail[t.normAnnotator] || (t.annotator !== 'Unassigned' ? t.annotator.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '');
         const displayState = (!t.state || t.state === '') ? 'Pool / Draft' : t.state;
         const cycleCount = getReviewCycles(t);
 
@@ -858,9 +882,9 @@
 
       document.getElementById('modal-task-id').textContent = task.id;
       document.getElementById('modal-trainer-name').textContent = task.annotator;
-      document.getElementById('modal-trainer-email').textContent = userToEmail[task.annotator] || (task.annotator !== 'Unassigned' ? task.annotator.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '—');
+      document.getElementById('modal-trainer-email').textContent = userToEmail[task.normAnnotator] || (task.annotator !== 'Unassigned' ? task.annotator.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '—');
       document.getElementById('modal-reviewer-name').textContent = task.reviewer;
-      document.getElementById('modal-reviewer-email').textContent = userToEmail[task.reviewer] || (task.reviewer !== '—' ? task.reviewer.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '—');
+      document.getElementById('modal-reviewer-email').textContent = userToEmail[task.normReviewer] || (task.reviewer !== '—' ? task.reviewer.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '—');
       document.getElementById('modal-domain').textContent = task.domain;
       document.getElementById('modal-date').textContent = task.submitted_at ? formatDateShort(task.submitted_at) + ', ' + new Date(task.submitted_at).getFullYear() : '—';
       
@@ -969,7 +993,6 @@
         return;
       }
 
-      // Sort alphabetically by trainer name
       targetTasks.sort((a, b) => {
         const nameA = (a.annotator && a.annotator !== '—' && a.annotator !== 'Unassigned') ? a.annotator.toLowerCase() : 'zzz';
         const nameB = (b.annotator && b.annotator !== '—' && b.annotator !== 'Unassigned') ? b.annotator.toLowerCase() : 'zzz';
@@ -983,30 +1006,29 @@
         const trainer = t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned' ? t.annotator : 'Unassigned';
         const taskId = t.id || '—';
         
-        // Find last valid L1 reviewer from history or assignment (strictly excludes L2 reviewers)
         let reviewer = 'None';
         if (t.history) {
-          const revEvents = t.history.filter(h => 
-            h.actor_name && 
-            h.actor_name !== 'System' && 
-            h.actor_name !== t.annotator && 
-            h.actor_name !== '—' && 
-            !l2ReviewersSet.has(h.actor_name)
-          );
+          const revEvents = t.history.filter(h => {
+            const normActor = normalizeName(h.actor_name);
+            return h.actor_name && 
+              h.actor_name !== 'System' && 
+              h.actor_name !== t.annotator && 
+              h.actor_name !== '—' && 
+              !l2ReviewersSet.has(normActor);
+          });
           if (revEvents.length > 0) {
             reviewer = revEvents[revEvents.length - 1].actor_name;
           }
         }
         
-        // Fallback to currently assigned reviewer if valid
-        if (reviewer === 'None' && t.reviewer && t.reviewer !== '—' && t.reviewer !== 'Unassigned' && !l2ReviewersSet.has(t.reviewer)) {
+        const normRev = normalizeName(t.reviewer);
+        if (reviewer === 'None' && t.reviewer && t.reviewer !== '—' && t.reviewer !== 'Unassigned' && !l2ReviewersSet.has(normRev)) {
           reviewer = t.reviewer;
         }
         
         let status = 'Fresh Submission';
         const s = (t.state || '').toLowerCase();
         
-        // Parse accurate historical reworks to prevent discrepancy with fresh resubmissions
         let reworks = 0;
         if (t.history) {
           t.history.forEach(h => {
