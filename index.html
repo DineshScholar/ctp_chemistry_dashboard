@@ -494,7 +494,7 @@
 
     // Global Functions for Extracted Reviewer & Status Management
     function getPersonStyle(name) {
-      if (!name || name === 'NA' || name === 'Unassigned' || name === '—' || name === 'None') {
+      if (!name || name === 'NA' || name === 'Unassigned' || name === '—' || name === 'None' || name === 'System') {
         return 'background: #f1f5f9; color: #475569; border-color: #cbd5e1;';
       }
       let hash = 0;
@@ -545,6 +545,86 @@
       return task.history.some(h => h.label === 'Approved' || h.kind === 'approved' || h.state === 'Approved' || (h.label && h.label.toLowerCase().includes('l2 approved')));
     }
 
+    function getReviewers(task) {
+        let l1Rev = 'NA';
+        let l2Rev = 'NA';
+        let l2StartTime = null;
+        
+        const annotatorLower = (task.annotator || '').toLowerCase();
+
+        if (task.history) {
+            // PASS 1: Identify explicit assignments and strict L1/L2 time boundaries
+            for (let h of task.history) {
+                const actor = h.actor_name;
+                const kLower = (h.kind || '').toLowerCase();
+                const dLower = (h.detail || '').toLowerCase();
+                const lLower = (h.label || '').toLowerCase();
+                const occurredAt = new Date(h.occurred_at).getTime();
+
+                if (kLower === 'review_assigned') {
+                    if (dLower === 'review_l1') {
+                        l1Rev = actor;
+                    } else if (dLower === 'review_l2') {
+                        l2Rev = actor;
+                        l2StartTime = occurredAt;
+                    }
+                }
+                
+                // If a "cleared" event occurs, L1 phase is officially over.
+                // We track the time so we don't accidentally attribute previous L1 actions to L2
+                if (kLower === 'review_cleared' || lLower.includes('cleared for claim pool') || lLower.includes('advanced to l2')) {
+                    if (!l2StartTime || occurredAt > l2StartTime) {
+                        l2StartTime = occurredAt + 1; // +1 ms ensures simultaneous events stay in L1 phase
+                    }
+                }
+            }
+
+            // PASS 2: Map actions to reviewers
+            for (let h of task.history) {
+                const actor = h.actor_name;
+                const kLower = (h.kind || '').toLowerCase();
+                const lLower = (h.label || '').toLowerCase();
+                const occurredAt = new Date(h.occurred_at).getTime();
+
+                // Only consider human actors, exclude the trainer, exclude System
+                if (actor && actor !== 'System' && actor !== '—' && actor !== 'None' && actor.toLowerCase() !== annotatorLower) {
+                    
+                    // The system inherently clears tasks for the claim pool, humans don't do this action physically
+                    if (kLower === 'review_cleared' || lLower.includes('cleared for claim pool')) {
+                        continue; 
+                    }
+
+                    if (kLower === 'review_approved' || kLower === 'review_rework' || kLower === 'review_requested' || 
+                        lLower === 'review approved' || lLower === 'rework requested') {
+                        
+                        if (l2StartTime && occurredAt >= l2StartTime) {
+                            if (l2Rev === 'NA') l2Rev = actor;
+                        } else {
+                            if (l1Rev === 'NA') l1Rev = actor;
+                        }
+                    }
+                }
+            }
+        }
+
+        // FALLBACK: Use the overall task reviewer property if history was truncated or incomplete
+        if (task.reviewer && task.reviewer !== '—' && task.reviewer !== 'Unassigned') {
+            const taskRevLower = task.reviewer.trim().toLowerCase();
+            const l1RevLower = l1Rev.trim().toLowerCase();
+            
+            if (hasClearedL1(task)) {
+                // If L1 cleared, reviewer is L2 (unless L1's name is just lingering in the system)
+                if (l2Rev === 'NA' && taskRevLower !== l1RevLower) {
+                    l2Rev = task.reviewer;
+                }
+            } else {
+                if (l1Rev === 'NA') l1Rev = task.reviewer;
+            }
+        }
+
+        return { l1: l1Rev, l2: l2Rev };
+    }
+
     function getCombinedStatus(task) {
       const s = (task.state || '').toLowerCase();
       const clearedL1 = hasClearedL1(task);
@@ -581,23 +661,6 @@
         selectedChips.add(chipName);
         el.classList.add('selected');
       }
-    }
-
-    function getReviewCycles(task) {
-      if (task.review_cycles !== undefined) return task.review_cycles;
-      if (!task.history) return 0;
-      
-      let reworks = 0;
-      task.history.forEach(h => {
-        if (h.label && h.label.toLowerCase().includes('rework')) reworks++;
-      });
-      
-      const s = (task.state || '').toLowerCase();
-      if (s.includes('pool') || s.includes('draft') || s === 'unassigned' || s === '') {
-        return reworks; 
-      }
-      
-      return reworks + 1;
     }
 
     function resolveAnnotator(rawName, members, mappings) {
@@ -920,14 +983,21 @@
         if (t.history && t.history.length > 0) {
           const recent = t.history.slice(-2);
           miniHistoryHTML = recent.map(h => {
-            const rolePrefix = (h.actor_name === t.reviewer) ? 'RV' : (h.actor_name === t.annotator ? 'TR' : 'SYS');
+            const isSysAction = (h.kind || '').toLowerCase() === 'review_cleared' || (h.label || '').toLowerCase().includes('cleared for claim pool');
+            const rolePrefix = isSysAction ? 'SYS' : ((h.actor_name === t.reviewer) ? 'RV' : (h.actor_name === t.annotator ? 'TR' : 'SYS'));
             return `<div class="mini-history-item"><span class="mini-history-date">${formatDateShort(h.occurred_at)}</span> &rarr; <span>${rolePrefix}: ${esc(h.label)}</span></div>`;
           }).join('');
         }
 
         const trEmail = userToEmail[t.annotator] || (t.annotator !== 'Unassigned' ? t.annotator.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '');
         const displayState = (!t.state || t.state === '') ? 'Pool / Draft' : t.state;
-        const cycleCount = getReviewCycles(t);
+        
+        // Inline reviewer cycle logic
+        let reworks = 0;
+        if (t.history) {
+          t.history.forEach(h => { if (h.label && h.label.toLowerCase().includes('rework')) reworks++; });
+        }
+        const cycleCount = (t.state || '').toLowerCase().includes('pool') || (t.state || '').toLowerCase().includes('draft') || t.state === 'Unassigned' || !t.state ? reworks : reworks + 1;
 
         return `
           <tr onclick="openModal('${t.id}')">
@@ -988,32 +1058,42 @@
       
       if (task.history && task.history.length > 0) {
         timelineHTML = task.history.slice().reverse().map(h => {
+          const kLower = (h.kind || '').toLowerCase();
+          const lLower = (h.label || '').toLowerCase();
+          const dLower = (h.detail || '').toLowerCase();
+
           let roleLabel = 'SYSTEM';
           let roleClass = 'system';
+          let displayActor = esc(h.actor_name || 'System');
           
-          if (h.actor_name === task.reviewer) {
+          if (kLower === 'review_cleared' || lLower.includes('cleared for claim pool')) {
+            roleLabel = 'SYSTEM';
+            roleClass = 'system';
+            displayActor = 'System';
+          } else if (h.actor_name === task.reviewer) {
             roleLabel = 'REVIEWER';
             roleClass = 'reviewer';
           } else if (h.actor_name === task.annotator) {
             roleLabel = 'TRAINER';
             roleClass = 'trainer';
+          } else if (h.actor_name && h.actor_name !== 'System') {
+            roleLabel = 'REVIEWER';
+            roleClass = 'reviewer';
           }
           
           let displayLabel = esc(h.label);
           let extraDotClass = '';
           let iconHtml = '';
-          const lLower = (h.label || '').toLowerCase();
-          const dLower = (h.detail || '').toLowerCase();
 
           const iconL1 = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px; vertical-align:text-bottom; color: var(--accent-blue);"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>`;
           const iconL2 = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px; vertical-align:text-bottom; color: var(--success);"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"></path><path d="m9 12 2 2 4-4"></path></svg>`;
 
           if (lLower.includes('approved') || lLower.includes('cleared')) {
-              if (dLower.includes('review_l2') || lLower.includes('claim pool') || lLower.includes('l1')) {
+              if (dLower.includes('review_l2') || lLower.includes('claim pool') || lLower.includes('l1') || lLower.includes('advanced to l2')) {
                   displayLabel = 'L1 Approved (Advanced to L2)';
                   extraDotClass = 'status-l1-app';
                   iconHtml = iconL1;
-              } else if (lLower === 'approved' || h.kind === 'approved' || dLower.includes('final') || lLower.includes('l2')) {
+              } else if (lLower === 'approved' || kLower === 'approved' || dLower.includes('final') || lLower.includes('l2 approved')) {
                   displayLabel = 'L2 Final Approved';
                   extraDotClass = 'status-l2-app';
                   iconHtml = iconL2;
@@ -1039,7 +1119,7 @@
                 <span class="tl-date">${formatDateShort(h.occurred_at)}, ${new Date(h.occurred_at).getFullYear()}, ${formatTimeShort(h.occurred_at)}</span>
               </div>
               <div class="tl-action" style="${extraDotClass ? 'font-weight: 800;' : ''}">${iconHtml}${displayLabel}</div>
-              <div class="tl-name">${esc(h.actor_name || 'System')}</div>
+              <div class="tl-name">${displayActor}</div>
               ${detailHTML}
             </div>
           `;
@@ -1085,52 +1165,8 @@
       targetTasks.forEach((t, index) => {
         const trainer = t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned' ? t.annotator : 'Unassigned';
         const taskId = t.id || '—';
-        
-        // Define the exact getReviewers logic inline for the copy function
-        let l1Rev = 'NA';
-        let l2Rev = 'NA';
-        let l2StartTime = null;
-        const annotatorLower = (t.annotator || '').toLowerCase();
-
-        if (t.history) {
-          for (let h of t.history) {
-             const actor = h.actor_name;
-             const kLower = (h.kind || '').toLowerCase();
-             const dLower = (h.detail || '').toLowerCase();
-             const occurredAt = new Date(h.occurred_at).getTime();
-
-             if (kLower === 'review_assigned') {
-                 if (dLower === 'review_l1') l1Rev = actor;
-                 else if (dLower === 'review_l2') {
-                     l2Rev = actor;
-                     l2StartTime = occurredAt;
-                 }
-             } else if (kLower === 'review_cleared' && dLower.includes('review_l2')) {
-                 if (!l2StartTime || occurredAt > l2StartTime) {
-                     l2StartTime = occurredAt + 1; 
-                 }
-             }
-
-             if (actor && actor !== 'System' && actor !== '—' && actor !== 'None' && actor.toLowerCase() !== annotatorLower) {
-                if (kLower === 'review_approved' || kLower === 'review_rework' || kLower === 'review_requested' || (kLower === 'returned_to_pool' && actor !== l1Rev)) {
-                    if (l2StartTime && occurredAt >= l2StartTime) {
-                        if (l2Rev === 'NA') l2Rev = actor;
-                    } else {
-                        if (l1Rev === 'NA') l1Rev = actor;
-                    }
-                }
-             }
-          }
-        }
-        if (t.reviewer && t.reviewer !== '—' && t.reviewer !== 'Unassigned') {
-            if (hasClearedL1(t)) {
-                if (l2Rev === 'NA' && t.reviewer !== l1Rev) l2Rev = t.reviewer;
-            } else {
-                if (l1Rev === 'NA') l1Rev = t.reviewer;
-            }
-        }
-        
-        let reviewer = l1Rev !== 'NA' ? l1Rev : 'None';
+        const revs = getReviewers(t);
+        let reviewer = revs.l1 !== 'NA' ? revs.l1 : 'None';
         let status = getCombinedStatus(t);
 
         html += `<tr><td>${index + 1}</td><td>${trainer}</td><td>${taskId}</td><td>${reviewer}</td><td>${status}</td></tr>`;
@@ -1198,54 +1234,6 @@
 
       targetTasks.sort((a, b) => new Date(b.submitted_at || 0) - new Date(a.submitted_at || 0));
 
-      function getReviewers(task) {
-         let l1Rev = 'NA';
-         let l2Rev = 'NA';
-         let l2StartTime = null;
-         const annotatorLower = (task.annotator || '').toLowerCase();
-
-         if (task.history) {
-           for (let h of task.history) {
-              const actor = h.actor_name;
-              const kLower = (h.kind || '').toLowerCase();
-              const dLower = (h.detail || '').toLowerCase();
-              const occurredAt = new Date(h.occurred_at).getTime();
-
-              if (kLower === 'review_assigned') {
-                  if (dLower === 'review_l1') l1Rev = actor;
-                  else if (dLower === 'review_l2') {
-                      l2Rev = actor;
-                      l2StartTime = occurredAt;
-                  }
-              } else if (kLower === 'review_cleared' && dLower.includes('review_l2')) {
-                  if (!l2StartTime || occurredAt > l2StartTime) {
-                      l2StartTime = occurredAt + 1; 
-                  }
-              }
-
-              if (actor && actor !== 'System' && actor !== '—' && actor !== 'None' && actor.toLowerCase() !== annotatorLower) {
-                 if (kLower === 'review_approved' || kLower === 'review_rework' || kLower === 'review_requested' || (kLower === 'returned_to_pool' && actor !== l1Rev)) {
-                     if (l2StartTime && occurredAt >= l2StartTime) {
-                         if (l2Rev === 'NA') l2Rev = actor;
-                     } else {
-                         if (l1Rev === 'NA') l1Rev = actor;
-                     }
-                 }
-              }
-           }
-         }
-
-         if (task.reviewer && task.reviewer !== '—' && task.reviewer !== 'Unassigned') {
-             if (hasClearedL1(task)) {
-                 if (l2Rev === 'NA' && task.reviewer !== l1Rev) l2Rev = task.reviewer;
-             } else {
-                 if (l1Rev === 'NA') l1Rev = task.reviewer;
-             }
-         }
-
-         return { l1: l1Rev, l2: l2Rev };
-      }
-
       const uniqueTrainers = new Set();
       const uniqueL1 = new Set();
       const uniqueL2 = new Set();
@@ -1270,24 +1258,38 @@
         
         if (t.history && t.history.length > 0) {
           timelineHTML = t.history.slice().reverse().map(h => {
+            const kLower = (h.kind || '').toLowerCase();
+            const lLower = (h.label || '').toLowerCase();
+            const dLower = (h.detail || '').toLowerCase();
+            
             let roleLabel = 'SYSTEM';
             let roleClass = 'system';
-            if (h.actor_name === t.reviewer) { roleLabel = 'REVIEWER'; roleClass = 'reviewer'; } 
-            else if (h.actor_name === t.annotator) { roleLabel = 'TRAINER'; roleClass = 'trainer'; }
+            let displayActor = esc(h.actor_name || 'System');
+            
+            if (kLower === 'review_cleared' || lLower.includes('cleared for claim pool')) {
+                roleLabel = 'SYSTEM';
+                roleClass = 'system';
+                displayActor = 'System';
+            } else if (h.actor_name === t.reviewer || (h.actor_name && h.actor_name !== 'System' && h.actor_name !== t.annotator)) {
+                roleLabel = 'REVIEWER';
+                roleClass = 'reviewer';
+            } else if (h.actor_name === t.annotator) {
+                roleLabel = 'TRAINER';
+                roleClass = 'trainer';
+            }
             
             let displayLabel = esc(h.label);
             let extraDotClass = '';
             let iconHtml = '';
-            const lLower = (h.label || '').toLowerCase();
-            const dLower = (h.detail || '').toLowerCase();
+            
             const iconL1 = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px; vertical-align:text-bottom; color: #2563eb;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>`;
             const iconL2 = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px; vertical-align:text-bottom; color: #059669;"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"></path><path d="m9 12 2 2 4-4"></path></svg>`;
 
             if (lLower.includes('approved') || lLower.includes('cleared')) {
-                if (dLower.includes('review_l2') || lLower.includes('claim pool') || lLower.includes('l1')) {
+                if (dLower.includes('review_l2') || lLower.includes('claim pool') || lLower.includes('l1') || lLower.includes('advanced to l2')) {
                     displayLabel = 'L1 Approved (Advanced to L2)';
                     extraDotClass = 'status-l1-app'; iconHtml = iconL1;
-                } else if (lLower === 'approved' || h.kind === 'approved' || dLower.includes('final') || lLower.includes('l2')) {
+                } else if (lLower === 'approved' || kLower === 'approved' || dLower.includes('final') || lLower.includes('l2 approved')) {
                     displayLabel = 'L2 Final Approved';
                     extraDotClass = 'status-l2-app'; iconHtml = iconL2;
                 } else {
@@ -1306,7 +1308,7 @@
                   <span class="tl-date">${formatDateShort(h.occurred_at)}, ${new Date(h.occurred_at).getFullYear()}, ${formatTimeShort(h.occurred_at)}</span>
                 </div>
                 <div class="tl-action" style="${extraDotClass ? 'font-weight: 800;' : ''}">${iconHtml}${displayLabel}</div>
-                <div class="tl-name">${esc(h.actor_name || 'System')}</div>
+                <div class="tl-name">${displayActor}</div>
                 ${detailHTML}
               </div>`;
           }).join('');
@@ -1633,51 +1635,8 @@
         const trainer = t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned' ? t.annotator : 'Unassigned';
         const taskId = t.id || '—';
         
-        // Define the exact getReviewers logic inline for the copy function
-        let l1Rev = 'NA';
-        let l2Rev = 'NA';
-        let l2StartTime = null;
-        const annotatorLower = (t.annotator || '').toLowerCase();
-
-        if (t.history) {
-          for (let h of t.history) {
-             const actor = h.actor_name;
-             const kLower = (h.kind || '').toLowerCase();
-             const dLower = (h.detail || '').toLowerCase();
-             const occurredAt = new Date(h.occurred_at).getTime();
-
-             if (kLower === 'review_assigned') {
-                 if (dLower === 'review_l1') l1Rev = actor;
-                 else if (dLower === 'review_l2') {
-                     l2Rev = actor;
-                     l2StartTime = occurredAt;
-                 }
-             } else if (kLower === 'review_cleared' && dLower.includes('review_l2')) {
-                 if (!l2StartTime || occurredAt > l2StartTime) {
-                     l2StartTime = occurredAt + 1; 
-                 }
-             }
-
-             if (actor && actor !== 'System' && actor !== '—' && actor !== 'None' && actor.toLowerCase() !== annotatorLower) {
-                if (kLower === 'review_approved' || kLower === 'review_rework' || kLower === 'review_requested' || (kLower === 'returned_to_pool' && actor !== l1Rev)) {
-                    if (l2StartTime && occurredAt >= l2StartTime) {
-                        if (l2Rev === 'NA') l2Rev = actor;
-                    } else {
-                        if (l1Rev === 'NA') l1Rev = actor;
-                    }
-                }
-             }
-          }
-        }
-        if (t.reviewer && t.reviewer !== '—' && t.reviewer !== 'Unassigned') {
-            if (hasClearedL1(t)) {
-                if (l2Rev === 'NA' && t.reviewer !== l1Rev) l2Rev = t.reviewer;
-            } else {
-                if (l1Rev === 'NA') l1Rev = t.reviewer;
-            }
-        }
-        
-        const reviewer = l1Rev !== 'NA' ? l1Rev : 'None';
+        const revs = getReviewers(t);
+        const reviewer = revs.l1 !== 'NA' ? revs.l1 : 'None';
         const combinedStatus = getCombinedStatus(t);
         
         uniqueReviewers.add(reviewer);
@@ -1686,50 +1645,48 @@
         
         if (t.history && t.history.length > 0) {
           timelineHTML = t.history.slice().reverse().map(h => {
+            const kLower = (h.kind || '').toLowerCase();
+            const lLower = (h.label || '').toLowerCase();
+            const dLower = (h.detail || '').toLowerCase();
+            
             let roleLabel = 'SYSTEM';
             let roleClass = 'system';
+            let displayActor = esc(h.actor_name || 'System');
             
-            if (h.actor_name === t.reviewer) {
-              roleLabel = 'REVIEWER';
-              roleClass = 'reviewer';
+            if (kLower === 'review_cleared' || lLower.includes('cleared for claim pool')) {
+                roleLabel = 'SYSTEM';
+                roleClass = 'system';
+                displayActor = 'System';
+            } else if (h.actor_name === t.reviewer || (h.actor_name && h.actor_name !== 'System' && h.actor_name !== t.annotator)) {
+                roleLabel = 'REVIEWER';
+                roleClass = 'reviewer';
             } else if (h.actor_name === t.annotator) {
-              roleLabel = 'TRAINER';
-              roleClass = 'trainer';
+                roleLabel = 'TRAINER';
+                roleClass = 'trainer';
             }
             
             let displayLabel = esc(h.label);
             let extraDotClass = '';
             let iconHtml = '';
-            const lLower = (h.label || '').toLowerCase();
-            const dLower = (h.detail || '').toLowerCase();
-
+            
             const iconL1 = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px; vertical-align:text-bottom; color: #2563eb;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>`;
             const iconL2 = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px; vertical-align:text-bottom; color: #059669;"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"></path><path d="m9 12 2 2 4-4"></path></svg>`;
 
             if (lLower.includes('approved') || lLower.includes('cleared')) {
-                if (dLower.includes('review_l2') || lLower.includes('claim pool') || lLower.includes('l1')) {
+                if (dLower.includes('review_l2') || lLower.includes('claim pool') || lLower.includes('l1') || lLower.includes('advanced to l2')) {
                     displayLabel = 'L1 Approved (Advanced to L2)';
-                    extraDotClass = 'status-l1-app';
-                    iconHtml = iconL1;
-                } else if (lLower === 'approved' || h.kind === 'approved' || dLower.includes('final') || lLower.includes('l2')) {
+                    extraDotClass = 'status-l1-app'; iconHtml = iconL1;
+                } else if (lLower === 'approved' || kLower === 'approved' || dLower.includes('final') || lLower.includes('l2 approved')) {
                     displayLabel = 'L2 Final Approved';
-                    extraDotClass = 'status-l2-app';
-                    iconHtml = iconL2;
+                    extraDotClass = 'status-l2-app'; iconHtml = iconL2;
                 } else {
-                    displayLabel = 'Approved';
-                    extraDotClass = 'status-l2-app';
-                    iconHtml = iconL1;
+                    displayLabel = 'Approved'; extraDotClass = 'status-l2-app'; iconHtml = iconL1;
                 }
-            } else if (lLower.includes('rework')) {
-                extraDotClass = 'status-rework';
-            } else if (lLower.includes('quarantine')) {
-                extraDotClass = 'status-quar';
-            }
+            } else if (lLower.includes('rework')) { extraDotClass = 'status-rework'; } 
+              else if (lLower.includes('quarantine')) { extraDotClass = 'status-quar'; }
 
-            const detailHTML = h.detail && h.detail.trim() !== '' && h.detail !== h.label && h.detail !== 'null' && !['review_l1', 'review_l2'].includes(h.detail)
-              ? `<div class="tl-detail">${esc(h.detail)}</div>` : '';
+            const detailHTML = h.detail && h.detail.trim() !== '' && h.detail !== h.label && h.detail !== 'null' && !['review_l1', 'review_l2'].includes(h.detail) ? `<div class="tl-detail">${esc(h.detail)}</div>` : '';
 
-            // Using formatting identical to the modal UI
             return `
               <div class="timeline-item">
                 <div class="timeline-dot ${roleClass} ${extraDotClass}"></div>
@@ -1738,10 +1695,9 @@
                   <span class="tl-date">${formatDateShort(h.occurred_at)}, ${new Date(h.occurred_at).getFullYear()}, ${formatTimeShort(h.occurred_at)}</span>
                 </div>
                 <div class="tl-action" style="${extraDotClass ? 'font-weight: 800;' : ''}">${iconHtml}${displayLabel}</div>
-                <div class="tl-name">${esc(h.actor_name || 'System')}</div>
+                <div class="tl-name">${displayActor}</div>
                 ${detailHTML}
-              </div>
-            `;
+              </div>`;
           }).join('');
         }
         
