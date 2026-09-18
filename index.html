@@ -285,6 +285,7 @@
       transition: all 0.3s ease;
     }
     
+    /* Dynamic Dot State Classes */
     .timeline-dot.status-l2-app { border-color: var(--success) !important; background: var(--success-light) !important; animation: pulse-green 2s infinite; }
     .timeline-dot.status-l1-app { border-color: var(--accent-blue) !important; background: var(--accent-blue-light) !important; animation: pulse-blue 2s infinite; }
     .timeline-dot.status-rework { border-color: var(--warning) !important; background: var(--warning-light) !important; animation: pulse-amber 2s infinite; }
@@ -314,8 +315,12 @@
 
   <div class="main-content">
     
-    <div class="summary-grid" id="summary-grid"></div>
+    <!-- Top Level Dashboard Summaries -->
+    <div class="summary-grid" id="summary-grid">
+      <!-- Generated via JS to accurately reflect currently filtered data -->
+    </div>
 
+    <!-- Filters -->
     <div class="filters-container">
       <input type="text" id="search-id" class="filter-input" placeholder="Search Task ID (e.g. 01a081d2...)" oninput="renderTable()">
       
@@ -363,6 +368,7 @@
       </select>
     </div>
 
+    <!-- Table Action Bar -->
     <div class="table-actions">
       <h3>Ledger Details</h3>
       <div class="table-actions-btns">
@@ -381,6 +387,7 @@
       </div>
     </div>
 
+    <!-- Ledger Table -->
     <div class="ledger-container">
       <table>
         <thead>
@@ -405,6 +412,7 @@
     </div>
   </div>
 
+  <!-- Modal -->
   <div class="modal-overlay" id="task-modal" onclick="closeModal(event)">
     <div class="modal-content" onclick="event.stopPropagation()">
       <div class="modal-header">
@@ -469,33 +477,9 @@
     const ROSTER_URL = 'https://turing-api.dineshkashyaparya.workers.dev/roster';
     
     let globalData = [];
-    let globalPods = [];
-    let emailToPod = {};
-    let nameToPod = {};
+    let trainerToPod = {};
     let userToEmail = {};
-    let l2Emails = new Set();
-    let l2Names = new Set();
-
-    function normalizeName(name) {
-      if (!name) return '';
-      return String(name).trim().toLowerCase().replace(/\s+/g, ' ');
-    }
-
-    function extractEmail(str) {
-      if (!str) return null;
-      const match = String(str).match(/([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)/);
-      return match ? match[1].toLowerCase() : null;
-    }
-
-    function findEmail(task, rolePrefix) {
-      const e1 = extractEmail(task[rolePrefix + '_email']);
-      if (e1) return e1;
-      const e2 = extractEmail(task[rolePrefix + 'Email']);
-      if (e2) return e2;
-      const e3 = extractEmail(task[rolePrefix]);
-      if (e3) return e3;
-      return null;
-    }
+    let l2ReviewersSet = new Set();
 
     function getReviewCycles(task) {
       if (task.review_cycles !== undefined) return task.review_cycles;
@@ -510,18 +494,30 @@
       if (s.includes('pool') || s.includes('draft') || s === 'unassigned' || s === '') {
         return reworks; 
       }
+      
       return reworks + 1;
+    }
+
+    function resolveAnnotator(rawName, members, mappings) {
+      if (!rawName || rawName === '—' || rawName === 'Unassigned') return rawName;
+      if (mappings && mappings[rawName]) return mappings[rawName];
+
+      const exactMatch = members.find(r => r.name.toLowerCase() === rawName.toLowerCase());
+      if (exactMatch) return exactMatch.name;
+
+      const rawFirstName = rawName.trim().split(' ')[0].toLowerCase();
+      const firstMatch = members.find(r => r.name.trim().split(' ')[0].toLowerCase() === rawFirstName);
+      if (firstMatch) return firstMatch.name;
+
+      return rawName;
     }
 
     async function init() {
       if (window.__OFFLINE_PAYLOAD__) {
         globalData = window.__OFFLINE_PAYLOAD__.tasks || [];
-        globalPods = window.__OFFLINE_PAYLOAD__.globalPods || [];
-        emailToPod = window.__OFFLINE_PAYLOAD__.emailToPod || {};
-        nameToPod = window.__OFFLINE_PAYLOAD__.nameToPod || {};
+        trainerToPod = window.__OFFLINE_PAYLOAD__.trainerToPod || {};
         userToEmail = window.__OFFLINE_PAYLOAD__.userToEmail || {};
-        l2Emails = new Set(window.__OFFLINE_PAYLOAD__.l2Emails || []);
-        l2Names = new Set(window.__OFFLINE_PAYLOAD__.l2Names || []);
+        l2ReviewersSet = new Set(window.__OFFLINE_PAYLOAD__.l2Reviewers || []);
         populateFilters();
         renderTable();
         return;
@@ -535,66 +531,34 @@
         const json = await taskRes.json();
         const rosterJson = await rosterRes.json();
 
+        let globalMappings = rosterJson.mappings || {};
+        let allRosterMembers = [];
+
         if (rosterJson.pods) {
-          globalPods = rosterJson.pods;
           rosterJson.pods.forEach(pod => {
             pod.trainers.forEach(t => {
-                const norm = normalizeName(t.name);
-                if (t.email) {
-                    const e = t.email.toLowerCase().trim();
-                    emailToPod[e] = pod.name;
-                    userToEmail[norm] = e;
-                }
-                if (norm) nameToPod[norm] = pod.name;
+                trainerToPod[t.name] = pod.name;
+                if (t.email) userToEmail[t.name] = t.email;
+                allRosterMembers.push(t);
             });
           });
         }
         
         if (rosterJson.l2_reviewers) {
           rosterJson.l2_reviewers.forEach(r => {
-             const norm = normalizeName(r.name);
-             if (r.email) {
-                 const e = r.email.toLowerCase().trim();
-                 l2Emails.add(e);
-                 userToEmail[norm] = e;
-             }
-             if (norm) l2Names.add(norm);
+             l2ReviewersSet.add(r.name);
+             if (r.email) userToEmail[r.name] = r.email;
+             allRosterMembers.push(r);
           });
         }
 
         globalData = (json.tasks || []).map(t => {
-          const normAnnotator = normalizeName(t.annotator);
-          const normReviewer = normalizeName(t.reviewer);
+          let resolvedAnnotator = resolveAnnotator(t.annotator, allRosterMembers, globalMappings);
           
-          const annEmail = findEmail(t, 'annotator') || extractEmail(t.email);
-          const revEmail = findEmail(t, 'reviewer');
-
-          const isRealAnnotator = t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned';
-          const isRealReviewer = t.reviewer && t.reviewer !== '—' && t.reviewer !== 'Unassigned';
-
-          // Exact email match first, then fallback to normalized name
-          let matchedPod = (annEmail && emailToPod[annEmail]) ? emailToPod[annEmail] : nameToPod[normAnnotator];
-          let isL2Trainer = (annEmail && l2Emails.has(annEmail)) || l2Names.has(normAnnotator);
-          let isUnidTrainer = isRealAnnotator && !matchedPod && !isL2Trainer;
-
-          let revMatchedPod = (revEmail && emailToPod[revEmail]) ? emailToPod[revEmail] : nameToPod[normReviewer];
-          let isL2Rev = (revEmail && l2Emails.has(revEmail)) || l2Names.has(normReviewer);
-          let isUnidReviewer = isRealReviewer && !revMatchedPod && !isL2Rev;
-
-          let podName = 'Unassigned Pod'; // Strict blank unassigned default
-          if (isUnidTrainer || isUnidReviewer) {
-              podName = 'UNIDENTIFIED'; // Strictly for identifiable entities missing from roster
-          } else if (matchedPod) {
-              podName = matchedPod;
-          }
-
           return {
             ...t,
-            normAnnotator,
-            normReviewer,
-            isUnidTrainer,
-            isUnidReviewer,
-            pod: podName
+            annotator: resolvedAnnotator,
+            pod: trainerToPod[resolvedAnnotator] || 'Unassigned Pod'
           };
         });
       } catch (err) {
@@ -608,11 +572,6 @@
       const trainers = new Set();
       const reviewers = new Set();
       const pods = new Set();
-
-      // Ensure every pod mapped in Team Builder directly populates the filter list (even if they have zero tasks)
-      globalPods.forEach(p => pods.add(p.name));
-      pods.add('Unassigned Pod');
-      pods.add('UNIDENTIFIED');
 
       globalData.forEach(t => {
         if (t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned') trainers.add(t.annotator);
@@ -628,11 +587,7 @@
       };
 
       fillOptions('filter-trainer', trainers);
-      document.getElementById('filter-trainer').insertAdjacentHTML('beforeend', `<option value="UNIDENTIFIED">UNIDENTIFIED</option>`);
-
       fillOptions('filter-reviewer', reviewers);
-      document.getElementById('filter-reviewer').insertAdjacentHTML('beforeend', `<option value="UNIDENTIFIED">UNIDENTIFIED</option>`);
-
       fillOptions('filter-pod', pods);
     }
 
@@ -669,6 +624,7 @@
       return true;
     }
 
+    // Checking Historical Milestones for Accuracy
     function hasClearedL1(task) {
       if (['Approved', 'L2 review'].includes(task.state)) return true;
       if (!task.history) return false;
@@ -724,8 +680,12 @@
           stats.rework++;
         } else if (s.includes('quarantine')) {
           stats.quarantined++;
-          if (hasClearedL2(t)) stats.quarPostL2++;
-          else if (hasClearedL1(t)) stats.quarPostL1++;
+          
+          if (hasClearedL2(t)) {
+            stats.quarPostL2++;
+          } else if (hasClearedL1(t)) {
+            stats.quarPostL1++;
+          }
         } else if (s.includes('pool') || s.includes('draft') || s === '' || s === 'unassigned' || s === '—') {
           stats.draft++;
         } else {
@@ -802,15 +762,7 @@
 
       const script = document.createElement('script');
       script.id = 'offline-payload-script';
-      script.textContent = `window.__OFFLINE_PAYLOAD__ = ${JSON.stringify({ 
-        tasks: globalData, 
-        globalPods: globalPods,
-        emailToPod: emailToPod,
-        nameToPod: nameToPod,
-        userToEmail: userToEmail,
-        l2Emails: Array.from(l2Emails),
-        l2Names: Array.from(l2Names)
-      })};`;
+      script.textContent = `window.__OFFLINE_PAYLOAD__ = ${JSON.stringify({ tasks: globalData, trainerToPod: trainerToPod, userToEmail: userToEmail, l2Reviewers: Array.from(l2ReviewersSet) })};`;
       doc.querySelector('head').prepend(script);
 
       const htmlString = "<!DOCTYPE html>\n" + doc.outerHTML;
@@ -850,9 +802,9 @@
           }
         }
         
-        const matchTrainer = qTrainer === 'All' ? true : (qTrainer === 'UNIDENTIFIED' ? t.isUnidTrainer : t.annotator === qTrainer);
-        const matchReviewer = qReviewer === 'All' ? true : (qReviewer === 'UNIDENTIFIED' ? t.isUnidReviewer : t.reviewer === qReviewer);
-        const matchPod = qPod === 'All' ? true : t.pod === qPod;
+        const matchTrainer = qTrainer === 'All' || t.annotator === qTrainer;
+        const matchReviewer = qReviewer === 'All' || t.reviewer === qReviewer;
+        const matchPod = qPod === 'All' || t.pod === qPod;
         
         let matchMilestone = true;
         if (qMilestone === 'L1') matchMilestone = hasClearedL1(t);
@@ -882,7 +834,7 @@
           }).join('');
         }
 
-        const trEmail = userToEmail[t.normAnnotator] || (t.annotator !== 'Unassigned' ? t.annotator.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '');
+        const trEmail = userToEmail[t.annotator] || (t.annotator !== 'Unassigned' ? t.annotator.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '');
         const displayState = (!t.state || t.state === '') ? 'Pool / Draft' : t.state;
         const cycleCount = getReviewCycles(t);
 
@@ -928,9 +880,9 @@
 
       document.getElementById('modal-task-id').textContent = task.id;
       document.getElementById('modal-trainer-name').textContent = task.annotator;
-      document.getElementById('modal-trainer-email').textContent = userToEmail[task.normAnnotator] || (task.annotator !== 'Unassigned' ? task.annotator.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '—');
+      document.getElementById('modal-trainer-email').textContent = userToEmail[task.annotator] || (task.annotator !== 'Unassigned' ? task.annotator.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '—');
       document.getElementById('modal-reviewer-name').textContent = task.reviewer;
-      document.getElementById('modal-reviewer-email').textContent = userToEmail[task.normReviewer] || (task.reviewer !== '—' ? task.reviewer.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '—');
+      document.getElementById('modal-reviewer-email').textContent = userToEmail[task.reviewer] || (task.reviewer !== '—' ? task.reviewer.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '—');
       document.getElementById('modal-domain').textContent = task.domain;
       document.getElementById('modal-date').textContent = task.submitted_at ? formatDateShort(task.submitted_at) + ', ' + new Date(task.submitted_at).getFullYear() : '—';
       
@@ -1039,6 +991,7 @@
         return;
       }
 
+      // Sort alphabetically by trainer name
       targetTasks.sort((a, b) => {
         const nameA = (a.annotator && a.annotator !== '—' && a.annotator !== 'Unassigned') ? a.annotator.toLowerCase() : 'zzz';
         const nameB = (b.annotator && b.annotator !== '—' && b.annotator !== 'Unassigned') ? b.annotator.toLowerCase() : 'zzz';
@@ -1052,35 +1005,30 @@
         const trainer = t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned' ? t.annotator : 'Unassigned';
         const taskId = t.id || '—';
         
+        // Find last valid L1 reviewer from history or assignment (strictly excludes L2 reviewers)
         let reviewer = 'None';
         if (t.history) {
-          const revEvents = t.history.filter(h => {
-            const normActor = normalizeName(h.actor_name);
-            const actorEmail = extractEmail(h.actor_name);
-            const isL2 = (actorEmail && l2Emails.has(actorEmail)) || l2Names.has(normActor);
-            
-            return h.actor_name && 
-              h.actor_name !== 'System' && 
-              h.actor_name !== t.annotator && 
-              h.actor_name !== '—' && 
-              !isL2;
-          });
+          const revEvents = t.history.filter(h => 
+            h.actor_name && 
+            h.actor_name !== 'System' && 
+            h.actor_name !== t.annotator && 
+            h.actor_name !== '—' && 
+            !l2ReviewersSet.has(h.actor_name)
+          );
           if (revEvents.length > 0) {
             reviewer = revEvents[revEvents.length - 1].actor_name;
           }
         }
         
-        const normRev = normalizeName(t.reviewer);
-        const revEmail = extractEmail(t.reviewer);
-        const isL2Current = (revEmail && l2Emails.has(revEmail)) || l2Names.has(normRev);
-
-        if (reviewer === 'None' && t.reviewer && t.reviewer !== '—' && t.reviewer !== 'Unassigned' && !isL2Current) {
+        // Fallback to currently assigned reviewer if valid
+        if (reviewer === 'None' && t.reviewer && t.reviewer !== '—' && t.reviewer !== 'Unassigned' && !l2ReviewersSet.has(t.reviewer)) {
           reviewer = t.reviewer;
         }
         
         let status = 'Fresh Submission';
         const s = (t.state || '').toLowerCase();
         
+        // Parse accurate historical reworks to prevent discrepancy with fresh resubmissions
         let reworks = 0;
         if (t.history) {
           t.history.forEach(h => {
