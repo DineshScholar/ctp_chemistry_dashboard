@@ -1002,7 +1002,6 @@
         return;
       }
 
-      // Sort alphabetically by trainer name
       targetTasks.sort((a, b) => {
         const nameA = (a.annotator && a.annotator !== '—' && a.annotator !== 'Unassigned') ? a.annotator.toLowerCase() : 'zzz';
         const nameB = (b.annotator && b.annotator !== '—' && b.annotator !== 'Unassigned') ? b.annotator.toLowerCase() : 'zzz';
@@ -1016,22 +1015,13 @@
         const trainer = t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned' ? t.annotator : 'Unassigned';
         const taskId = t.id || '—';
         
-        // Find last valid L1 reviewer from history or assignment (strictly excludes L2 reviewers)
         let reviewer = 'None';
         if (t.history) {
           const revEvents = t.history.filter(h => 
-            h.actor_name && 
-            h.actor_name !== 'System' && 
-            h.actor_name !== t.annotator && 
-            h.actor_name !== '—' && 
-            !l2ReviewersSet.has(h.actor_name)
+            h.actor_name && h.actor_name !== 'System' && h.actor_name !== t.annotator && h.actor_name !== '—' && !l2ReviewersSet.has(h.actor_name)
           );
-          if (revEvents.length > 0) {
-            reviewer = revEvents[revEvents.length - 1].actor_name;
-          }
+          if (revEvents.length > 0) reviewer = revEvents[revEvents.length - 1].actor_name;
         }
-        
-        // Fallback to currently assigned reviewer if valid
         if (reviewer === 'None' && t.reviewer && t.reviewer !== '—' && t.reviewer !== 'Unassigned' && !l2ReviewersSet.has(t.reviewer)) {
           reviewer = t.reviewer;
         }
@@ -1039,7 +1029,6 @@
         let status = 'Fresh Submission';
         const s = (t.state || '').toLowerCase();
         
-        // Parse accurate historical reworks to prevent discrepancy with fresh resubmissions
         let reworks = 0;
         if (t.history) {
           t.history.forEach(h => {
@@ -1047,11 +1036,8 @@
           });
         }
 
-        if (s.includes('quarantine')) {
-          status = 'Quarantined';
-        } else if (reworks > 0) {
-          status = 'Rework';
-        }
+        if (s.includes('quarantine')) status = 'Quarantined';
+        else if (reworks > 0) status = 'Rework';
 
         html += `<tr><td>${index + 1}</td><td>${trainer}</td><td>${taskId}</td><td>${reviewer}</td><td>${status}</td></tr>`;
       });
@@ -1073,13 +1059,11 @@
         document.execCommand('copy');
         alert(`Successfully copied table with ${targetTasks.length} tasks to clipboard!\nYou can now paste this directly into Google Sheets or Excel.`);
       } catch (err) {
-        console.error('Failed to copy table: ', err);
         alert('Failed to copy table.');
       }
-      
       document.body.removeChild(tempDiv);
     }
-    
+
     function downloadPendingHTML() {
       const targetTasks = (window.currentFilteredTasks || globalData).filter(t => {
         const s = (t.state || '').toLowerCase();
@@ -1100,12 +1084,15 @@
         return;
       }
 
-      // Sort alphabetically by trainer name
       targetTasks.sort((a, b) => {
         const nameA = (a.annotator && a.annotator !== '—' && a.annotator !== 'Unassigned') ? a.annotator.toLowerCase() : 'zzz';
         const nameB = (b.annotator && b.annotator !== '—' && b.annotator !== 'Unassigned') ? b.annotator.toLowerCase() : 'zzz';
         return nameA.localeCompare(nameB);
       });
+      
+      const uniqueTrainers = [...new Set(targetTasks.map(t => t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned' ? t.annotator : 'Unassigned'))].sort();
+      const uniqueReviewers = new Set();
+      const uniqueStatuses = ['Fresh Submission', 'Rework', 'Quarantined'];
 
       let html = `<!DOCTYPE html>
 <html lang="en">
@@ -1115,29 +1102,53 @@
   <title>Pending & Pre-L1 Tasks Report</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f8fafc; color: #0f172a; padding: 40px; margin: 0; }
-    .container { max-width: 1000px; margin: 0 auto; }
-    .header { text-align: center; margin-bottom: 30px; }
+    .container { max-width: 1400px; margin: 0 auto; }
+    .header { text-align: center; margin-bottom: 24px; }
     .header h1 { margin: 0 0 10px 0; color: #4f46e5; font-size: 24px; font-weight: 800; }
     .header p { color: #64748b; margin: 0; font-size: 14px; }
+    .filters-bar { display: flex; gap: 16px; justify-content: center; margin-bottom: 24px; background: white; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+    .filter-select { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #0f172a; outline: none; min-width: 200px;}
+    .filter-select:focus { border-color: #4f46e5; }
     .report-card { background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 24px; overflow-x: auto; border: 1px solid #e2e8f0; }
     table { width: 100%; border-collapse: collapse; text-align: left; }
     th { background: #f8fafc; padding: 14px 16px; font-size: 12px; font-weight: 700; color: #475569; border-bottom: 2px solid #e2e8f0; text-transform: uppercase; letter-spacing: 0.05em; }
-    td { padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #e2e8f0; color: #1e293b; }
+    td { padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #e2e8f0; color: #1e293b; vertical-align: top;}
     tr:hover td { background: #f1f5f9; }
     .status-badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; background: #e0e7ff; color: #3730a3; border: 1px solid #c7d2fe; }
     .status-quar { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
     .status-rework { background: #fef3c7; color: #92400e; border-color: #fde68a; }
     .taskId { font-family: ui-monospace, monospace; color: #4f46e5; font-weight: 600; font-size: 13px; background: #f8fafc; padding: 4px 8px; border-radius: 4px; border: 1px solid #e2e8f0; }
+    
+    .comments-box { max-height: 120px; overflow-y: auto; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px; font-size: 12px; }
+    .comment-item { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #e2e8f0; }
+    .comment-item:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+    .comment-date { color: #64748b; font-size: 10px; font-weight: 600;}
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
       <h1>Pending & Pre-L1 Task Queue</h1>
-      <p>Generated on ${new Date().toLocaleString()} · Total Actionable Tasks: <strong>${targetTasks.length}</strong></p>
+      <p>Generated on ${new Date().toLocaleString()} · Visible Tasks: <strong id="task-count">${targetTasks.length}</strong></p>
     </div>
+    
+    <div class="filters-bar">
+      <select id="filter-trainer" class="filter-select" onchange="filterTable()">
+        <option value="All">All Trainers</option>
+        ${uniqueTrainers.map(tr => `<option value="${esc(tr)}">${esc(tr)}</option>`).join('')}
+      </select>
+      <select id="filter-reviewer" class="filter-select" onchange="filterTable()">
+        <option value="All">All Reviewers</option>
+        <!-- Injected Below -->
+      </select>
+      <select id="filter-status" class="filter-select" onchange="filterTable()">
+        <option value="All">All Statuses</option>
+        ${uniqueStatuses.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('')}
+      </select>
+    </div>
+
     <div class="report-card">
-      <table>
+      <table id="report-table">
         <thead>
           <tr>
             <th>Sr. No.</th>
@@ -1145,10 +1156,12 @@
             <th>Task ID</th>
             <th>Previous Reviewer</th>
             <th>Submission Status</th>
+            <th style="min-width: 300px;">Reviewer Comments History</th>
           </tr>
         </thead>
         <tbody>`;
       
+      let tableRowsHtml = '';
       targetTasks.forEach((t, index) => {
         const trainer = t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned' ? t.annotator : 'Unassigned';
         const taskId = t.id || '—';
@@ -1164,15 +1177,27 @@
           reviewer = t.reviewer;
         }
         
+        uniqueReviewers.add(reviewer);
+        
         let status = 'Fresh Submission';
         let badgeClass = '';
         const s = (t.state || '').toLowerCase();
-        
         let reworks = 0;
+        
+        let commentsHtml = '<span style="color:#94a3b8; font-style:italic;">No historical comments recorded</span>';
+        
         if (t.history) {
           t.history.forEach(h => {
             if (h.label && h.label.toLowerCase().includes('rework')) reworks++;
           });
+          
+          const validComments = t.history.filter(h => h.detail && h.detail.trim() !== '' && h.detail !== h.label && h.detail !== 'null' && !['review_l1', 'review_l2'].includes(h.detail));
+          if (validComments.length > 0) {
+            commentsHtml = `<div class="comments-box">` + validComments.map(h => {
+              const date = new Date(h.occurred_at).toLocaleDateString();
+              return `<div class="comment-item"><strong>${esc(h.actor_name)}</strong> <span class="comment-date">(${date})</span><br><span style="color:#334155;">${esc(h.detail).replace(/\\n/g, '<br>')}</span></div>`;
+            }).join('') + `</div>`;
+          }
         }
 
         if (s.includes('quarantine')) {
@@ -1183,21 +1208,53 @@
           badgeClass = 'status-rework';
         }
 
-        html += `
-          <tr>
-            <td style="color:#64748b; font-weight:600;">${index + 1}</td>
+        tableRowsHtml += `
+          <tr data-trainer="${esc(trainer)}" data-reviewer="${esc(reviewer)}" data-status="${esc(status)}">
+            <td style="color:#64748b; font-weight:600;" class="row-index">${index + 1}</td>
             <td style="font-weight: 600;">${esc(trainer)}</td>
             <td><span class="taskId">${esc(taskId)}</span></td>
             <td>${esc(reviewer)}</td>
             <td><span class="status-badge ${badgeClass}">${status}</span></td>
+            <td>${commentsHtml}</td>
           </tr>`;
       });
+      
+      html += tableRowsHtml;
+      
+      // Inject unique reviewers back into the select string
+      const reviewerOptions = [...uniqueReviewers].sort().map(r => `<option value="${esc(r)}">${esc(r)}</option>`).join('');
+      html = html.replace('<!-- Injected Below -->', reviewerOptions);
       
       html += `
         </tbody>
       </table>
     </div>
   </div>
+  
+  <script>
+    function filterTable() {
+      var trainer = document.getElementById('filter-trainer').value;
+      var reviewer = document.getElementById('filter-reviewer').value;
+      var status = document.getElementById('filter-status').value;
+      var rows = document.querySelectorAll('tbody tr');
+      
+      var visibleCount = 0;
+      rows.forEach(function(row) {
+        var matchT = (trainer === 'All' || row.getAttribute('data-trainer') === trainer);
+        var matchR = (reviewer === 'All' || row.getAttribute('data-reviewer') === reviewer);
+        var matchS = (status === 'All' || row.getAttribute('data-status') === status);
+        
+        if (matchT && matchR && matchS) {
+          row.style.display = '';
+          visibleCount++;
+        } else {
+          row.style.display = 'none';
+        }
+      });
+      
+      document.getElementById('task-count').innerText = visibleCount;
+    }
+  <\/script>
 </body>
 </html>`;
 
