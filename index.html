@@ -492,7 +492,7 @@
     let selectedChips = new Set();
     window.currentFilteredTasks = [];
 
-    // Helper: Dynamic consistent color generator for people chips
+    // Global Functions for Extracted Reviewer & Status Management
     function getPersonStyle(name) {
       if (!name || name === 'NA' || name === 'Unassigned' || name === '—' || name === 'None') {
         return 'background: #f1f5f9; color: #475569; border-color: #cbd5e1;';
@@ -515,6 +515,118 @@
       ];
       const col = colors[Math.abs(hash) % colors.length];
       return `background: ${col.b}; color: ${col.c}; border-color: ${col.bc};`;
+    }
+
+    function getChipClass(val) {
+      if (!val) return 'chip-draft';
+      const v = val.toLowerCase();
+      if (v.includes('fresh') || v.includes('pending')) return 'chip-pending';
+      if (v.includes('final approved')) return 'chip-approved';
+      if (v.includes('rework')) return 'chip-rework';
+      if (v.includes('quarantin')) return 'chip-quarantine';
+      return 'chip-draft';
+    }
+
+    function hasClearedL1(task) {
+      if (['Approved', 'L2 review'].includes(task.state)) return true;
+      if (!task.history) return false;
+      return task.history.some(h => 
+        (h.kind === 'review_cleared' && h.detail && h.detail.includes('review_l2')) ||
+        (h.label && h.label.toLowerCase().includes('cleared for claim pool')) ||
+        (h.label && h.label.toLowerCase().includes('l1 approved')) || 
+        (h.label && h.label.toLowerCase().includes('advanced to l2')) || 
+        (h.label === 'Approved' && h.actor_name !== 'System')
+      );
+    }
+
+    function hasClearedL2(task) {
+      if (task.state === 'Approved') return true;
+      if (!task.history) return false;
+      return task.history.some(h => h.label === 'Approved' || h.kind === 'approved' || h.state === 'Approved' || (h.label && h.label.toLowerCase().includes('l2 approved')));
+    }
+
+    function getReviewers(task) {
+       let l1Rev = 'NA';
+       let l2Rev = 'NA';
+       let currentStage = 'L1'; 
+
+       if (task.history) {
+         for (let h of task.history) {
+            const actor = h.actor_name;
+            if (actor && actor !== 'System' && actor !== task.annotator && actor !== '—') {
+               const lLower = (h.label || '').toLowerCase();
+               const dLower = (h.detail || '').toLowerCase();
+               const kLower = (h.kind || '').toLowerCase();
+               const sLower = (h.state || '').toLowerCase();
+
+               const isFinalApp = kLower === 'review_approved' || lLower === 'approved';
+               const stateIsL2 = sLower.includes('l2');
+               // The actor advancing to L2 is explicitly the L1 Reviewer
+               const isAdvancingToL2 = kLower === 'review_cleared' || lLower.includes('advanced to l2') || lLower.includes('l1 approved') || dLower.includes('review_l2');
+
+               if (stateIsL2 || isFinalApp) {
+                   currentStage = 'L2';
+               }
+
+               if (currentStage === 'L1') {
+                   l1Rev = actor;
+                   if (isAdvancingToL2) {
+                       currentStage = 'L2';
+                   }
+               } else if (currentStage === 'L2') {
+                   if (isAdvancingToL2) {
+                       l1Rev = actor; 
+                   } else {
+                       l2Rev = actor; // Only actual L2 assignments or actions are credited here
+                   }
+               }
+            }
+         }
+       }
+
+       if (task.reviewer && task.reviewer !== '—' && task.reviewer !== 'Unassigned') {
+           if (currentStage === 'L2') {
+               if (l2Rev === 'NA' && task.reviewer !== l1Rev) l2Rev = task.reviewer;
+           } else {
+               if (l1Rev === 'NA') l1Rev = task.reviewer;
+           }
+       }
+
+       if (l2Rev === l1Rev && l2Rev !== 'NA') {
+           if (!l2ReviewersSet.has(l2Rev)) {
+               l2Rev = 'NA';
+           }
+       }
+
+       return { l1: l1Rev, l2: l2Rev };
+    }
+
+    function getCombinedStatus(task) {
+      const s = (task.state || '').toLowerCase();
+      const clearedL1 = hasClearedL1(task);
+      const clearedL2 = hasClearedL2(task);
+
+      let reworks = 0;
+      if (task.history) {
+         task.history.forEach(h => {
+            if (h.label && h.label.toLowerCase().includes('rework')) reworks++;
+         });
+      }
+
+      if (s.includes('pool') || s.includes('draft') || s === '' || s === 'unassigned' || s === '—') return 'Draft / Unsubmitted';
+      if (s.includes('approved') || clearedL2) return 'Final Approved (L2)';
+
+      if (s.includes('quarantine')) {
+         return clearedL1 ? 'Quarantined (L1-Accepted)' : 'Quarantined';
+      }
+
+      if (s.includes('rework')) {
+         return clearedL1 ? 'Rework (L2)' : 'Rework (L1)';
+      }
+
+      if (clearedL1) return 'L1-Accepted (Pending L2)';
+      if (reworks === 0) return 'Fresh Submission';
+      return 'Pending L1';
     }
 
     function toggleChip(chipName, el) {
@@ -674,23 +786,6 @@
         return match;
       }
       return true;
-    }
-
-    function hasClearedL1(task) {
-      if (['Approved', 'L2 review'].includes(task.state)) return true;
-      if (!task.history) return false;
-      return task.history.some(h => 
-        (h.kind === 'review_cleared' && h.detail && h.detail.includes('review_l2')) ||
-        (h.label && h.label.toLowerCase().includes('cleared for claim pool')) ||
-        (h.label && h.label.toLowerCase().includes('l1 approved')) || 
-        (h.label === 'Approved' && h.actor_name !== 'System')
-      );
-    }
-
-    function hasClearedL2(task) {
-      if (task.state === 'Approved') return true;
-      if (!task.history) return false;
-      return task.history.some(h => h.label === 'Approved' || h.kind === 'approved' || h.state === 'Approved' || (h.label && h.label.toLowerCase().includes('l2 approved')));
     }
 
     function getBadgeClass(state) {
@@ -1025,17 +1120,8 @@
     
     function copyPendingL1Table() {
       const targetTasks = (window.currentFilteredTasks || globalData).filter(t => {
-        const s = (t.state || '').toLowerCase();
-        const isL2App = s.includes('approved');
-        const isL1App = s.includes('l2') || s.includes('l1-approved');
-        const isRework = s.includes('rework');
-        const isQuar = s.includes('quarantine');
-        const isDraft = s.includes('pool') || s.includes('draft') || s === '' || s === 'unassigned' || s === '—';
-        
-        const isPendingL1 = !isL2App && !isL1App && !isRework && !isQuar && !isDraft;
-        const isPreL1Quarantine = isQuar && !hasClearedL1(t);
-        
-        return isPendingL1 || isPreL1Quarantine;
+        const cStatus = getCombinedStatus(t);
+        return cStatus === 'Pending L1' || cStatus === 'Fresh Submission' || cStatus === 'Quarantined';
       });
 
       if (targetTasks.length === 0) {
@@ -1055,30 +1141,9 @@
       targetTasks.forEach((t, index) => {
         const trainer = t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned' ? t.annotator : 'Unassigned';
         const taskId = t.id || '—';
-        
-        let reviewer = 'None';
-        if (t.history) {
-          const revEvents = t.history.filter(h => 
-            h.actor_name && h.actor_name !== 'System' && h.actor_name !== t.annotator && h.actor_name !== '—' && !l2ReviewersSet.has(h.actor_name)
-          );
-          if (revEvents.length > 0) reviewer = revEvents[revEvents.length - 1].actor_name;
-        }
-        if (reviewer === 'None' && t.reviewer && t.reviewer !== '—' && t.reviewer !== 'Unassigned' && !l2ReviewersSet.has(t.reviewer)) {
-          reviewer = t.reviewer;
-        }
-        
-        let status = 'Fresh Submission';
-        const s = (t.state || '').toLowerCase();
-        
-        let reworks = 0;
-        if (t.history) {
-          t.history.forEach(h => {
-            if (h.label && h.label.toLowerCase().includes('rework')) reworks++;
-          });
-        }
-
-        if (s.includes('quarantine')) status = 'Quarantined';
-        else if (reworks > 0) status = 'Rework';
+        const revs = getReviewers(t);
+        let reviewer = revs.l1 !== 'NA' ? revs.l1 : 'None';
+        let status = getCombinedStatus(t);
 
         html += `<tr><td>${index + 1}</td><td>${trainer}</td><td>${taskId}</td><td>${reviewer}</td><td>${status}</td></tr>`;
       });
@@ -1114,22 +1179,19 @@
       function getTaskCategories(t) {
         const cats = new Set();
         cats.add('Total Selected View');
-        const s = (t.state || '').toLowerCase();
-        if (s.includes('approved')) {
-          cats.add('Final Approved (L2)');
-        } else if (s.includes('l2') || s.includes('l1-approved')) {
-          cats.add('L1-Approved (Wait L2)');
-        } else if (s.includes('rework')) {
-          cats.add('In Rework');
-        } else if (s.includes('quarantine')) {
-          cats.add('Quarantined (All)');
-          if (hasClearedL2(t)) cats.add('Quarantined (Post-L2)');
-          else if (hasClearedL1(t)) cats.add('Quarantined (Post-L1)');
-        } else if (s.includes('pool') || s.includes('draft') || s === '' || s === 'unassigned' || s === '—') {
-          cats.add('Draft / Unsubmitted');
-        } else {
-          cats.add('Pending L1');
-        }
+        const c = getCombinedStatus(t);
+        
+        if (c === 'Final Approved (L2)') cats.add('Final Approved (L2)');
+        else if (c === 'L1-Accepted (Pending L2)') cats.add('L1-Approved (Wait L2)');
+        else if (c.includes('Rework')) cats.add('In Rework');
+        else if (c === 'Quarantined (L1-Accepted)') { cats.add('Quarantined (All)'); cats.add('Quarantined (Post-L1)'); cats.add('Quarantined (Post-L2)'); }
+        else if (c === 'Quarantined') cats.add('Quarantined (All)');
+        else if (c === 'Draft / Unsubmitted') cats.add('Draft / Unsubmitted');
+        else if (c === 'Pending L1' || c === 'Fresh Submission') cats.add('Pending L1');
+        
+        if (c.includes('Quarantine') && hasClearedL2(t)) cats.add('Quarantined (Post-L2)');
+        else if (c.includes('Quarantine') && hasClearedL1(t)) cats.add('Quarantined (Post-L1)');
+
         return cats;
       }
 
@@ -1147,90 +1209,6 @@
       }
 
       targetTasks.sort((a, b) => new Date(b.submitted_at || 0) - new Date(a.submitted_at || 0));
-
-      function getReviewers(task) {
-         let l1Rev = 'NA';
-         let l2Rev = 'NA';
-         let l1Cleared = false;
-
-         if (task.history) {
-           for (let h of task.history) {
-              if (h.actor_name && h.actor_name !== 'System' && h.actor_name !== task.annotator && h.actor_name !== '—') {
-                 const lLower = (h.label || '').toLowerCase();
-                 const dLower = (h.detail || '').toLowerCase();
-
-                 if (!l1Cleared) {
-                    l1Rev = h.actor_name;
-                    if ((h.kind === 'review_cleared' && dLower.includes('review_l2')) ||
-                        lLower.includes('cleared for claim pool') ||
-                        lLower.includes('l1 approved') ||
-                        (lLower.includes('approved') && !dLower.includes('final') && !lLower.includes('l2'))) {
-                        l1Cleared = true;
-                    }
-                 } else {
-                    l2Rev = h.actor_name; // Only an action taken AFTER L1 clears makes them L2
-                 }
-              }
-           }
-         }
-
-         if (task.reviewer && task.reviewer !== '—' && task.reviewer !== 'Unassigned') {
-           if (hasClearedL1(task)) {
-               if (l1Rev === 'NA') {
-                   l1Rev = task.reviewer;
-               } else if (l1Rev !== task.reviewer) {
-                   l2Rev = task.reviewer;
-               }
-           } else {
-               if (l1Rev === 'NA') l1Rev = task.reviewer;
-           }
-         }
-
-         // Strictly enforce NA if L1 hasn't been cleared yet
-         if (!hasClearedL1(task)) {
-             l2Rev = 'NA';
-         }
-
-         return { l1: l1Rev, l2: l2Rev };
-      }
-
-      function getCombinedStatus(task) {
-        const s = (task.state || '').toLowerCase();
-        const clearedL1 = hasClearedL1(task);
-        const clearedL2 = hasClearedL2(task);
-
-        let reworks = 0;
-        if (task.history) {
-           task.history.forEach(h => {
-              if (h.label && h.label.toLowerCase().includes('rework')) reworks++;
-           });
-        }
-
-        if (s.includes('pool') || s.includes('draft') || s === '' || s === 'unassigned' || s === '—') return 'Draft / Unsubmitted';
-        if (s.includes('approved') || clearedL2) return 'Final Approved (L2)';
-
-        if (s.includes('quarantine')) {
-           return clearedL1 ? 'Quarantined (L1-Accepted)' : 'Quarantined';
-        }
-
-        if (s.includes('rework')) {
-           return clearedL1 ? 'Rework (L2)' : 'Rework (L1)';
-        }
-
-        if (clearedL1) return 'Pending L2';
-        if (reworks === 0) return 'Fresh Submission';
-        return 'Pending L1';
-      }
-
-      function getChipClass(val) {
-        if (!val) return 'chip-draft';
-        const v = val.toLowerCase();
-        if (v.includes('fresh') || v.includes('pending')) return 'chip-pending';
-        if (v.includes('final approved')) return 'chip-approved';
-        if (v.includes('rework')) return 'chip-rework';
-        if (v.includes('quarantin')) return 'chip-quarantine';
-        return 'chip-draft';
-      }
 
       const uniqueTrainers = new Set();
       const uniqueL1 = new Set();
@@ -1500,17 +1478,8 @@
 
     function downloadPendingHTML() {
       const targetTasks = (window.currentFilteredTasks || globalData).filter(t => {
-        const s = (t.state || '').toLowerCase();
-        const isL2App = s.includes('approved');
-        const isL1App = s.includes('l2') || s.includes('l1-approved');
-        const isRework = s.includes('rework');
-        const isQuar = s.includes('quarantine');
-        const isDraft = s.includes('pool') || s.includes('draft') || s === '' || s === 'unassigned' || s === '—';
-        
-        const isPendingL1 = !isL2App && !isL1App && !isRework && !isQuar && !isDraft;
-        const isPreL1Quarantine = isQuar && !hasClearedL1(t);
-        
-        return isPendingL1 || isPreL1Quarantine;
+        const cStatus = getCombinedStatus(t);
+        return cStatus === 'Pending L1' || cStatus === 'Fresh Submission' || cStatus === 'Quarantined';
       });
 
       if (targetTasks.length === 0) {
@@ -1526,7 +1495,7 @@
       
       const uniqueTrainers = [...new Set(targetTasks.map(t => t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned' ? t.annotator : 'Unassigned'))].sort();
       const uniqueReviewers = new Set();
-      const uniqueStatuses = ['Fresh Submission', 'Rework', 'Quarantined'];
+      const uniqueStatuses = ['Fresh Submission', 'Pending L1', 'Rework (L1)', 'Quarantined'];
 
       let html = `<!DOCTYPE html>
 <html lang="en">
@@ -1550,9 +1519,11 @@
     tr:hover td { background: #f1f5f9; }
     
     .chip { display: inline-flex; align-items: center; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 700; border: 1px solid transparent; white-space: nowrap; }
-    .status-badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; background: #e0e7ff; color: #3730a3; border: 1px solid #c7d2fe; }
-    .status-quar { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
-    .status-rework { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+    .chip-pending { background: #e0f2fe; color: #0369a1; border-color: #bae6fd; }
+    .chip-approved { background: #d1fae5; color: #047857; border-color: #a7f3d0; }
+    .chip-rework { background: #fef3c7; color: #b45309; border-color: #fde68a; }
+    .chip-quarantine { background: #ffe4e6; color: #e11d48; border-color: #fecaca; }
+    .chip-draft { background: #f1f5f9; color: #475569; border-color: #cbd5e1; }
     
     .taskId { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; color: #4f46e5; font-weight: 600; font-size: 11.5px; background: #f8fafc; padding: 6px 10px; border-radius: 6px; border: 1px solid #e2e8f0; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.2s; word-break: break-all; user-select: all; }
     .taskId:hover { background: #e0e7ff; border-color: #c7d2fe; }
@@ -1626,29 +1597,11 @@
         const trainer = t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned' ? t.annotator : 'Unassigned';
         const taskId = t.id || '—';
         
-        let reviewer = 'NA';
-        if (t.history) {
-          const revEvents = t.history.filter(h => 
-            h.actor_name && h.actor_name !== 'System' && h.actor_name !== t.annotator && h.actor_name !== '—' && !l2ReviewersSet.has(h.actor_name)
-          );
-          if (revEvents.length > 0) reviewer = revEvents[revEvents.length - 1].actor_name;
-        }
-        if (reviewer === 'NA' && t.reviewer && t.reviewer !== '—' && t.reviewer !== 'Unassigned' && !l2ReviewersSet.has(t.reviewer)) {
-          reviewer = t.reviewer;
-        }
+        const revs = getReviewers(t);
+        const reviewer = revs.l1 !== 'NA' ? revs.l1 : 'None';
+        const combinedStatus = getCombinedStatus(t);
         
         uniqueReviewers.add(reviewer);
-        
-        let status = 'Fresh Submission';
-        let badgeClass = '';
-        const s = (t.state || '').toLowerCase();
-        let reworks = 0;
-        
-        if (t.history) {
-          t.history.forEach(h => {
-            if (h.label && h.label.toLowerCase().includes('rework')) reworks++;
-          });
-        }
         
         let timelineHTML = '<div style="color:#94a3b8; font-style:italic; font-size: 13px;">No history available</div>';
         
@@ -1715,16 +1668,8 @@
         
         let finalTimelineHtml = `<div class="timeline-container"><div class="timeline-box"><div class="timeline">${timelineHTML}</div></div></div>`;
 
-        if (s.includes('quarantine')) {
-          status = 'Quarantined';
-          badgeClass = 'status-quar';
-        } else if (reworks > 0) {
-          status = 'Rework';
-          badgeClass = 'status-rework';
-        }
-
         tableRowsHtml += `
-          <tr data-trainer="${esc(trainer)}" data-reviewer="${esc(reviewer)}" data-status="${esc(status)}">
+          <tr data-trainer="${esc(trainer)}" data-reviewer="${esc(reviewer)}" data-status="${esc(combinedStatus)}">
             <td style="color:#64748b; font-weight:600;" class="row-index">${index + 1}</td>
             <td><span class="chip" style="${getPersonStyle(trainer)}">${esc(trainer)}</span></td>
             <td>
@@ -1734,7 +1679,7 @@
               </div>
             </td>
             <td><span class="chip" style="${getPersonStyle(reviewer)}">${esc(reviewer)}</span></td>
-            <td><span class="status-badge ${badgeClass}">${status}</span></td>
+            <td><span class="chip ${getChipClass(combinedStatus)}">${esc(combinedStatus)}</span></td>
             <td>${finalTimelineHtml}</td>
           </tr>`;
       });
