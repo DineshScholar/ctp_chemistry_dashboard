@@ -377,6 +377,9 @@
 
         globalPods = rosterData.pods || [];
         globalPods.forEach(pod => {
+          if (pod.lead) {
+            allRosterMembers.push({ name: pod.lead, email: pod.lead_email || '' });
+          }
           pod.trainers.forEach(t => {
             trainerToPod[t.name] = pod.name;
             allRosterMembers.push(t);
@@ -389,9 +392,11 @@
 
         globalTasks = (taskData.tasks || []).map(t => {
           let resolvedAnnotator = resolveAnnotator(t.annotator, allRosterMembers, globalMappings);
+          let resolvedReviewer = resolveAnnotator(t.reviewer, allRosterMembers, globalMappings);
           return { 
             ...t, 
             annotator: resolvedAnnotator, 
+            reviewer: resolvedReviewer,
             shortId: t.id ? t.id.split('-')[0] : 'Unknown',
             pod: trainerToPod[resolvedAnnotator] || 'Unassigned Pod',
             normState: normalizeState(t.state),
@@ -863,7 +868,7 @@
       chartInstances[cIdStack].render();
     }
 
-    // --- TAB 5: L2 REVIEW (Final Tagging) ---
+    // --- TAB 5: L2 REVIEW (FINAL APPROVALS) ---
     function renderL2Charts() {
       const dates = generateDateRange(globalTasks);
       
