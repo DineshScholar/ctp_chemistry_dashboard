@@ -1124,63 +1124,86 @@
       targetTasks.sort((a, b) => new Date(b.submitted_at || 0) - new Date(a.submitted_at || 0));
 
       function getL1Reviewer(task) {
-        let l1Rev = 'None';
+        let l1Rev = 'NA';
         if (task.history) {
-          for (let h of task.history) {
-            if (h.actor_name && h.actor_name !== 'System' && h.actor_name !== task.annotator && h.actor_name !== '—') {
-              const lLower = (h.label || '').toLowerCase();
-              if ((h.kind === 'review_cleared' && h.detail && h.detail.includes('review_l2')) || 
-                  lLower.includes('cleared for claim pool') || 
-                  lLower.includes('l1 approved') || 
-                  (h.label === 'Approved' && !l2ReviewersSet.has(h.actor_name))) {
-                l1Rev = h.actor_name;
-              }
-            }
-          }
+          const revEvents = task.history.filter(h =>
+            h.actor_name && h.actor_name !== 'System' && h.actor_name !== task.annotator && h.actor_name !== '—' && !l2ReviewersSet.has(h.actor_name)
+          );
+          if (revEvents.length > 0) l1Rev = revEvents[revEvents.length - 1].actor_name;
         }
-        if (l1Rev === 'None' && hasClearedL1(task) && task.reviewer && task.reviewer !== '—' && task.reviewer !== 'Unassigned') {
+        if (l1Rev === 'NA' && task.reviewer && task.reviewer !== '—' && task.reviewer !== 'Unassigned' && !l2ReviewersSet.has(task.reviewer)) {
           l1Rev = task.reviewer;
         }
         return l1Rev;
       }
 
-      function getL2Status(task) {
-        const s = (task.state || '').toLowerCase();
-        if (s.includes('approved')) return 'Approved';
-        if (s.includes('quarantine') && hasClearedL2(task)) return 'Quarantined (Post-L2)';
-        if (hasClearedL1(task) && s.includes('rework')) return 'Rework (L2)';
-        if (hasClearedL1(task)) return 'Pending L2';
-        return 'Not Reached L2';
+      function getL2Reviewer(task) {
+        let l2Rev = 'NA';
+        if (task.history) {
+          const l2Events = task.history.filter(h =>
+            h.actor_name && h.actor_name !== 'System' && l2ReviewersSet.has(h.actor_name)
+          );
+          if (l2Events.length > 0) l2Rev = l2Events[l2Events.length - 1].actor_name;
+        }
+        if (l2Rev === 'NA' && task.reviewer && l2ReviewersSet.has(task.reviewer)) {
+          l2Rev = task.reviewer;
+        }
+        return l2Rev;
       }
 
-      function getChipClass(val) {
-        if (!val) return 'chip-gray';
-        const v = val.toLowerCase();
-        if (v.includes('approve')) return 'chip-green';
+      function getCombinedStatus(task) {
+        const s = (task.state || '').toLowerCase();
+        let isReworkState = s.includes('rework');
+        let hasPastRework = false;
+        
+        if (task.history) {
+          task.history.forEach(h => {
+            if (h.label && h.label.toLowerCase().includes('rework')) hasPastRework = true;
+          });
+        }
+
+        if (s.includes('approved')) return 'Final Approved (L2)';
+        if (hasClearedL1(task)) {
+           if (s.includes('quarantine')) return 'Quarantined (L1-accepted)';
+           if (isReworkState) return 'Rework (L2)';
+           return 'Pending L2';
+        }
+        if (s.includes('quarantine')) return 'Quarantined';
+        if (isReworkState || hasPastRework) return 'Rework';
+        if (s.includes('pool') || s.includes('draft') || s === '' || s === 'unassigned' || s === '—') return 'Draft / Unsubmitted';
+
+        return 'Fresh Submission';
+      }
+
+      function getStatusChipClass(val) {
+        const v = (val || '').toLowerCase();
+        if (v.includes('final approved')) return 'chip-green';
         if (v.includes('rework')) return 'chip-amber';
-        if (v.includes('quarantin')) return 'chip-red';
-        if (v.includes('pool') || v.includes('draft') || v === 'none' || v === 'unassigned') return 'chip-gray';
+        if (v.includes('quarantine')) return 'chip-red';
+        if (v.includes('pending l2')) return 'chip-teal';
+        if (v.includes('fresh')) return 'chip-indigo';
+        if (v.includes('draft')) return 'chip-gray';
         return 'chip-blue';
       }
 
       const uniqueTrainers = new Set();
       const uniqueL1 = new Set();
+      const uniqueL2Rev = new Set();
       const uniqueStatuses = new Set();
-      const uniqueL2 = new Set();
 
       let tableRowsHtml = '';
       targetTasks.forEach((t, index) => {
         const l1Rev = getL1Reviewer(t);
-        const l2Status = getL2Status(t);
-        const trainer = t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned' ? t.annotator : 'Unassigned';
+        const l2Rev = getL2Reviewer(t);
+        const status = getCombinedStatus(t);
+        const trainer = t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned' ? t.annotator : 'NA';
         const taskId = t.id || '—';
         const domain = t.domain || '—';
-        const status = (!t.state || t.state === '') ? 'Pool / Draft' : t.state;
 
         uniqueTrainers.add(trainer);
         uniqueL1.add(l1Rev);
+        uniqueL2Rev.add(l2Rev);
         uniqueStatuses.add(status);
-        uniqueL2.add(l2Status);
 
         let timelineHTML = '<div style="color:#94a3b8; font-style:italic; font-size: 13px;">No history available</div>';
         
@@ -1229,9 +1252,13 @@
         }
         
         const finalTimelineHtml = `<div class="timeline-container"><div class="timeline-box"><div class="timeline">${timelineHTML}</div></div></div>`;
+        
+        const trainerClass = trainer === 'NA' ? 'chip-gray' : 'chip-trainer';
+        const l1Class = l1Rev === 'NA' ? 'chip-gray' : 'chip-l1';
+        const l2Class = l2Rev === 'NA' ? 'chip-gray' : 'chip-l2';
 
         tableRowsHtml += `
-          <tr class="main-row" onclick="toggleHistory('hist-${t.id}')" data-taskid="${esc(t.id)}" data-trainer="${esc(trainer)}" data-l1="${esc(l1Rev)}" data-status="${esc(status)}" data-l2="${esc(l2Status)}">
+          <tr class="main-row" onclick="toggleHistory('hist-${t.id}')" data-taskid="${esc(t.id)}" data-trainer="${esc(trainer)}" data-l1="${esc(l1Rev)}" data-l2rev="${esc(l2Rev)}" data-status="${esc(status)}">
             <td style="color:#64748b; font-weight:600;">${index + 1}</td>
             <td onclick="event.stopPropagation()">
               <div class="taskId" onclick="copyId(this, '${esc(taskId)}')">
@@ -1239,11 +1266,11 @@
                 <svg class="copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
               </div>
             </td>
-            <td><span class="chip chip-trainer">${esc(trainer)}</span></td>
+            <td><span class="chip ${trainerClass}">${esc(trainer)}</span></td>
             <td style="color: #475569;">${esc(domain)}</td>
-            <td><span class="chip ${getChipClass(status)}">${esc(status)}</span></td>
-            <td><span class="chip chip-l1">${esc(l1Rev)}</span></td>
-            <td><span class="chip ${getChipClass(l2Status)}">${esc(l2Status)}</span></td>
+            <td><span class="chip ${getStatusChipClass(status)}">${esc(status)}</span></td>
+            <td><span class="chip ${l1Class}">${esc(l1Rev)}</span></td>
+            <td><span class="chip ${l2Class}">${esc(l2Rev)}</span></td>
           </tr>
           <tr id="hist-${t.id}" style="display:none;">
             <td colspan="7" style="padding: 24px; background: #f8fafc; border-bottom: 2px solid #cbd5e1;">
@@ -1277,11 +1304,14 @@
     .chip { display: inline-flex; align-items: center; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 700; border: 1px solid transparent; white-space: nowrap; }
     .chip-trainer { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
     .chip-l1 { background: #f5f3ff; color: #6d28d9; border-color: #ddd6fe; }
+    .chip-l2 { background: #fdf4ff; color: #a21caf; border-color: #e879f9; }
     .chip-gray { background: #f1f5f9; color: #475569; border-color: #cbd5e1; }
     .chip-green { background: #ecfdf5; color: #047857; border-color: #6ee7b7; }
     .chip-blue { background: #e0f2fe; color: #0369a1; border-color: #bae6fd; }
     .chip-amber { background: #fffbeb; color: #b45309; border-color: #fde68a; }
     .chip-red { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+    .chip-indigo { background: #e0e7ff; color: #4338ca; border-color: #c7d2fe; }
+    .chip-teal { background: #ccfbf1; color: #0f766e; border-color: #5eead4; }
     
     .taskId { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; color: #4f46e5; font-weight: 600; font-size: 11.5px; background: #f8fafc; padding: 6px 10px; border-radius: 6px; border: 1px solid #e2e8f0; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.2s; word-break: break-all; user-select: all; }
     .taskId:hover { background: #e0e7ff; border-color: #c7d2fe; }
@@ -1331,13 +1361,13 @@
         <option value="All">All L1 Reviewers</option>
         ${[...uniqueL1].sort().map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join('')}
       </select>
+      <select id="filter-l2rev" class="filter-select" onchange="filterTable()">
+        <option value="All">All L2 Reviewers</option>
+        ${[...uniqueL2Rev].sort().map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join('')}
+      </select>
       <select id="filter-status" class="filter-select" onchange="filterTable()">
         <option value="All">All Task Statuses</option>
         ${[...uniqueStatuses].sort().map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join('')}
-      </select>
-      <select id="filter-l2" class="filter-select" onchange="filterTable()">
-        <option value="All">All L2 Statuses</option>
-        ${[...uniqueL2].sort().map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join('')}
       </select>
     </div>
     
@@ -1351,7 +1381,7 @@
             <th>Domain</th>
             <th>Task Status</th>
             <th>L1 Reviewer</th>
-            <th>L2 Review Status</th>
+            <th>L2 Reviewer</th>
           </tr>
         </thead>
         <tbody>
@@ -1365,8 +1395,8 @@
     function filterTable() {
       var fTrainer = document.getElementById('filter-trainer').value;
       var fL1 = document.getElementById('filter-l1').value;
+      var fL2Rev = document.getElementById('filter-l2rev').value;
       var fStatus = document.getElementById('filter-status').value;
-      var fL2 = document.getElementById('filter-l2').value;
       
       var rows = document.querySelectorAll('tbody tr.main-row');
       var visibleCount = 0;
@@ -1374,12 +1404,12 @@
       rows.forEach(function(row) {
         var matchT = (fTrainer === 'All' || row.getAttribute('data-trainer') === fTrainer);
         var matchL1 = (fL1 === 'All' || row.getAttribute('data-l1') === fL1);
+        var matchL2Rev = (fL2Rev === 'All' || row.getAttribute('data-l2rev') === fL2Rev);
         var matchS = (fStatus === 'All' || row.getAttribute('data-status') === fStatus);
-        var matchL2 = (fL2 === 'All' || row.getAttribute('data-l2') === fL2);
         
         var histRow = document.getElementById('hist-' + row.getAttribute('data-taskid'));
         
-        if (matchT && matchL1 && matchS && matchL2) {
+        if (matchT && matchL1 && matchL2Rev && matchS) {
           row.style.display = '';
           visibleCount++;
         } else {
@@ -1401,6 +1431,7 @@
     }
 
     function copyId(el, text) {
+      event.stopPropagation();
       navigator.clipboard.writeText(text).then(function() {
         var oldBg = el.style.background;
         var oldColor = el.style.color;
