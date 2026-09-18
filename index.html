@@ -536,6 +536,10 @@
 
         if (rosterJson.pods) {
           rosterJson.pods.forEach(pod => {
+            if (pod.lead) {
+              allRosterMembers.push({ name: pod.lead, email: pod.lead_email || '' });
+              if (pod.lead_email) userToEmail[pod.lead] = pod.lead_email;
+            }
             pod.trainers.forEach(t => {
                 trainerToPod[t.name] = pod.name;
                 if (t.email) userToEmail[t.name] = t.email;
@@ -554,10 +558,12 @@
 
         globalData = (json.tasks || []).map(t => {
           let resolvedAnnotator = resolveAnnotator(t.annotator, allRosterMembers, globalMappings);
+          let resolvedReviewer = resolveAnnotator(t.reviewer, allRosterMembers, globalMappings);
           
           return {
             ...t,
             annotator: resolvedAnnotator,
+            reviewer: resolvedReviewer,
             pod: trainerToPod[resolvedAnnotator] || 'Unassigned Pod'
           };
         });
@@ -882,7 +888,7 @@
       document.getElementById('modal-trainer-name').textContent = task.annotator;
       document.getElementById('modal-trainer-email').textContent = userToEmail[task.annotator] || (task.annotator !== 'Unassigned' ? task.annotator.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '—');
       document.getElementById('modal-reviewer-name').textContent = task.reviewer;
-      document.getElementById('modal-reviewer-email').textContent = userToEmail[task.reviewer] || (task.reviewer !== '—' ? task.reviewer.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '—');
+      document.getElementById('modal-reviewer-email').textContent = userToEmail[task.reviewer] || (task.reviewer !== '—' && task.reviewer !== 'Unassigned' ? task.reviewer.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '—');
       document.getElementById('modal-domain').textContent = task.domain;
       document.getElementById('modal-date').textContent = task.submitted_at ? formatDateShort(task.submitted_at) + ', ' + new Date(task.submitted_at).getFullYear() : '—';
       
