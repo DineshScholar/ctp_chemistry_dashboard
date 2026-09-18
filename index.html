@@ -469,13 +469,32 @@
     const ROSTER_URL = 'https://turing-api.dineshkashyaparya.workers.dev/roster';
     
     let globalData = [];
-    let trainerToPod = {};
+    let globalPods = [];
+    let emailToPod = {};
+    let nameToPod = {};
     let userToEmail = {};
-    let l2ReviewersSet = new Set();
+    let l2Emails = new Set();
+    let l2Names = new Set();
 
     function normalizeName(name) {
       if (!name) return '';
       return String(name).trim().toLowerCase().replace(/\s+/g, ' ');
+    }
+
+    function extractEmail(str) {
+      if (!str) return null;
+      const match = String(str).match(/([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)/);
+      return match ? match[1].toLowerCase() : null;
+    }
+
+    function findEmail(task, rolePrefix) {
+      const e1 = extractEmail(task[rolePrefix + '_email']);
+      if (e1) return e1;
+      const e2 = extractEmail(task[rolePrefix + 'Email']);
+      if (e2) return e2;
+      const e3 = extractEmail(task[rolePrefix]);
+      if (e3) return e3;
+      return null;
     }
 
     function getReviewCycles(task) {
@@ -491,16 +510,18 @@
       if (s.includes('pool') || s.includes('draft') || s === 'unassigned' || s === '') {
         return reworks; 
       }
-      
       return reworks + 1;
     }
 
     async function init() {
       if (window.__OFFLINE_PAYLOAD__) {
         globalData = window.__OFFLINE_PAYLOAD__.tasks || [];
-        trainerToPod = window.__OFFLINE_PAYLOAD__.trainerToPod || {};
+        globalPods = window.__OFFLINE_PAYLOAD__.globalPods || [];
+        emailToPod = window.__OFFLINE_PAYLOAD__.emailToPod || {};
+        nameToPod = window.__OFFLINE_PAYLOAD__.nameToPod || {};
         userToEmail = window.__OFFLINE_PAYLOAD__.userToEmail || {};
-        l2ReviewersSet = new Set(window.__OFFLINE_PAYLOAD__.l2Reviewers || []);
+        l2Emails = new Set(window.__OFFLINE_PAYLOAD__.l2Emails || []);
+        l2Names = new Set(window.__OFFLINE_PAYLOAD__.l2Names || []);
         populateFilters();
         renderTable();
         return;
@@ -515,11 +536,16 @@
         const rosterJson = await rosterRes.json();
 
         if (rosterJson.pods) {
+          globalPods = rosterJson.pods;
           rosterJson.pods.forEach(pod => {
             pod.trainers.forEach(t => {
                 const norm = normalizeName(t.name);
-                trainerToPod[norm] = pod.name;
-                if (t.email) userToEmail[norm] = t.email;
+                if (t.email) {
+                    const e = t.email.toLowerCase().trim();
+                    emailToPod[e] = pod.name;
+                    userToEmail[norm] = e;
+                }
+                if (norm) nameToPod[norm] = pod.name;
             });
           });
         }
@@ -527,25 +553,39 @@
         if (rosterJson.l2_reviewers) {
           rosterJson.l2_reviewers.forEach(r => {
              const norm = normalizeName(r.name);
-             l2ReviewersSet.add(norm);
-             if (r.email) userToEmail[norm] = r.email;
+             if (r.email) {
+                 const e = r.email.toLowerCase().trim();
+                 l2Emails.add(e);
+                 userToEmail[norm] = e;
+             }
+             if (norm) l2Names.add(norm);
           });
         }
 
         globalData = (json.tasks || []).map(t => {
           const normAnnotator = normalizeName(t.annotator);
           const normReviewer = normalizeName(t.reviewer);
+          
+          const annEmail = findEmail(t, 'annotator') || extractEmail(t.email);
+          const revEmail = findEmail(t, 'reviewer');
+
           const isRealAnnotator = t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned';
           const isRealReviewer = t.reviewer && t.reviewer !== '—' && t.reviewer !== 'Unassigned';
 
-          const isUnidTrainer = isRealAnnotator && !trainerToPod[normAnnotator] && !l2ReviewersSet.has(normAnnotator);
-          const isUnidReviewer = isRealReviewer && !trainerToPod[normReviewer] && !l2ReviewersSet.has(normReviewer);
+          // Exact email match first, then fallback to normalized name
+          let matchedPod = (annEmail && emailToPod[annEmail]) ? emailToPod[annEmail] : nameToPod[normAnnotator];
+          let isL2Trainer = (annEmail && l2Emails.has(annEmail)) || l2Names.has(normAnnotator);
+          let isUnidTrainer = isRealAnnotator && !matchedPod && !isL2Trainer;
 
-          let podName = trainerToPod[normAnnotator] || 'Unassigned Pod';
+          let revMatchedPod = (revEmail && emailToPod[revEmail]) ? emailToPod[revEmail] : nameToPod[normReviewer];
+          let isL2Rev = (revEmail && l2Emails.has(revEmail)) || l2Names.has(normReviewer);
+          let isUnidReviewer = isRealReviewer && !revMatchedPod && !isL2Rev;
+
+          let podName = 'Unassigned Pod'; // Strict blank unassigned default
           if (isUnidTrainer || isUnidReviewer) {
-              podName = 'UNIDENTIFIED';
-          } else if (!isRealAnnotator) {
-              podName = 'Unassigned Pod';
+              podName = 'UNIDENTIFIED'; // Strictly for identifiable entities missing from roster
+          } else if (matchedPod) {
+              podName = matchedPod;
           }
 
           return {
@@ -569,6 +609,11 @@
       const reviewers = new Set();
       const pods = new Set();
 
+      // Ensure every pod mapped in Team Builder directly populates the filter list (even if they have zero tasks)
+      globalPods.forEach(p => pods.add(p.name));
+      pods.add('Unassigned Pod');
+      pods.add('UNIDENTIFIED');
+
       globalData.forEach(t => {
         if (t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned') trainers.add(t.annotator);
         if (t.reviewer && t.reviewer !== '—' && t.reviewer !== 'Unassigned') reviewers.add(t.reviewer);
@@ -589,9 +634,6 @@
       document.getElementById('filter-reviewer').insertAdjacentHTML('beforeend', `<option value="UNIDENTIFIED">UNIDENTIFIED</option>`);
 
       fillOptions('filter-pod', pods);
-      if (!pods.has('UNIDENTIFIED')) {
-          document.getElementById('filter-pod').insertAdjacentHTML('beforeend', `<option value="UNIDENTIFIED">UNIDENTIFIED</option>`);
-      }
     }
 
     function toggleCustomDate() {
@@ -682,12 +724,8 @@
           stats.rework++;
         } else if (s.includes('quarantine')) {
           stats.quarantined++;
-          
-          if (hasClearedL2(t)) {
-            stats.quarPostL2++;
-          } else if (hasClearedL1(t)) {
-            stats.quarPostL1++;
-          }
+          if (hasClearedL2(t)) stats.quarPostL2++;
+          else if (hasClearedL1(t)) stats.quarPostL1++;
         } else if (s.includes('pool') || s.includes('draft') || s === '' || s === 'unassigned' || s === '—') {
           stats.draft++;
         } else {
@@ -764,7 +802,15 @@
 
       const script = document.createElement('script');
       script.id = 'offline-payload-script';
-      script.textContent = `window.__OFFLINE_PAYLOAD__ = ${JSON.stringify({ tasks: globalData, trainerToPod: trainerToPod, userToEmail: userToEmail, l2Reviewers: Array.from(l2ReviewersSet) })};`;
+      script.textContent = `window.__OFFLINE_PAYLOAD__ = ${JSON.stringify({ 
+        tasks: globalData, 
+        globalPods: globalPods,
+        emailToPod: emailToPod,
+        nameToPod: nameToPod,
+        userToEmail: userToEmail,
+        l2Emails: Array.from(l2Emails),
+        l2Names: Array.from(l2Names)
+      })};`;
       doc.querySelector('head').prepend(script);
 
       const htmlString = "<!DOCTYPE html>\n" + doc.outerHTML;
@@ -1010,11 +1056,14 @@
         if (t.history) {
           const revEvents = t.history.filter(h => {
             const normActor = normalizeName(h.actor_name);
+            const actorEmail = extractEmail(h.actor_name);
+            const isL2 = (actorEmail && l2Emails.has(actorEmail)) || l2Names.has(normActor);
+            
             return h.actor_name && 
               h.actor_name !== 'System' && 
               h.actor_name !== t.annotator && 
               h.actor_name !== '—' && 
-              !l2ReviewersSet.has(normActor);
+              !isL2;
           });
           if (revEvents.length > 0) {
             reviewer = revEvents[revEvents.length - 1].actor_name;
@@ -1022,7 +1071,10 @@
         }
         
         const normRev = normalizeName(t.reviewer);
-        if (reviewer === 'None' && t.reviewer && t.reviewer !== '—' && t.reviewer !== 'Unassigned' && !l2ReviewersSet.has(normRev)) {
+        const revEmail = extractEmail(t.reviewer);
+        const isL2Current = (revEmail && l2Emails.has(revEmail)) || l2Names.has(normRev);
+
+        if (reviewer === 'None' && t.reviewer && t.reviewer !== '—' && t.reviewer !== 'Unassigned' && !isL2Current) {
           reviewer = t.reviewer;
         }
         
