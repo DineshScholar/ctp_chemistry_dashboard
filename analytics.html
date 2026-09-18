@@ -336,8 +336,10 @@
     
     let globalTasks = []; 
     let globalPods = [];
-    let trainerToPod = {}; 
-    let l2ReviewersSet = new Set();
+    let emailToPod = {};
+    let nameToPod = {};
+    let l2Emails = new Set();
+    let l2Names = new Set();
     let chartInstances = {};
     let chartSeriesMap = {}; 
     
@@ -361,6 +363,22 @@
       return String(name).trim().toLowerCase().replace(/\s+/g, ' ');
     }
 
+    function extractEmail(str) {
+      if (!str) return null;
+      const match = String(str).match(/([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)/);
+      return match ? match[1].toLowerCase() : null;
+    }
+
+    function findEmail(task, rolePrefix) {
+      const e1 = extractEmail(task[rolePrefix + '_email']);
+      if (e1) return e1;
+      const e2 = extractEmail(task[rolePrefix + 'Email']);
+      if (e2) return e2;
+      const e3 = extractEmail(task[rolePrefix]);
+      if (e3) return e3;
+      return null;
+    }
+
     async function init() {
       try {
         const [taskRes, rosterRes] = await Promise.all([fetch(TASK_URL), fetch(ROSTER_URL)]);
@@ -369,27 +387,44 @@
         
         globalPods = rosterData.pods || [];
         globalPods.forEach(pod => {
-          pod.trainers.forEach(t => trainerToPod[normalizeName(t.name)] = pod.name);
+          pod.trainers.forEach(t => {
+            const norm = normalizeName(t.name);
+            if (t.email) emailToPod[t.email.toLowerCase().trim()] = pod.name;
+            if (norm) nameToPod[norm] = pod.name;
+          });
         });
 
         if (rosterData.l2_reviewers) {
-          rosterData.l2_reviewers.forEach(r => l2ReviewersSet.add(normalizeName(r.name)));
+          rosterData.l2_reviewers.forEach(r => {
+             const norm = normalizeName(r.name);
+             if (r.email) l2Emails.add(r.email.toLowerCase().trim());
+             if (norm) l2Names.add(norm);
+          });
         }
 
         globalTasks = (taskData.tasks || []).map(t => {
           const normAnnotator = normalizeName(t.annotator);
           const normReviewer = normalizeName(t.reviewer);
+          
+          const annEmail = findEmail(t, 'annotator') || extractEmail(t.email);
+          const revEmail = findEmail(t, 'reviewer');
+
           const isRealAnnotator = t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned';
           const isRealReviewer = t.reviewer && t.reviewer !== '—' && t.reviewer !== 'Unassigned';
 
-          const isUnidTrainer = isRealAnnotator && !trainerToPod[normAnnotator] && !l2ReviewersSet.has(normAnnotator);
-          const isUnidReviewer = isRealReviewer && !trainerToPod[normReviewer] && !l2ReviewersSet.has(normReviewer);
+          let matchedPod = (annEmail && emailToPod[annEmail]) ? emailToPod[annEmail] : nameToPod[normAnnotator];
+          let isL2Trainer = (annEmail && l2Emails.has(annEmail)) || l2Names.has(normAnnotator);
+          let isUnidTrainer = isRealAnnotator && !matchedPod && !isL2Trainer;
 
-          let podName = trainerToPod[normAnnotator] || 'Unassigned Pod';
+          let revMatchedPod = (revEmail && emailToPod[revEmail]) ? emailToPod[revEmail] : nameToPod[normReviewer];
+          let isL2Rev = (revEmail && l2Emails.has(revEmail)) || l2Names.has(normReviewer);
+          let isUnidReviewer = isRealReviewer && !revMatchedPod && !isL2Rev;
+
+          let podName = 'Unassigned Pod'; 
           if (isUnidTrainer || isUnidReviewer) {
               podName = 'UNIDENTIFIED';
-          } else if (!isRealAnnotator) {
-              podName = 'Unassigned Pod';
+          } else if (matchedPod) {
+              podName = matchedPod;
           }
 
           return { 
@@ -554,7 +589,12 @@
 
       const cIdBar = 'overview-bar-chart';
       tooltipStore[cIdBar] = [[], [], []];
-      const podNames = [...new Set(globalTasks.map(t => t.pod))].sort();
+      
+      const podNamesSet = new Set(globalPods.map(p => p.name));
+      podNamesSet.add('Unassigned Pod');
+      podNamesSet.add('UNIDENTIFIED');
+      globalTasks.forEach(t => podNamesSet.add(t.pod));
+      const podNames = [...podNamesSet].sort();
       
       const bData = { sub: [], l1: [], rew: [] };
       podNames.forEach((p, i) => {
@@ -596,8 +636,17 @@
     // --- SHARED LINE CHART LOGIC WITH CUSTOM LEGEND & FULL ID STORE ---
     function renderLineChartWithCustomLegend(chartId, legendTitleId, legendChipsId, roleField) {
       const dates = generateDateRange(globalTasks);
-      let entities = (roleField === 'pod') ? [...new Set(globalTasks.map(t => t.pod))].sort() 
-                     : [...new Set(globalTasks.map(t => t[roleField]).filter(p => p && p !== '—' && p !== 'Unassigned'))].sort();
+      
+      let entities;
+      if (roleField === 'pod') {
+          const podNamesSet = new Set(globalPods.map(p => p.name));
+          podNamesSet.add('Unassigned Pod');
+          podNamesSet.add('UNIDENTIFIED');
+          globalTasks.forEach(t => podNamesSet.add(t.pod));
+          entities = [...podNamesSet].sort();
+      } else {
+          entities = [...new Set(globalTasks.map(t => t[roleField]).filter(p => p && p !== '—' && p !== 'Unassigned'))].sort();
+      }
       
       document.getElementById(legendTitleId).textContent = `TOGGLE LINES (${entities.length}):`;
       tooltipStore[chartId] = [];
@@ -739,7 +788,7 @@
 
       const cIdStack = 'pod-stacked-chart';
       tooltipStore[cIdStack] = [];
-      const podNames = Object.keys(podStats).filter(p => podStats[p].total > 0).sort();
+      const podNames = Object.keys(podStats).sort();
       const statuses = Object.keys(STATUS_COLORS);
       
       const seriesData = statuses.map((status, sIdx) => {
