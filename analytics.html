@@ -3,1296 +3,1118 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Turing Task Ledger</title>
+  <title>Analytics - Chemistry Task Ledger</title>
+  <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
   <style>
-    :root {
-      --bg-page: #f9f8fc;
-      --bg-card: #ffffff;
-      --border: #e2e0e7;
-      --text-main: #1f1d24;
-      --text-sub: #8a8894;
-      --primary: #6b21a8;
+    :root { 
+      --bg-page: #f9f8fc; 
+      --bg-card: #ffffff; 
+      --border: #e2e0e7; 
+      --text-main: #1f1d24; 
+      --text-sub: #64748b; 
+      --primary: #6b21a8; 
       --primary-light: #f3e8ff;
-      --accent-blue: #3b82f6;
-      --accent-blue-light: #eff6ff;
-      --warning: #b45309;
-      --warning-light: #fffbeb;
-      --success: #047857;
-      --success-light: #d1fae5;
-      --quarantine: #9f1239;
-      --quarantine-light: #ffe4e6;
-      --combo-purple: #7e22ce;
-      --combo-teal: #0f766e;
+      --secondary: #10b981; 
+      --warning: #f59e0b; 
+      --danger: #ef4444; 
+      --info: #3b82f6;
     }
-
     * { box-sizing: border-box; }
-
-    body {
-      font-family: 'Inter', system-ui, sans-serif;
-      background-color: var(--bg-page);
-      color: var(--text-main);
-      margin: 0;
-      padding: 0;
-    }
-
+    body { font-family: 'Inter', system-ui, sans-serif; background-color: var(--bg-page); color: var(--text-main); margin: 0; padding: 0; }
+    
     /* Navigation */
-    nav {
-      background: var(--bg-card);
-      border-bottom: 1px solid var(--border);
-      padding: 0 30px;
-      display: flex;
-      gap: 30px;
-    }
-    nav a {
-      text-decoration: none;
-      color: var(--text-sub);
-      font-weight: 600;
-      font-size: 14px;
-      padding: 20px 0;
-      border-bottom: 2px solid transparent;
-    }
+    nav { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 0 32px; display: flex; gap: 30px; }
+    nav a { text-decoration: none; color: var(--text-sub); font-weight: 600; font-size: 14px; padding: 20px 0; border-bottom: 2px solid transparent; transition: color 0.2s; }
     nav a.active { color: var(--primary); border-bottom-color: var(--primary); }
     nav a:hover:not(.active) { color: var(--text-main); }
 
-    .main-content { padding: 30px; max-width: 1600px; margin: 0 auto; }
-
-    /* Summary Metrics Grid */
-    .summary-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-      gap: 16px;
-      margin-bottom: 24px;
+    /* Layout */
+    .dashboard { padding: 32px; max-width: 1440px; margin: 0 auto; }
+    
+    /* Tabs */
+    .sub-tabs { display: flex; gap: 12px; margin-bottom: 24px; border-bottom: 1px solid var(--border); padding-bottom: 16px; flex-wrap: wrap;}
+    .sub-tabs button {
+      background: transparent; border: 1px solid transparent; padding: 8px 16px;
+      border-radius: 6px; font-weight: 600; color: var(--text-sub); cursor: pointer;
+      transition: all 0.2s ease; font-size: 14px;
     }
-    .summary-card {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02);
-      transition: transform 0.2s;
+    .sub-tabs button.active { background: var(--primary-light); color: var(--primary); border-color: #d8b4fe; }
+    .sub-tabs button:hover:not(.active) { background: #f1f5f9; color: var(--text-main); }
+
+    .tab-content { display: none; animation: fadeIn 0.3s ease; }
+    .tab-content.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* Chart Cards */
+    .chart-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 24px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); margin-bottom: 24px; transition: height 0.3s ease; }
+    .chart-header { margin-bottom: 16px; display: flex; justify-content: space-between; align-items: flex-start; }
+    .chart-header-text h2 { margin: 0 0 6px 0; font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-main); display: flex; align-items: center; gap: 8px; }
+    .chart-header-text p { margin: 0; font-size: 12px; color: var(--text-sub); }
+    .canvas-container { position: relative; width: 100%; min-height: 380px; }
+
+    /* Action Buttons */
+    .btn-action { background: var(--primary-light); color: var(--primary); border: 1px solid #d8b4fe; padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; transition: 0.2s; }
+    .btn-action:hover { background: #e9d5ff; }
+
+    /* Interactive Custom Legend Panels */
+    .custom-legend-panel { margin-top: 20px; border-top: 1px solid #f1f5f9; padding-top: 16px; }
+    .legend-panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+    .legend-title { font-size: 11px; font-weight: 800; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.05em; }
+    .legend-actions button { background: none; border: none; font-size: 11px; font-weight: 700; color: var(--primary); cursor: pointer; padding: 0 4px; }
+    .legend-actions button:hover { text-decoration: underline; }
+    .legend-chips { display: flex; flex-wrap: wrap; gap: 10px; }
+    
+    .legend-chip { 
+      display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; 
+      border: 1px solid var(--border); border-radius: 20px; font-size: 12px; 
+      font-weight: 600; cursor: pointer; transition: all 0.2s; user-select: none; background: #fff;
     }
-    .summary-card:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.04); }
-    
-    .summary-label {
-      font-size: 10px;
-      font-weight: 800;
-      text-transform: uppercase;
-      color: var(--text-sub);
-      letter-spacing: 0.05em;
-    }
-    .summary-value {
-      font-size: 26px;
-      font-weight: 800;
-      line-height: 1;
-    }
-    
-    /* Specific Card Accents */
-    .card-total { border-top: 4px solid var(--primary); }
-    .card-total .summary-value { color: var(--primary); }
-    
-    .card-l2 { border-top: 4px solid var(--success); }
-    .card-l2 .summary-value { color: var(--success); }
-    
-    .card-l1 { border-top: 4px solid var(--accent-blue); }
-    .card-l1 .summary-value { color: var(--accent-blue); }
-    
-    .card-rework { border-top: 4px solid var(--warning); }
-    .card-rework .summary-value { color: var(--warning); }
-    
-    .card-quarantine { border-top: 4px solid var(--quarantine); }
-    .card-quarantine .summary-value { color: var(--quarantine); }
-    
-    .card-pending { border-top: 4px solid #6366f1; }
-    .card-pending .summary-value { color: #6366f1; }
+    .legend-chip:hover { background: #f8fafc; border-color: #cbd5e1; }
+    .legend-chip.inactive { opacity: 0.4; background: #f1f5f9; text-decoration: line-through; }
+    .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
 
-    .card-draft { border-top: 4px solid var(--text-sub); }
-    .card-draft .summary-value { color: var(--text-main); }
+    /* Pod Cards UI */
+    .pod-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 24px; margin-bottom: 24px; }
+    .pod-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); display: flex; flex-direction: column; }
+    .pod-card-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid #f1f5f9; padding-bottom: 16px; margin-bottom: 16px; }
+    .pod-title { font-size: 16px; font-weight: 800; color: var(--primary); display: flex; align-items: center; gap: 6px; }
+    .pod-meta { font-size: 12px; color: var(--text-sub); margin-top: 6px; display: flex; flex-direction: column; gap: 2px;}
+    .pod-lead { font-weight: 600; color: var(--text-main); }
+    
+    .metric-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+    .metric-box { border: 1px solid #f1f5f9; border-radius: 8px; padding: 10px; background: #faf9fb; }
+    .metric-label { font-size: 10px; font-weight: 800; text-transform: uppercase; color: var(--text-sub); margin-bottom: 4px; letter-spacing: 0.05em; }
+    .metric-value { font-size: 20px; font-weight: 800; }
+    
+    .val-total { color: var(--text-main); }
+    .val-l1 { color: var(--info); }
+    .val-rework { color: var(--warning); }
+    .val-l2 { color: var(--secondary); }
 
-    .card-quar-l1 { border-top: 4px solid var(--combo-purple); background: #faf9fb; }
-    .card-quar-l1 .summary-value { color: var(--combo-purple); }
-
-    .card-quar-l2 { border-top: 4px solid var(--combo-teal); background: #faf9fb; }
-    .card-quar-l2 .summary-value { color: var(--combo-teal); }
-
-    /* Filters Section */
-    .filters-container {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 20px;
-      margin-bottom: 24px;
-      display: flex;
-      flex-wrap: wrap;
-      gap: 16px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-      align-items: center;
-    }
-
-    .filter-input {
-      padding: 10px 14px;
-      border: 1px solid var(--border);
+    /* Multiple Progress Bars */
+    .progress-group { display: flex; flex-direction: column; gap: 12px; margin-top: auto; }
+    .progress-item { font-size: 11px; font-weight: 600; color: var(--text-sub); }
+    .progress-header { display: flex; justify-content: space-between; margin-bottom: 4px; }
+    .progress-bar-bg { width: 100%; height: 6px; background: #f1f5f9; border-radius: 4px; overflow: hidden; }
+    .progress-bar-fill { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
+    
+    /* Custom Tooltip Container & Interactive Elements */
+    .apexcharts-tooltip { box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1) !important; border: 1px solid #e2e0e7 !important; border-radius: 6px !important; }
+    .apexcharts-series path, .apexcharts-marker { cursor: pointer; }
+    
+    /* Toast Notification */
+    .toast {
+      position: fixed;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: #1f1d24;
+      color: #fff;
+      padding: 12px 24px;
       border-radius: 8px;
-      font-size: 13px;
-      color: var(--text-main);
-      outline: none;
-      min-width: 170px;
-      flex: 1;
-      cursor: pointer;
-    }
-    .filter-input:focus { border-color: var(--primary); }
-    
-    .filter-group { display: flex; gap: 8px; flex: 1.5; min-width: 250px; }
-    #custom-date-range { display: none; gap: 8px; align-items: center; flex: 2; }
-
-    /* Ledger Actions Bar */
-    .table-actions {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 12px;
-      padding: 0 4px;
-    }
-    .table-actions h3 { margin: 0; font-size: 14px; font-weight: 700; color: var(--text-main); }
-    
-    .table-actions-btns {
-      display: flex;
-      gap: 12px;
-    }
-
-    /* Ledger Table */
-    .ledger-container {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      overflow-x: auto;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-    }
-
-    table { width: 100%; border-collapse: collapse; text-align: left; }
-    th { background: #faf9fb; padding: 16px; font-size: 12px; font-weight: 700; color: var(--text-main); border-bottom: 1px solid var(--border); white-space: nowrap; }
-    td { padding: 16px; border-bottom: 1px solid var(--border); font-size: 13px; vertical-align: top; cursor: pointer; }
-    tr:hover td { background-color: #f8f7fa; }
-
-    .task-id-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      background: var(--primary-light);
-      color: var(--primary);
-      padding: 6px 10px;
-      border-radius: 6px;
-      font-family: ui-monospace, monospace;
+      font-size: 14px;
       font-weight: 600;
-      font-size: 11px;
-      word-break: break-all;
-      max-width: 280px;
-    }
-
-    .copy-icon { cursor: pointer; color: var(--primary); opacity: 0.6; transition: opacity 0.2s; flex-shrink: 0; }
-    .copy-icon:hover { opacity: 1; }
-
-    .user-block { display: flex; flex-direction: column; gap: 4px; }
-    .user-name { font-weight: 600; color: var(--text-main); }
-    .user-email { font-family: ui-monospace, monospace; font-size: 11.5px; color: var(--text-sub); }
-
-    .status-badge {
-      display: inline-block;
-      padding: 4px 10px;
-      border-radius: 4px;
-      font-size: 11px;
-      font-weight: 700;
-      text-transform: uppercase;
-      border: 1px solid currentColor;
-      white-space: nowrap;
-    }
-    .status-rework { background: var(--warning-light); color: var(--warning); border-color: #fcd34d; }
-    .status-approved { background: var(--success-light); color: var(--success); border-color: #6ee7b7; }
-    .status-l1 { background: var(--primary-light); color: var(--primary); border-color: #d8b4fe; }
-    .status-l2 { background: var(--accent-blue-light); color: var(--accent-blue); border-color: #93c5fd; }
-    .status-quarantined { background: var(--quarantine-light); color: var(--quarantine); border-color: #fda4af; }
-    .status-draft { background: #f1f5f9; color: var(--text-sub); border-color: #cbd5e1; }
-
-    .mini-history { display: flex; flex-direction: column; gap: 6px; font-size: 11.5px; color: var(--text-sub); }
-    .mini-history-item span { font-weight: 600; color: var(--text-main); }
-    .mini-history-date { display: inline-block; width: 45px; }
-
-    .action-btn {
-      display: inline-flex;
+      box-shadow: 0 10px 25px -5px rgba(0,0,0,0.2);
+      opacity: 0;
+      transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+      z-index: 9999;
+      display: flex;
       align-items: center;
-      gap: 6px;
-      padding: 8px 14px;
-      background: var(--accent-blue-light);
-      color: var(--accent-blue);
-      border: 1px solid #bfdbfe;
-      border-radius: 6px;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      text-decoration: none;
-      white-space: nowrap;
-      transition: all 0.2s;
+      gap: 10px;
     }
-    .action-btn:hover { background: #dbeafe; }
-    .action-btn-primary { background: var(--primary-light); color: var(--primary); border-color: #d8b4fe; }
-    .action-btn-primary:hover { background: #e9d5ff; }
-    .action-btn-secondary { background: #f1f5f9; color: #475569; border-color: #cbd5e1; }
-    .action-btn-secondary:hover { background: #e2e8f0; color: #0f172a; }
-
-    /* Modal */
-    .modal-overlay {
-      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.4);
-      display: none; justify-content: center; align-items: center;
-      z-index: 1000;
-    }
-    .modal-overlay.active { display: flex; }
-
-    .modal-content {
-      background: var(--bg-card); width: 100%; max-width: 700px;
-      border-radius: 12px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
-      display: flex; flex-direction: column; max-height: 90vh;
+    .toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
     }
 
-    .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 24px; border-bottom: 1px solid var(--border); }
-    .modal-title { font-size: 16px; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 12px; }
-    .modal-subtitle { font-size: 10px; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-top: 4px; }
-    .close-btn { background: none; border: none; font-size: 24px; cursor: pointer; color: var(--text-sub); line-height: 1; }
-
-    .modal-body { padding: 30px 24px; overflow-y: auto; }
-    .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; margin-bottom: 30px; }
-    .meta-label { font-size: 10px; font-weight: 700; color: var(--text-sub); text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.05em; }
-
-    .timeline-container { margin-top: 10px; }
-    .timeline-title { font-size: 11px; font-weight: 700; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 16px; }
-    .timeline-box { border: 1px solid var(--border); border-radius: 12px; padding: 24px; background: #faf9fb; }
-    .timeline { border-left: 2px solid var(--border); margin-left: 10px; padding-left: 24px; position: relative; }
-
-    .timeline-item { position: relative; margin-bottom: 24px; }
-    .timeline-item:last-child { margin-bottom: 0; }
+    /* Slack Integration Styles */
+    .slack-container { max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; padding: 10px; }
+    .slack-box { background: var(--bg-card); border: 2px solid var(--border); border-radius: 12px; padding: 20px; transition: border-color 0.2s; cursor: pointer; }
+    .slack-box:hover { border-color: var(--primary); }
+    .slack-box-label { font-size: 11px; font-weight: 800; color: var(--text-sub); text-transform: uppercase; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
     
-    /* Blinking Animations for Timeline Statuses */
-    @keyframes pulse-green { 0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); } 100% { box-shadow: 0 0 0 0 transparent; } }
-    @keyframes pulse-blue { 0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(59, 130, 246, 0); } 100% { box-shadow: 0 0 0 0 transparent; } }
-    @keyframes pulse-amber { 0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(245, 158, 11, 0); } 100% { box-shadow: 0 0 0 0 transparent; } }
-    @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 transparent; } }
-
-    .timeline-dot {
-      position: absolute; left: -31px; top: 4px; width: 12px; height: 12px;
-      border-radius: 50%; background: var(--bg-card); border: 3px solid var(--primary);
-      transition: all 0.3s ease;
-    }
+    .slack-rev-box { border: 2px dashed #cbd5e1; border-radius: 10px; padding: 16px; margin-bottom: 16px; background: #f8fafc; cursor: pointer; transition: border-color 0.2s;}
+    .slack-rev-box:hover { border-color: var(--info); }
     
-    /* Dynamic Dot State Classes */
-    .timeline-dot.status-l2-app { border-color: var(--success) !important; background: var(--success-light) !important; animation: pulse-green 2s infinite; }
-    .timeline-dot.status-l1-app { border-color: var(--accent-blue) !important; background: var(--accent-blue-light) !important; animation: pulse-blue 2s infinite; }
-    .timeline-dot.status-rework { border-color: var(--warning) !important; background: var(--warning-light) !important; animation: pulse-amber 2s infinite; }
-    .timeline-dot.status-quar { border-color: var(--quarantine) !important; background: var(--quarantine-light) !important; animation: pulse-red 2s infinite; }
-
-    .tl-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
-    .tl-role { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
-    .tl-role.reviewer { color: var(--primary); }
-    .tl-role.trainer { color: var(--accent-blue); }
-    .tl-role.system { color: var(--text-sub); }
+    .slack-train-box { border: 2px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-top: 12px; background: #ffffff; cursor: pointer; transition: border-color 0.2s; }
+    .slack-train-box:hover { border-color: var(--secondary); }
     
-    .tl-date { font-size: 11.5px; color: var(--text-sub); font-family: ui-monospace, monospace; }
-    .tl-action { font-size: 14px; font-weight: 600; color: var(--text-main); margin-bottom: 4px; display: flex; align-items: center; }
-    .tl-name { font-size: 13px; color: var(--text-sub); }
-    .tl-detail { margin-top: 10px; font-size: 13px; color: #4b5563; background: #fff; padding: 12px; border-radius: 8px; border: 1px solid var(--border); white-space: pre-wrap; }
-
-    .modal-footer { padding: 20px 24px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: #faf9fb; border-radius: 0 0 12px 12px; }
+    .slack-text { font-family: ui-monospace, monospace; font-size: 13px; color: var(--text-main); line-height: 1.5; margin: 0; }
+    .no-select { user-select: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; }
   </style>
 </head>
 <body>
 
   <nav>
-    <a href="index.html" class="active">Task Ledger</a>
-    <a href="analytics.html">Analytics & Reporting</a>
+    <a href="index.html">Task Ledger</a>
+    <a href="analytics.html" class="active">Analytics & Reporting</a>
     <a href="admin.html">Team Builder (Admin)</a>
   </nav>
 
-  <div class="main-content">
+  <div class="dashboard">
+    <div class="sub-tabs">
+      <button class="active" onclick="switchTab('overview')">Overview</button>
+      <button onclick="switchTab('pods')">Pod Performance</button>
+      <button onclick="switchTab('trainers')">Trainers</button>
+      <button onclick="switchTab('reviewers')">Quality Oversight (Reviewers)</button>
+      <button onclick="switchTab('l2-review')">Final Tagging (L2 Accepted)</button>
+      <button onclick="switchTab('slack')">Slack</button>
+    </div>
+
+    <!-- TAB 1: OVERVIEW -->
+    <div id="tab-overview" class="tab-content active">
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-header-text">
+            <h2>TASK THROUGHPUT TIMELINE (DAILY)</h2>
+            <p>Comparing total tasks submitted vs explicitly actioned reviews. Click points to copy Task IDs.</p>
+          </div>
+        </div>
+        <div class="canvas-container" id="overview-area-chart"></div>
+      </div>
+
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-header-text">
+            <h2>POD SIDE-BY-SIDE COMPARISON (SUBMITTED VS ACTIONED)</h2>
+            <p>Direct volume breakdown across pods. Click bars to copy full Task IDs.</p>
+          </div>
+        </div>
+        <div class="canvas-container" id="overview-bar-chart"></div>
+      </div>
+    </div>
+
+    <!-- TAB 2: PODS -->
+    <div id="tab-pods" class="tab-content">
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-header-text">
+            <h2>POD SUBMISSION VOLUME OVER TIME</h2>
+            <p>1 Line = 1 Pod's Task Volume. Click points to copy IDs.</p>
+          </div>
+        </div>
+        <div class="canvas-container" id="pod-line-chart"></div>
+        <div class="custom-legend-panel">
+          <div class="legend-panel-header">
+            <span class="legend-title" id="pod-legend-title">TOGGLE POD LINES:</span>
+            <div class="legend-actions">
+              <button onclick="toggleAllSeries('pod-line-chart', true)">Select All</button> |
+              <button onclick="toggleAllSeries('pod-line-chart', false)">Deselect All</button>
+            </div>
+          </div>
+          <div class="legend-chips" id="pod-legend-chips"></div>
+        </div>
+      </div>
+
+      <div class="pod-grid" id="pod-cards-container">
+        <!-- Injected via JS -->
+      </div>
+      
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-header-text">
+            <h2>POD TASK STATUS BREAKDOWN</h2>
+            <p>Current state distribution of all tasks assigned to pods. Click bars to copy Task IDs.</p>
+          </div>
+        </div>
+        <div class="canvas-container" id="pod-stacked-chart"></div>
+      </div>
+    </div>
+
+    <!-- TAB 3: TRAINERS -->
+    <div id="tab-trainers" class="tab-content">
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-header-text">
+            <h2>ALL TRAINERS OUTPUT OVER TIME</h2>
+            <p>1 Line = 1 Trainer's Task Submission Volume. Click points to copy IDs.</p>
+          </div>
+        </div>
+        <div class="canvas-container" id="trainer-line-chart"></div>
+        <div class="custom-legend-panel">
+          <div class="legend-panel-header">
+            <span class="legend-title" id="trainer-legend-title">TOGGLE TRAINER LINES:</span>
+            <div class="legend-actions">
+              <button onclick="toggleAllSeries('trainer-line-chart', true)">Select All</button> |
+              <button onclick="toggleAllSeries('trainer-line-chart', false)">Deselect All</button>
+            </div>
+          </div>
+          <div class="legend-chips" id="trainer-legend-chips"></div>
+        </div>
+      </div>
+      
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-header-text">
+            <h2>TRAINER VOLUME BY CURRENT STATUS</h2>
+            <p>Overall submission pipeline split by task states. Click bars to copy full Task IDs.</p>
+          </div>
+          <button id="trainer-toggle-btn" class="btn-action" onclick="toggleTrainerLimit()">Show All Trainers</button>
+        </div>
+        <div class="canvas-container" id="trainer-stacked-chart"></div>
+      </div>
+    </div>
+
+    <!-- TAB 4: REVIEWERS -->
+    <div id="tab-reviewers" class="tab-content">
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-header-text">
+            <h2>ALL REVIEWERS AUDIT VOLUME OVER TIME</h2>
+            <p>1 Line = 1 Reviewer's Total Actioned Audits. Pulls comprehensively from historical data. Click points to copy IDs.</p>
+          </div>
+        </div>
+        <div class="canvas-container" id="reviewer-line-chart"></div>
+        <div class="custom-legend-panel">
+          <div class="legend-panel-header">
+            <span class="legend-title" id="reviewer-legend-title">TOGGLE REVIEWER LINES:</span>
+            <div class="legend-actions">
+              <button onclick="toggleAllSeries('reviewer-line-chart', true)">Select All</button> |
+              <button onclick="toggleAllSeries('reviewer-line-chart', false)">Deselect All</button>
+            </div>
+          </div>
+          <div class="legend-chips" id="reviewer-legend-chips"></div>
+        </div>
+      </div>
+      
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-header-text">
+            <h2>TOP REVIEWERS BY STATUS (UNIQUE TASKS)</h2>
+            <p>True reviewer output representing their unique final decision per task (Accepts, Reworks, Quarantines). Click bars to copy IDs.</p>
+          </div>
+          <button id="reviewer-toggle-btn" class="btn-action" onclick="toggleReviewerLimit()">Show All Reviewers</button>
+        </div>
+        <div class="canvas-container" id="reviewer-stacked-chart"></div>
+      </div>
+    </div>
     
-    <!-- Top Level Dashboard Summaries -->
-    <div class="summary-grid" id="summary-grid">
-      <!-- Generated via JS to accurately reflect currently filtered data -->
+    <!-- TAB 5: L2 REVIEW (FINAL APPROVALS) -->
+    <div id="tab-l2-review" class="tab-content">
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-header-text">
+            <h2>L2 FINAL APPROVALS OVER TIME</h2>
+            <p>Timeline of tasks reaching final 'Approved' status. Click area to copy Task IDs.</p>
+          </div>
+        </div>
+        <div class="canvas-container" id="l2-timeline-chart"></div>
+      </div>
+      
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-header-text">
+            <h2>POD L2 ACCEPTANCE VOLUME</h2>
+            <p>Final approved task volume categorized by Pod. Click bars to copy Task IDs.</p>
+          </div>
+        </div>
+        <div class="canvas-container" id="l2-pod-bar-chart"></div>
+      </div>
     </div>
 
-    <!-- Filters -->
-    <div class="filters-container">
-      <input type="text" id="search-id" class="filter-input" placeholder="Search Task ID (e.g. 01a081d2...)" oninput="renderTable()">
-      
-      <div class="filter-group">
-        <select id="filter-date" class="filter-input" onchange="toggleCustomDate()">
-          <option value="All">All Time</option>
-          <option value="Today">Today</option>
-          <option value="7">Last 7 Days</option>
-          <option value="30">Last 30 Days</option>
-          <option value="Custom">Custom Range</option>
-        </select>
-        <div id="custom-date-range">
-          <input type="date" id="date-start" class="filter-input" onchange="renderTable()">
-          <span style="color:var(--text-sub); font-size: 12px;">to</span>
-          <input type="date" id="date-end" class="filter-input" onchange="renderTable()">
+    <!-- TAB 6: SLACK INTEGRATION -->
+    <div id="tab-slack" class="tab-content">
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-header-text">
+            <h2>SLACK MESSAGE GENERATOR (PENDING TASKS)</h2>
+            <p>Double-click any box (Pod, Reviewer, or Trainer) to instantly select its formatted content. Selected text maintains perfect whitespace and spacing when pasted natively into Slack. Use Cmd+C / Ctrl+C after selection.</p>
+          </div>
+        </div>
+        <div class="slack-container" id="slack-render-area">
+          <!-- Injected via JS -->
         </div>
       </div>
-
-      <select id="filter-pod" class="filter-input" onchange="renderTable()">
-        <option value="All">All Pods</option>
-      </select>
-
-      <select id="filter-state" class="filter-input" onchange="renderTable()">
-        <option value="All">All Current Statuses</option>
-        <option value="Draft">Draft / Pool</option>
-        <option value="L1 review">Awaiting L1 Review</option>
-        <option value="L2 review">Awaiting L2 Review</option>
-        <option value="Rework">Rework</option>
-        <option value="Quarantined">Quarantined</option>
-        <option value="Approved">Approved</option>
-      </select>
-
-      <select id="filter-milestone" class="filter-input" onchange="renderTable()">
-        <option value="All">All Progress Milestones</option>
-        <option value="L1">Cleared L1 (Inc. L2/Quarantine)</option>
-        <option value="L2">Cleared L2 (Approved)</option>
-      </select>
-
-      <select id="filter-trainer" class="filter-input" onchange="renderTable()">
-        <option value="All">All Trainers</option>
-      </select>
-
-      <select id="filter-reviewer" class="filter-input" onchange="renderTable()">
-        <option value="All">All Reviewers</option>
-      </select>
-    </div>
-
-    <!-- Table Action Bar -->
-    <div class="table-actions">
-      <h3>Ledger Details</h3>
-      <div class="table-actions-btns">
-        <button class="action-btn" onclick="copyPendingL1Table()" style="background: #fdf4ff; color: #a21caf; border-color: #f5d0fe;">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-          Copy Pending & Pre-L1 Table
-        </button>
-        <button class="action-btn" onclick="downloadPendingHTML()" style="background: #ecfdf5; color: #059669; border-color: #a7f3d0;">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2-2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-          Download Report
-        </button>
-        <button class="action-btn action-btn-secondary" onclick="downloadOfflineLedger()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2-2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-          Download Offline Ledger
-        </button>
-        <button class="action-btn action-btn-primary" onclick="copySelectedTaskIds()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-          Copy Selected Task IDs
-        </button>
-      </div>
-    </div>
-
-    <!-- Ledger Table -->
-    <div class="ledger-container">
-      <table>
-        <thead>
-          <tr>
-            <th style="width: 40px;">
-              <input type="checkbox" id="selectAllCheckbox" onclick="toggleAllCheckboxes(this)" title="Select All Visible Tasks">
-            </th>
-            <th>Task ID</th>
-            <th>Trainer</th>
-            <th>Domain</th>
-            <th>Report Date</th>
-            <th>Current Status</th>
-            <th style="text-align: center;">Review Cycles</th>
-            <th>Status History</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody id="table-body">
-          <tr><td colspan="9" style="text-align:center; color:#8a8894; padding: 40px;">Loading data...</td></tr>
-        </tbody>
-      </table>
     </div>
   </div>
 
-  <!-- Modal -->
-  <div class="modal-overlay" id="task-modal" onclick="closeModal(event)">
-    <div class="modal-content" onclick="event.stopPropagation()">
-      <div class="modal-header">
-        <div class="modal-title">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color:var(--primary)"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-          <div style="display:flex; flex-direction:column;">
-            <span id="modal-task-id"></span>
-            <span class="modal-subtitle">Task Details</span>
-          </div>
-        </div>
-        <button class="close-btn" onclick="closeModal()">&times;</button>
-      </div>
-      
-      <div class="modal-body">
-        <div class="meta-grid">
-          <div>
-            <div class="meta-label">Trainer</div>
-            <div class="user-block">
-              <span class="user-name" id="modal-trainer-name"></span>
-              <span class="user-email" id="modal-trainer-email"></span>
-            </div>
-          </div>
-          <div>
-            <div class="meta-label">Reviewer</div>
-            <div class="user-block">
-              <span class="user-name" id="modal-reviewer-name"></span>
-              <span class="user-email" id="modal-reviewer-email"></span>
-            </div>
-          </div>
-          <div>
-            <div class="meta-label">Domain</div>
-            <div style="font-size: 14px; font-weight: 500;" id="modal-domain"></div>
-          </div>
-          <div>
-            <div class="meta-label">Report Date</div>
-            <div style="font-size: 14px; font-weight: 500;" id="modal-date"></div>
-          </div>
-        </div>
-
-        <div class="timeline-container">
-          <div class="timeline-title">Complete Status History</div>
-          <div class="timeline-box">
-            <div class="timeline" id="modal-timeline"></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="modal-footer">
-        <div style="display: flex; flex-direction: column; gap: 6px;">
-          <span class="meta-label">Current Status</span>
-          <span id="modal-status-badge"></span>
-        </div>
-        <a href="#" id="modal-action-btn" class="action-btn" target="_blank">
-          Audit Task
-        </a>
-      </div>
-    </div>
-  </div>
+  <!-- Toast Notification Element -->
+  <div id="toast" class="toast"></div>
 
   <script>
-    const CLOUDFLARE_URL = 'https://turing-api.dineshkashyaparya.workers.dev';
+    const TASK_URL = 'https://turing-api.dineshkashyaparya.workers.dev';
     const ROSTER_URL = 'https://turing-api.dineshkashyaparya.workers.dev/roster';
     
-    let globalData = [];
-    let trainerToPod = {};
-    let userToEmail = {};
-    let l2ReviewersSet = new Set();
-    window.currentFilteredTasks = [];
+    let globalTasks = []; 
+    let globalPods = [];
+    let trainerToPod = {}; 
+    let chartInstances = {};
+    let chartSeriesMap = {}; 
+    
+    // Global Tooltip Store: chartId -> seriesIndex -> dataIndex -> array of FULL task IDs
+    const tooltipStore = {};
+    
+    let showAllTrainers = false;
+    let showAllReviewers = false;
 
-    function getReviewCycles(task) {
-      if (task.review_cycles !== undefined) return task.review_cycles;
-      if (!task.history) return 0;
-      
-      let reworks = 0;
-      task.history.forEach(h => {
-        if (h.label && h.label.toLowerCase().includes('rework')) reworks++;
-      });
-      
-      const s = (task.state || '').toLowerCase();
-      if (s.includes('pool') || s.includes('draft') || s === 'unassigned' || s === '') {
-        return reworks; 
-      }
-      
-      return reworks + 1;
-    }
+    const STATUS_COLORS = {
+      'Approved': '#10b981',       // L2 Final
+      'L2 Review': '#3b82f6',      // L1-Accepted
+      'L1 Review': '#d8b4fe',      // Pending L1
+      'Rework': '#f59e0b',         // Rework Assigned
+      'Quarantined': '#ef4444',    // System Hold
+      'Submitted': '#9ca3af'       // Draft/Pool
+    };
+    const MULTI_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16', '#f97316', '#14b8a6', '#64748b', '#d946ef', '#0ea5e9'];
 
     function resolveAnnotator(rawName, members, mappings) {
       if (!rawName || rawName === '—' || rawName === 'Unassigned') return rawName;
       if (mappings && mappings[rawName]) return mappings[rawName];
-
       const exactMatch = members.find(r => r.name.toLowerCase() === rawName.toLowerCase());
       if (exactMatch) return exactMatch.name;
-
       const rawFirstName = rawName.trim().split(' ')[0].toLowerCase();
       const firstMatch = members.find(r => r.name.trim().split(' ')[0].toLowerCase() === rawFirstName);
       if (firstMatch) return firstMatch.name;
-
       return rawName;
     }
 
     async function init() {
-      if (window.__OFFLINE_PAYLOAD__) {
-        globalData = window.__OFFLINE_PAYLOAD__.tasks || [];
-        trainerToPod = window.__OFFLINE_PAYLOAD__.trainerToPod || {};
-        userToEmail = window.__OFFLINE_PAYLOAD__.userToEmail || {};
-        l2ReviewersSet = new Set(window.__OFFLINE_PAYLOAD__.l2Reviewers || []);
-        populateFilters();
-        renderTable();
-        return;
-      }
-
       try {
-        const [taskRes, rosterRes] = await Promise.all([
-          fetch(CLOUDFLARE_URL).catch(() => ({ json: () => ({ tasks: [] }) })),
-          fetch(ROSTER_URL).catch(() => ({ json: () => ({ pods: [] }) }))
-        ]);
-        const json = await taskRes.json();
-        const rosterJson = await rosterRes.json();
-
-        let globalMappings = rosterJson.mappings || {};
+        const [taskRes, rosterRes] = await Promise.all([fetch(TASK_URL), fetch(ROSTER_URL)]);
+        const taskData = await taskRes.json();
+        const rosterData = await rosterRes.json();
+        
+        let globalMappings = rosterData.mappings || {};
         let allRosterMembers = [];
 
-        if (rosterJson.pods) {
-          rosterJson.pods.forEach(pod => {
-            if (pod.lead) {
-              allRosterMembers.push({ name: pod.lead, email: pod.lead_email || '' });
-              if (pod.lead_email) userToEmail[pod.lead] = pod.lead_email;
-            }
-            pod.trainers.forEach(t => {
-                trainerToPod[t.name] = pod.name;
-                if (t.email) userToEmail[t.name] = t.email;
-                allRosterMembers.push(t);
-            });
+        globalPods = rosterData.pods || [];
+        globalPods.forEach(pod => {
+          if (pod.lead) {
+            allRosterMembers.push({ name: pod.lead, email: pod.lead_email || '' });
+          }
+          pod.trainers.forEach(t => {
+            trainerToPod[t.name] = pod.name;
+            allRosterMembers.push(t);
           });
-        }
-        
-        if (rosterJson.l2_reviewers) {
-          rosterJson.l2_reviewers.forEach(r => {
-             l2ReviewersSet.add(r.name);
-             if (r.email) userToEmail[r.name] = r.email;
-             allRosterMembers.push(r);
-          });
+        });
+
+        if (rosterData.l2_reviewers) {
+          rosterData.l2_reviewers.forEach(r => allRosterMembers.push(r));
         }
 
-        globalData = (json.tasks || []).map(t => {
+        globalTasks = (taskData.tasks || []).map(t => {
           let resolvedAnnotator = resolveAnnotator(t.annotator, allRosterMembers, globalMappings);
           let resolvedReviewer = resolveAnnotator(t.reviewer, allRosterMembers, globalMappings);
-          
-          return {
-            ...t,
-            annotator: resolvedAnnotator,
+          return { 
+            ...t, 
+            annotator: resolvedAnnotator, 
             reviewer: resolvedReviewer,
-            pod: trainerToPod[resolvedAnnotator] || 'Unassigned Pod'
+            shortId: t.id ? t.id.split('-')[0] : 'Unknown',
+            pod: trainerToPod[resolvedAnnotator] || 'Unassigned Pod',
+            normState: normalizeState(t.state),
+            dateStr: t.submitted_at ? t.submitted_at.split('T')[0] : null
           };
-        });
+        }).filter(t => t.dateStr);
+
+        renderOverviewCharts();
       } catch (err) {
-        console.warn("Using fallback data or failed to fetch fully.", err);
+        console.error("Initialization Error", err);
       }
-      populateFilters();
-      renderTable();
     }
 
-    function populateFilters() {
-      const trainers = new Set();
-      const reviewers = new Set();
-      const pods = new Set();
-
-      globalData.forEach(t => {
-        if (t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned') trainers.add(t.annotator);
-        if (t.reviewer && t.reviewer !== '—' && t.reviewer !== 'Unassigned') reviewers.add(t.reviewer);
-        if (t.pod) pods.add(t.pod);
-      });
-
-      const fillOptions = (id, set) => {
-        const select = document.getElementById(id);
-        Array.from(set).sort().forEach(item => {
-          select.insertAdjacentHTML('beforeend', `<option value="${item}">${item}</option>`);
-        });
-      };
-
-      fillOptions('filter-trainer', trainers);
-      fillOptions('filter-reviewer', reviewers);
-      fillOptions('filter-pod', pods);
+    function normalizeState(state) {
+      if (!state) return 'Submitted';
+      const s = state.toLowerCase();
+      if (s.includes('approved')) return 'Approved';
+      if (s.includes('l2') || s.includes('l1-approved')) return 'L2 Review'; 
+      if (s.includes('l1')) return 'L1 Review';
+      if (s.includes('rework')) return 'Rework';
+      if (s.includes('quarantine')) return 'Quarantined';
+      return 'Submitted';
     }
 
-    function toggleCustomDate() {
-      const val = document.getElementById('filter-date').value;
-      document.getElementById('custom-date-range').style.display = val === 'Custom' ? 'flex' : 'none';
-      renderTable();
+    // --- Toast & Click-to-Copy Engine ---
+    let toastTimeout;
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> ${msg}`;
+      toast.classList.add('show');
+      clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => toast.classList.remove('show'), 3500);
     }
 
-    function checkDateMatch(dateStr, filterVal) {
-      if (!dateStr || filterVal === 'All') return true;
-      const taskDate = new Date(dateStr);
-      const now = new Date();
-      now.setHours(23, 59, 59, 999);
-
-      if (filterVal === 'Today') return taskDate.toDateString() === new Date().toDateString();
-      if (filterVal === '7' || filterVal === '30') {
-        const past = new Date();
-        past.setDate(now.getDate() - parseInt(filterVal));
-        return taskDate >= past && taskDate <= now;
-      }
-      if (filterVal === 'Custom') {
-        const s = document.getElementById('date-start').value;
-        const e = document.getElementById('date-end').value;
-        let match = true;
-        if (s) match = match && taskDate >= new Date(s);
-        if (e) {
-          const eDate = new Date(e);
-          eDate.setHours(23, 59, 59, 999);
-          match = match && taskDate <= eDate;
-        }
-        return match;
-      }
-      return true;
-    }
-
-    function hasClearedL1(task) {
-      if (['Approved', 'L2 review'].includes(task.state)) return true;
-      if (!task.history) return false;
-      return task.history.some(h => 
-        (h.kind === 'review_cleared' && h.detail && h.detail.includes('review_l2')) ||
-        (h.label && h.label.toLowerCase().includes('cleared for claim pool')) ||
-        (h.label && h.label.toLowerCase().includes('l1 approved')) || 
-        (h.label === 'Approved' && h.actor_name !== 'System')
-      );
-    }
-
-    function hasClearedL2(task) {
-      if (task.state === 'Approved') return true;
-      if (!task.history) return false;
-      return task.history.some(h => h.label === 'Approved' || h.kind === 'approved' || h.state === 'Approved' || (h.label && h.label.toLowerCase().includes('l2 approved')));
-    }
-
-    function getBadgeClass(state) {
-      const s = (state || '').toLowerCase();
-      if (s.includes('rework')) return 'status-rework';
-      if (s.includes('approved')) return 'status-approved';
-      if (s.includes('l2') || s.includes('l1-approved')) return 'status-l2';
-      if (s.includes('quarantine')) return 'status-quarantined';
-      if (s.includes('pool') || s.includes('draft') || s === '') return 'status-draft';
-      return 'status-l1';
-    }
-
-    function formatDateShort(dateStr) {
-      if (!dateStr) return '—';
-      return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    }
-
-    function formatTimeShort(dateStr) {
-      if (!dateStr) return '';
-      return new Date(dateStr).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-    }
-
-    function updateSummaryMetrics(filteredData) {
-      const stats = { 
-        total: 0, l2Approved: 0, l1Approved: 0, rework: 0, quarantined: 0, 
-        pendingL1: 0, draft: 0, quarPostL1: 0, quarPostL2: 0
-      };
+    window.copyFromChart = function(chartId, seriesIndex, dataPointIndex) {
+      if (seriesIndex === undefined || dataPointIndex === undefined || dataPointIndex < 0) return;
       
-      filteredData.forEach(t => {
-        stats.total++;
-        const s = (t.state || '').toLowerCase();
-        
-        if (s.includes('approved')) {
-          stats.l2Approved++;
-        } else if (s.includes('l2') || s.includes('l1-approved')) {
-          stats.l1Approved++;
-        } else if (s.includes('rework')) {
-          stats.rework++;
-        } else if (s.includes('quarantine')) {
-          stats.quarantined++;
-          
-          if (hasClearedL2(t)) {
-            stats.quarPostL2++;
-          } else if (hasClearedL1(t)) {
-            stats.quarPostL1++;
-          }
-        } else if (s.includes('pool') || s.includes('draft') || s === '' || s === 'unassigned' || s === '—') {
-          stats.draft++;
-        } else {
-          stats.pendingL1++;
-        }
-      });
-
-      document.getElementById('summary-grid').innerHTML = `
-        <div class="summary-card card-total">
-          <span class="summary-label">Total Selected View</span>
-          <span class="summary-value">${stats.total}</span>
-        </div>
-        <div class="summary-card card-l2">
-          <span class="summary-label">Final Approved (L2)</span>
-          <span class="summary-value">${stats.l2Approved}</span>
-        </div>
-        <div class="summary-card card-l1">
-          <span class="summary-label">L1-Approved (Wait L2)</span>
-          <span class="summary-value">${stats.l1Approved}</span>
-        </div>
-        <div class="summary-card card-rework">
-          <span class="summary-label">In Rework</span>
-          <span class="summary-value">${stats.rework}</span>
-        </div>
-        <div class="summary-card card-quarantine">
-          <span class="summary-label">Quarantined (All)</span>
-          <span class="summary-value">${stats.quarantined}</span>
-        </div>
-        <div class="summary-card card-pending">
-          <span class="summary-label">Pending L1</span>
-          <span class="summary-value">${stats.pendingL1}</span>
-        </div>
-        <div class="summary-card card-draft">
-          <span class="summary-label">Draft / Unsubmitted</span>
-          <span class="summary-value">${stats.draft}</span>
-        </div>
-        <div class="summary-card card-quar-l1">
-          <span class="summary-label">Quarantined (Post-L1)</span>
-          <span class="summary-value">${stats.quarPostL1}</span>
-        </div>
-        <div class="summary-card card-quar-l2">
-          <span class="summary-label">Quarantined (Post-L2)</span>
-          <span class="summary-value">${stats.quarPostL2}</span>
-        </div>
-      `;
-    }
-
-    function toggleAllCheckboxes(source) {
-      const checkboxes = document.querySelectorAll('.task-checkbox');
-      checkboxes.forEach(cb => cb.checked = source.checked);
-    }
-
-    function copySelectedTaskIds() {
-      const checkboxes = document.querySelectorAll('.task-checkbox:checked');
-      const ids = Array.from(checkboxes).map(cb => cb.value);
+      const fullIds = tooltipStore[chartId]?.[seriesIndex]?.[dataPointIndex] || [];
+      if (fullIds.length === 0) return;
       
-      if (ids.length === 0) {
-        alert('Please select at least one task using the checkboxes.');
-        return;
-      }
-      
-      navigator.clipboard.writeText(ids.join('\n')).then(() => {
-        alert(`Successfully copied ${ids.length} Task ID(s) to clipboard!`);
+      navigator.clipboard.writeText(fullIds.join('\n')).then(() => {
+        showToast(`Copied ${fullIds.length} Full Task ID(s) to clipboard!`);
       }).catch(err => {
-        console.error('Failed to copy text: ', err);
+        console.error('Clipboard error', err);
+        showToast(`Failed to copy IDs.`);
       });
-    }
+    };
 
-    function downloadOfflineLedger() {
-      const doc = document.documentElement.cloneNode(true);
-      
-      const existingScript = doc.querySelector('#offline-payload-script');
-      if (existingScript) existingScript.remove();
-
-      const script = document.createElement('script');
-      script.id = 'offline-payload-script';
-      script.textContent = `window.__OFFLINE_PAYLOAD__ = ${JSON.stringify({ tasks: globalData, trainerToPod: trainerToPod, userToEmail: userToEmail, l2Reviewers: Array.from(l2ReviewersSet) })};`;
-      doc.querySelector('head').prepend(script);
-
-      const htmlString = "<!DOCTYPE html>\n" + doc.outerHTML;
-      const blob = new Blob([htmlString], { type: 'text/html;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `Task_Ledger_Offline_${new Date().toISOString().split('T')[0]}.html`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }
-
-    function renderTable() {
-      const tbody = document.getElementById('table-body');
-      const qSearch = document.getElementById('search-id').value.toLowerCase();
-      const qDate = document.getElementById('filter-date').value;
-      const qState = document.getElementById('filter-state').value;
-      const qMilestone = document.getElementById('filter-milestone').value;
-      const qTrainer = document.getElementById('filter-trainer').value;
-      const qReviewer = document.getElementById('filter-reviewer').value;
-      const qPod = document.getElementById('filter-pod').value;
-
-      document.getElementById('selectAllCheckbox').checked = false;
-
-      window.currentFilteredTasks = globalData.filter(t => {
-        const matchSearch = t.id.toLowerCase().includes(qSearch);
-        const matchDate = checkDateMatch(t.submitted_at, qDate);
-        let matchState = true;
-        
-        if (qState !== 'All') {
-          if (qState === 'Draft') {
-            matchState = (!t.state || t.state.toLowerCase().includes('draft') || t.state.toLowerCase().includes('pool'));
-          } else {
-            matchState = (t.state && t.state.toLowerCase().includes(qState.toLowerCase()));
-          }
-        }
-        
-        const matchTrainer = qTrainer === 'All' || t.annotator === qTrainer;
-        const matchReviewer = qReviewer === 'All' || t.reviewer === qReviewer;
-        const matchPod = qPod === 'All' || t.pod === qPod;
-        
-        let matchMilestone = true;
-        if (qMilestone === 'L1') matchMilestone = hasClearedL1(t);
-        if (qMilestone === 'L2') matchMilestone = hasClearedL2(t);
-
-        return matchSearch && matchDate && matchState && matchMilestone && matchTrainer && matchReviewer && matchPod;
-      });
-
-      const filtered = window.currentFilteredTasks;
-      updateSummaryMetrics(filtered);
-
-      if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:var(--text-sub); padding: 40px;">No tasks found matching criteria.</td></tr>';
-        return;
+    function buildTooltipHtml(chartId, seriesIndex, dataPointIndex, w) {
+      let val = 0;
+      const dataObj = w.globals.initialSeries[seriesIndex].data[dataPointIndex];
+      // Handle both standard array and Object `{x,y}` data structures
+      if (dataObj !== null && typeof dataObj === 'object' && 'y' in dataObj) {
+        val = dataObj.y;
+      } else {
+        val = dataObj;
       }
-
-      filtered.sort((a, b) => new Date(b.submitted_at || 0) - new Date(a.submitted_at || 0));
-
-      tbody.innerHTML = filtered.map(t => {
-        const badgeCls = getBadgeClass(t.state);
-        
-        let miniHistoryHTML = '<span style="color:#ccc">—</span>';
-        if (t.history && t.history.length > 0) {
-          const recent = t.history.slice(-2);
-          miniHistoryHTML = recent.map(h => {
-            const rolePrefix = (h.actor_name === t.reviewer) ? 'RV' : (h.actor_name === t.annotator ? 'TR' : 'SYS');
-            return `<div class="mini-history-item"><span class="mini-history-date">${formatDateShort(h.occurred_at)}</span> &rarr; <span>${rolePrefix}: ${esc(h.label)}</span></div>`;
-          }).join('');
-        }
-
-        const trEmail = userToEmail[t.annotator] || (t.annotator !== 'Unassigned' ? t.annotator.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '');
-        const displayState = (!t.state || t.state === '') ? 'Pool / Draft' : t.state;
-        const cycleCount = getReviewCycles(t);
-
-        return `
-          <tr onclick="openModal('${t.id}')">
-            <td onclick="event.stopPropagation()"><input type="checkbox" class="task-checkbox" value="${t.id}"></td>
-            <td>
-              <div class="task-id-pill">
-                ${t.id}
-                <svg class="copy-icon" onclick="copyId(event, '${t.id}')" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-              </div>
-            </td>
-            <td>
-              <div class="user-block">
-                <span class="user-name">${esc(t.annotator)}</span>
-                <span class="user-email">${trEmail}</span>
-              </div>
-            </td>
-            <td style="color:var(--text-sub);">${esc(t.domain)}</td>
-            <td style="font-weight:600;">${formatDateShort(t.submitted_at)}</td>
-            <td><span class="status-badge ${badgeCls}">${esc(displayState)}</span></td>
-            <td style="text-align: center; font-weight: 700; color: var(--text-main); font-size: 14px;">${cycleCount}</td>
-            <td><div class="mini-history">${miniHistoryHTML}</div></td>
-            <td onclick="event.stopPropagation()">
-              <a href="https://task.turing.com/admin/projects/43b7da4f-5f31-41a0-b51d-1c64c7fd0a38/delivery-quality/tasks/${t.id}?view=task-review-queue" target="_blank" class="action-btn">
-                Audit
-              </a>
-            </td>
-          </tr>
-        `;
-      }).join('');
-    }
-
-    function copyId(event, id) {
-      event.stopPropagation();
-      navigator.clipboard.writeText(id);
-      alert('Task ID copied!');
-    }
-
-    function openModal(id) {
-      const task = globalData.find(t => t.id === id);
-      if (!task) return;
-
-      document.getElementById('modal-task-id').textContent = task.id;
-      document.getElementById('modal-trainer-name').textContent = task.annotator;
-      document.getElementById('modal-trainer-email').textContent = userToEmail[task.annotator] || (task.annotator !== 'Unassigned' ? task.annotator.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '—');
-      document.getElementById('modal-reviewer-name').textContent = task.reviewer;
-      document.getElementById('modal-reviewer-email').textContent = userToEmail[task.reviewer] || (task.reviewer !== '—' && task.reviewer !== 'Unassigned' ? task.reviewer.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '—');
-      document.getElementById('modal-domain').textContent = task.domain;
-      document.getElementById('modal-date').textContent = task.submitted_at ? formatDateShort(task.submitted_at) + ', ' + new Date(task.submitted_at).getFullYear() : '—';
+      if (!val) return '';
       
-      const badgeCls = getBadgeClass(task.state);
-      const displayState = (!task.state || task.state === '') ? 'Pool / Draft' : task.state;
-      document.getElementById('modal-status-badge').className = `status-badge ${badgeCls}`;
-      document.getElementById('modal-status-badge').textContent = displayState;
+      const fullIds = tooltipStore[chartId]?.[seriesIndex]?.[dataPointIndex] || [];
+      const tListShort = fullIds.map(id => id.split('-')[0]); 
       
-      document.getElementById('modal-action-btn').href = `https://task.turing.com/admin/projects/43b7da4f-5f31-41a0-b51d-1c64c7fd0a38/delivery-quality/tasks/${task.id}?view=task-review-queue`;
-
-      let timelineHTML = '<div style="color:var(--text-sub); font-size:13px;">No history available</div>';
+      const tStr = tListShort.length > 0 
+        ? tListShort.slice(0, 8).join(', ') + (tListShort.length > 8 ? ` <br/><span style="color:#f59e0b;">(+${tListShort.length - 8} more tasks)</span>` : '') 
+        : 'None';
       
-      if (task.history && task.history.length > 0) {
-        timelineHTML = task.history.slice().reverse().map(h => {
-          let roleLabel = 'SYSTEM';
-          let roleClass = 'system';
-          
-          if (h.actor_name === task.reviewer) {
-            roleLabel = 'REVIEWER';
-            roleClass = 'reviewer';
-          } else if (h.actor_name === task.annotator) {
-            roleLabel = 'TRAINER';
-            roleClass = 'trainer';
-          }
-          
-          let displayLabel = esc(h.label);
-          let extraDotClass = '';
-          let iconHtml = '';
-          const lLower = (h.label || '').toLowerCase();
-          const dLower = (h.detail || '').toLowerCase();
+      const seriesName = w.globals.seriesNames[seriesIndex];
+      const catName = w.globals.labels[dataPointIndex] || w.globals.categoryLabels[dataPointIndex] || (dataObj && dataObj.x ? dataObj.x : '');
+      const displayTitle = catName ? `${catName} &rarr; ${seriesName}` : seriesName;
 
-          const iconL1 = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px; vertical-align:text-bottom; color: var(--accent-blue);"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>`;
-          const iconL2 = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px; vertical-align:text-bottom; color: var(--success);"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"></path><path d="m9 12 2 2 4-4"></path></svg>`;
-
-          if (lLower.includes('approved') || lLower.includes('cleared')) {
-              if (dLower.includes('review_l2') || lLower.includes('claim pool') || lLower.includes('l1')) {
-                  displayLabel = 'L1 Approved (Advanced to L2)';
-                  extraDotClass = 'status-l1-app';
-                  iconHtml = iconL1;
-              } else if (lLower === 'approved' || h.kind === 'approved' || dLower.includes('final') || lLower.includes('l2')) {
-                  displayLabel = 'L2 Final Approved';
-                  extraDotClass = 'status-l2-app';
-                  iconHtml = iconL2;
-              } else {
-                  displayLabel = 'Approved';
-                  extraDotClass = 'status-l2-app';
-                  iconHtml = iconL1;
-              }
-          } else if (lLower.includes('rework')) {
-              extraDotClass = 'status-rework';
-          } else if (lLower.includes('quarantine')) {
-              extraDotClass = 'status-quar';
-          }
-
-          const detailHTML = h.detail && h.detail.trim() !== '' && h.detail !== h.label && h.detail !== 'null' && !['review_l1', 'review_l2'].includes(h.detail)
-            ? `<div class="tl-detail">${esc(h.detail)}</div>` : '';
-
-          return `
-            <div class="timeline-item">
-              <div class="timeline-dot ${roleClass} ${extraDotClass}"></div>
-              <div class="tl-header">
-                <span class="tl-role ${roleClass}">${roleLabel}</span>
-                <span class="tl-date">${formatDateShort(h.occurred_at)}, ${new Date(h.occurred_at).getFullYear()}, ${formatTimeShort(h.occurred_at)}</span>
-              </div>
-              <div class="tl-action" style="${extraDotClass ? 'font-weight: 800;' : ''}">${iconHtml}${displayLabel}</div>
-              <div class="tl-name">${esc(h.actor_name || 'System')}</div>
-              ${detailHTML}
+      return `
+        <div style="padding: 12px; font-size: 13px; background: #fff; line-height: 1.4;">
+            <div style="font-weight: 800; color: #1f1d24; margin-bottom: 6px; border-bottom: 1px solid #f1f5f9; padding-bottom: 4px;">${displayTitle}</div>
+            <div style="color: #64748b; margin-bottom: 8px;">Volume: <span style="color: #1f1d24; font-weight: 800; font-size: 14px;">${val}</span></div>
+            <div style="font-family: ui-monospace, monospace; font-size: 11px; color: #6b21a8; max-width: 250px; white-space: normal;">
+              <strong>Task IDs:</strong><br/>${tStr}
             </div>
-          `;
-        }).join('');
-      }
-      
-      document.getElementById('modal-timeline').innerHTML = timelineHTML;
-      document.getElementById('task-modal').classList.add('active');
-      document.body.style.overflow = 'hidden';
+            ${fullIds.length > 0 ? `<div style="margin-top: 10px; font-size: 10px; color: #10b981; font-weight: 800; text-transform: uppercase; background: #ecfdf5; padding: 4px 6px; border-radius: 4px; text-align: center;">👆 Click bar/point to copy all ${fullIds.length} Full IDs</div>` : ''}
+        </div>`;
     }
 
-    function closeModal(event) {
-      if (event && event.target.id !== 'task-modal') return;
-      document.getElementById('task-modal').classList.remove('active');
-      document.body.style.overflow = '';
+    function getInteractiveChartEvents(chartId) {
+      return {
+        dataPointSelection: function(e, chart, config) { window.copyFromChart(chartId, config.seriesIndex, config.dataPointIndex); },
+        markerClick: function(e, chart, config) { window.copyFromChart(chartId, config.seriesIndex, config.dataPointIndex); }
+      };
     }
 
-    function esc(str) {
-      if (!str) return '';
-      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    }
-    
-    function copyPendingL1Table() {
-      const targetTasks = (window.currentFilteredTasks || globalData).filter(t => {
-        const s = (t.state || '').toLowerCase();
-        const isL2App = s.includes('approved');
-        const isL1App = s.includes('l2') || s.includes('l1-approved');
-        const isRework = s.includes('rework');
-        const isQuar = s.includes('quarantine');
-        const isDraft = s.includes('pool') || s.includes('draft') || s === '' || s === 'unassigned' || s === '—';
-        
-        const isPendingL1 = !isL2App && !isL1App && !isRework && !isQuar && !isDraft;
-        const isPreL1Quarantine = isQuar && !hasClearedL1(t);
-        
-        return isPendingL1 || isPreL1Quarantine;
-      });
+    function switchTab(tabId) {
+      document.querySelectorAll('.sub-tabs button').forEach(b => b.classList.remove('active'));
+      document.querySelector(`button[onclick="switchTab('${tabId}')"]`).classList.add('active');
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+      document.getElementById(`tab-${tabId}`).classList.add('active');
 
-      if (targetTasks.length === 0) {
-        alert("No tasks match the filtered Pending L1 or Pre-L1 Quarantine criteria.");
-        return;
-      }
-
-      targetTasks.sort((a, b) => {
-        const nameA = (a.annotator && a.annotator !== '—' && a.annotator !== 'Unassigned') ? a.annotator.toLowerCase() : 'zzz';
-        const nameB = (b.annotator && b.annotator !== '—' && b.annotator !== 'Unassigned') ? b.annotator.toLowerCase() : 'zzz';
-        return nameA.localeCompare(nameB);
-      });
-
-      let html = '<table border="1" style="border-collapse: collapse;">';
-      html += '<tr><th>Sr. No.</th><th>Trainer Name</th><th>Task ID</th><th>Previous Reviewer</th><th>Submission Status</th></tr>';
-      
-      targetTasks.forEach((t, index) => {
-        const trainer = t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned' ? t.annotator : 'Unassigned';
-        const taskId = t.id || '—';
-        
-        let reviewer = 'None';
-        if (t.history) {
-          const revEvents = t.history.filter(h => 
-            h.actor_name && h.actor_name !== 'System' && h.actor_name !== t.annotator && h.actor_name !== '—' && !l2ReviewersSet.has(h.actor_name)
-          );
-          if (revEvents.length > 0) reviewer = revEvents[revEvents.length - 1].actor_name;
-        }
-        if (reviewer === 'None' && t.reviewer && t.reviewer !== '—' && t.reviewer !== 'Unassigned' && !l2ReviewersSet.has(t.reviewer)) {
-          reviewer = t.reviewer;
-        }
-        
-        let status = 'Fresh Submission';
-        const s = (t.state || '').toLowerCase();
-        
-        let reworks = 0;
-        if (t.history) {
-          t.history.forEach(h => {
-            if (h.label && h.label.toLowerCase().includes('rework')) reworks++;
-          });
-        }
-
-        if (s.includes('quarantine')) status = 'Quarantined';
-        else if (reworks > 0) status = 'Rework';
-
-        html += `<tr><td>${index + 1}</td><td>${trainer}</td><td>${taskId}</td><td>${reviewer}</td><td>${status}</td></tr>`;
-      });
-      html += '</table>';
-
-      const tempDiv = document.createElement('div');
-      tempDiv.innerHTML = html;
-      tempDiv.style.position = 'absolute';
-      tempDiv.style.left = '-9999px';
-      document.body.appendChild(tempDiv);
-      
-      const range = document.createRange();
-      range.selectNodeContents(tempDiv);
-      const sel = window.getSelection();
-      sel.removeAllRanges();
-      sel.addRange(range);
-      
-      try {
-        document.execCommand('copy');
-        alert(`Successfully copied table with ${targetTasks.length} tasks to clipboard!\nYou can now paste this directly into Google Sheets or Excel.`);
-      } catch (err) {
-        alert('Failed to copy table.');
-      }
-      document.body.removeChild(tempDiv);
+      if (tabId === 'overview') renderOverviewCharts();
+      if (tabId === 'pods') renderPodCharts();
+      if (tabId === 'trainers') renderTrainerCharts();
+      if (tabId === 'reviewers') renderReviewerCharts();
+      if (tabId === 'l2-review') renderL2Charts();
+      if (tabId === 'slack') renderSlackTab();
     }
 
-    function downloadPendingHTML() {
-      const targetTasks = (window.currentFilteredTasks || globalData).filter(t => {
-        const s = (t.state || '').toLowerCase();
-        const isL2App = s.includes('approved');
-        const isL1App = s.includes('l2') || s.includes('l1-approved');
-        const isRework = s.includes('rework');
-        const isQuar = s.includes('quarantine');
-        const isDraft = s.includes('pool') || s.includes('draft') || s === '' || s === 'unassigned' || s === '—';
-        
-        const isPendingL1 = !isL2App && !isL1App && !isRework && !isQuar && !isDraft;
-        const isPreL1Quarantine = isQuar && !hasClearedL1(t);
-        
-        return isPendingL1 || isPreL1Quarantine;
-      });
+    function destroyChart(id) {
+      if (chartInstances[id]) { chartInstances[id].destroy(); delete chartInstances[id]; }
+    }
 
-      if (targetTasks.length === 0) {
-        alert("No tasks match the filtered Pending L1 or Pre-L1 Quarantine criteria.");
-        return;
+    function generateDateRange(tasks) {
+      if (tasks.length === 0) return [];
+      const dates = tasks.map(t => new Date(t.dateStr));
+      const minDate = new Date(Math.min(...dates));
+      const maxDate = new Date(Math.max(...dates));
+      const dateArray = [];
+      let currentDate = minDate;
+      while (currentDate <= maxDate) {
+        dateArray.push(currentDate.toISOString().split('T')[0]);
+        currentDate.setDate(currentDate.getDate() + 1);
       }
+      return dateArray;
+    }
 
-      targetTasks.sort((a, b) => {
-        const nameA = (a.annotator && a.annotator !== '—' && a.annotator !== 'Unassigned') ? a.annotator.toLowerCase() : 'zzz';
-        const nameB = (b.annotator && b.annotator !== '—' && b.annotator !== 'Unassigned') ? b.annotator.toLowerCase() : 'zzz';
-        return nameA.localeCompare(nameB);
+    // --- TAB 1: OVERVIEW ---
+    function renderOverviewCharts() {
+      const dates = generateDateRange(globalTasks);
+      
+      const cIdArea = 'overview-area-chart';
+      tooltipStore[cIdArea] = [[], [], []];
+      
+      const sData = { sub: [], l1: [], rew: [] };
+      
+      dates.forEach((d, i) => {
+        const dTasks = globalTasks.filter(t => t.dateStr === d);
+        const subTasks = dTasks;
+        const l1Tasks = dTasks.filter(t => ['L2 Review', 'Approved'].includes(t.normState));
+        const rewTasks = dTasks.filter(t => t.normState === 'Rework');
+
+        sData.sub.push(subTasks.length);
+        sData.l1.push(l1Tasks.length);
+        sData.rew.push(rewTasks.length);
+
+        tooltipStore[cIdArea][0][i] = subTasks.map(t => t.id);
+        tooltipStore[cIdArea][1][i] = l1Tasks.map(t => t.id);
+        tooltipStore[cIdArea][2][i] = rewTasks.map(t => t.id);
       });
+
+      destroyChart(cIdArea);
+      const areaOptions = {
+        series: [
+          { name: 'Total Tasks Submitted', data: sData.sub },
+          { name: 'L1-Accepted (Cleared)', data: sData.l1 },
+          { name: 'Rework Assigned', data: sData.rew }
+        ],
+        chart: { type: 'area', height: 380, toolbar: { show: false }, fontFamily: 'Inter, sans-serif', events: getInteractiveChartEvents(cIdArea) },
+        colors: ['#6b21a8', '#3b82f6', '#f59e0b'],
+        dataLabels: { enabled: false }, stroke: { curve: 'smooth', width: 2 },
+        markers: { size: 3, hover: { size: 6 } }, 
+        fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0.05, stops: [0, 90, 100] } },
+        xaxis: { categories: dates, type: 'category', tickAmount: 10, labels: { style: { colors: '#64748b' } } },
+        yaxis: { labels: { style: { colors: '#64748b' } } },
+        legend: { position: 'top', horizontalAlign: 'right' },
+        grid: { borderColor: '#f1f5f9', strokeDashArray: 4 },
+        tooltip: { custom: function(opt) { return buildTooltipHtml(cIdArea, opt.seriesIndex, opt.dataPointIndex, opt.w); } }
+      };
+      chartInstances[cIdArea] = new ApexCharts(document.querySelector(`#${cIdArea}`), areaOptions);
+      chartInstances[cIdArea].render();
+
+      const cIdBar = 'overview-bar-chart';
+      tooltipStore[cIdBar] = [[], [], []];
+      const podNames = [...new Set(globalTasks.map(t => t.pod))].sort();
       
-      const uniqueTrainers = [...new Set(targetTasks.map(t => t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned' ? t.annotator : 'Unassigned'))].sort();
-      const uniqueReviewers = new Set();
-      const uniqueStatuses = ['Fresh Submission', 'Rework', 'Quarantined'];
+      const bData = { sub: [], l1: [], rew: [] };
+      podNames.forEach((p, i) => {
+        const pTasks = globalTasks.filter(t => t.pod === p);
+        const subTasks = pTasks;
+        const l1Tasks = pTasks.filter(t => ['L2 Review', 'Approved'].includes(t.normState));
+        const rewTasks = pTasks.filter(t => t.normState === 'Rework');
 
-      let html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Pending & Pre-L1 Tasks Report</title>
-  <style>
-    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f8fafc; color: #0f172a; padding: 40px; margin: 0; }
-    .container { max-width: 1400px; margin: 0 auto; }
-    .header { text-align: center; margin-bottom: 24px; }
-    .header h1 { margin: 0 0 10px 0; color: #4f46e5; font-size: 24px; font-weight: 800; }
-    .header p { color: #64748b; margin: 0; font-size: 14px; }
-    .filters-bar { display: flex; gap: 16px; justify-content: center; margin-bottom: 24px; background: white; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
-    .filter-select { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #0f172a; outline: none; min-width: 200px;}
-    .filter-select:focus { border-color: #4f46e5; }
-    .report-card { background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 24px; overflow-x: auto; border: 1px solid #e2e8f0; }
-    table { width: 100%; border-collapse: collapse; text-align: left; }
-    th { background: #f8fafc; padding: 14px 16px; font-size: 12px; font-weight: 700; color: #475569; border-bottom: 2px solid #e2e8f0; text-transform: uppercase; letter-spacing: 0.05em; }
-    td { padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #e2e8f0; color: #1e293b; vertical-align: top;}
-    tr:hover td { background: #f1f5f9; }
-    
-    .status-badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; background: #e0e7ff; color: #3730a3; border: 1px solid #c7d2fe; }
-    .status-quar { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
-    .status-rework { background: #fef3c7; color: #92400e; border-color: #fde68a; }
-    
-    .taskId { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; color: #4f46e5; font-weight: 600; font-size: 11.5px; background: #f8fafc; padding: 6px 10px; border-radius: 6px; border: 1px solid #e2e8f0; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.2s; word-break: break-all; user-select: all; }
-    .taskId:hover { background: #e0e7ff; border-color: #c7d2fe; }
-    .copy-icon { width: 14px; height: 14px; opacity: 0.5; flex-shrink: 0; }
-    .taskId:hover .copy-icon { opacity: 1; color: #4338ca; }
-    
-    .comments-box { max-height: 120px; overflow-y: auto; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px; font-size: 12px; }
-    .comment-item { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #e2e8f0; }
-    .comment-item:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
-    .comment-date { color: #64748b; font-size: 10px; font-weight: 600;}
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h1>Pending & Pre-L1 Task Queue</h1>
-      <p>Generated on ${new Date().toLocaleString()} · Visible Tasks: <strong id="task-count">${targetTasks.length}</strong></p>
-    </div>
-    
-    <div class="filters-bar">
-      <select id="filter-trainer" class="filter-select" onchange="filterTable()">
-        <option value="All">All Trainers</option>
-        ${uniqueTrainers.map(tr => `<option value="${esc(tr)}">${esc(tr)}</option>`).join('')}
-      </select>
-      <select id="filter-reviewer" class="filter-select" onchange="filterTable()">
-        <option value="All">All Reviewers</option>
-        <!-- Injected Below -->
-      </select>
-      <select id="filter-status" class="filter-select" onchange="filterTable()">
-        <option value="All">All Statuses</option>
-        ${uniqueStatuses.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('')}
-      </select>
-    </div>
+        bData.sub.push(subTasks.length);
+        bData.l1.push(l1Tasks.length);
+        bData.rew.push(rewTasks.length);
 
-    <div class="report-card">
-      <table id="report-table">
-        <thead>
-          <tr>
-            <th>Sr. No.</th>
-            <th>Trainer Name</th>
-            <th style="width: 280px;">Task ID</th>
-            <th>Previous Reviewer</th>
-            <th>Submission Status</th>
-            <th style="min-width: 300px;">Reviewer Comments History</th>
-          </tr>
-        </thead>
-        <tbody>`;
+        tooltipStore[cIdBar][0][i] = subTasks.map(t => t.id);
+        tooltipStore[cIdBar][1][i] = l1Tasks.map(t => t.id);
+        tooltipStore[cIdBar][2][i] = rewTasks.map(t => t.id);
+      });
+
+      destroyChart(cIdBar);
+      const barOptions = {
+        series: [
+          { name: 'Total Submitted', data: bData.sub },
+          { name: 'L1-Accepted (Cleared)', data: bData.l1 },
+          { name: 'Rework Assigned', data: bData.rew }
+        ],
+        chart: { type: 'bar', height: 380, toolbar: { show: false }, fontFamily: 'Inter, sans-serif', events: getInteractiveChartEvents(cIdBar) },
+        colors: ['#6b21a8', '#3b82f6', '#f59e0b'],
+        plotOptions: { bar: { horizontal: false, columnWidth: '55%', borderRadius: 4 } },
+        dataLabels: { enabled: false },
+        xaxis: { categories: podNames, labels: { style: { colors: '#64748b', fontSize: '12px' } } },
+        yaxis: { labels: { style: { colors: '#64748b' } } },
+        legend: { position: 'top', horizontalAlign: 'right' },
+        grid: { borderColor: '#f1f5f9', strokeDashArray: 4 },
+        tooltip: { custom: function(opt) { return buildTooltipHtml(cIdBar, opt.seriesIndex, opt.dataPointIndex, opt.w); } }
+      };
+      chartInstances[cIdBar] = new ApexCharts(document.querySelector(`#${cIdBar}`), barOptions);
+      chartInstances[cIdBar].render();
+    }
+
+    // --- SHARED LINE CHART LOGIC WITH CUSTOM LEGEND & FULL ID STORE ---
+    function renderLineChartWithCustomLegend(chartId, legendTitleId, legendChipsId, roleField) {
+      const dates = generateDateRange(globalTasks);
+      let entities = (roleField === 'pod') ? [...new Set(globalTasks.map(t => t.pod))].sort() 
+                     : [...new Set(globalTasks.map(t => t[roleField]).filter(p => p && p !== '—' && p !== 'Unassigned'))].sort();
       
-      let tableRowsHtml = '';
-      targetTasks.forEach((t, index) => {
-        const trainer = t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned' ? t.annotator : 'Unassigned';
-        const taskId = t.id || '—';
-        
-        let reviewer = 'None';
-        if (t.history) {
-          const revEvents = t.history.filter(h => 
-            h.actor_name && h.actor_name !== 'System' && h.actor_name !== t.annotator && h.actor_name !== '—' && !l2ReviewersSet.has(h.actor_name)
-          );
-          if (revEvents.length > 0) reviewer = revEvents[revEvents.length - 1].actor_name;
-        }
-        if (reviewer === 'None' && t.reviewer && t.reviewer !== '—' && t.reviewer !== 'Unassigned' && !l2ReviewersSet.has(t.reviewer)) {
-          reviewer = t.reviewer;
-        }
-        
-        uniqueReviewers.add(reviewer);
-        
-        let status = 'Fresh Submission';
-        let badgeClass = '';
-        const s = (t.state || '').toLowerCase();
-        let reworks = 0;
-        
-        let commentsHtml = '<span style="color:#94a3b8; font-style:italic;">No historical comments recorded</span>';
-        
-        if (t.history) {
-          t.history.forEach(h => {
-            if (h.label && h.label.toLowerCase().includes('rework')) reworks++;
-          });
-          
-          const validComments = t.history.filter(h => h.detail && h.detail.trim() !== '' && h.detail !== h.label && h.detail !== 'null' && !['review_l1', 'review_l2'].includes(h.detail));
-          if (validComments.length > 0) {
-            commentsHtml = `<div class="comments-box">` + validComments.map(h => {
-              const date = new Date(h.occurred_at).toLocaleDateString();
-              return `<div class="comment-item"><strong>${esc(h.actor_name)}</strong> <span class="comment-date">(${date})</span><br><span style="color:#334155;">${esc(h.detail).replace(/\\n/g, '<br>')}</span></div>`;
-            }).join('') + `</div>`;
-          }
-        }
+      document.getElementById(legendTitleId).textContent = `TOGGLE LINES (${entities.length}):`;
+      tooltipStore[chartId] = [];
 
-        if (s.includes('quarantine')) {
-          status = 'Quarantined';
-          badgeClass = 'status-quar';
-        } else if (reworks > 0) {
-          status = 'Rework';
-          badgeClass = 'status-rework';
-        }
+      const seriesData = entities.map((e, sIdx) => {
+        tooltipStore[chartId][sIdx] = [];
+        const data = dates.map((d, dIdx) => {
+          const tasks = globalTasks.filter(t => t[roleField] === e && t.dateStr === d);
+          tooltipStore[chartId][sIdx][dIdx] = tasks.map(t => t.id); // Full IDs
+          return tasks.length;
+        });
+        return { name: e, data };
+      });
 
-        tableRowsHtml += `
-          <tr data-trainer="${esc(trainer)}" data-reviewer="${esc(reviewer)}" data-status="${esc(status)}">
-            <td style="color:#64748b; font-weight:600;" class="row-index">${index + 1}</td>
-            <td style="font-weight: 600;">${esc(trainer)}</td>
-            <td>
-              <div class="taskId" onclick="copyId(this, '${esc(taskId)}')">
-                ${esc(taskId)}
-                <svg class="copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+      destroyChart(chartId);
+      const lineOptions = {
+        series: seriesData,
+        chart: { type: 'line', height: 400, toolbar: { show: false }, fontFamily: 'Inter, sans-serif', events: getInteractiveChartEvents(chartId) },
+        colors: MULTI_COLORS,
+        stroke: { curve: 'smooth', width: 2 },
+        markers: { size: 4, hover: { size: 6 } }, 
+        xaxis: { categories: dates, type: 'category', tickAmount: 10, labels: { style: { colors: '#64748b' } } },
+        yaxis: { labels: { style: { colors: '#64748b' } } },
+        legend: { show: false }, 
+        grid: { borderColor: '#f1f5f9', strokeDashArray: 4 },
+        tooltip: { custom: function(opt) { return buildTooltipHtml(chartId, opt.seriesIndex, opt.dataPointIndex, opt.w); } }
+      };
+      
+      chartInstances[chartId] = new ApexCharts(document.querySelector(`#${chartId}`), lineOptions);
+      chartInstances[chartId].render();
+      chartSeriesMap[chartId] = entities;
+
+      const chipContainer = document.getElementById(legendChipsId);
+      let chipHtml = '';
+      entities.forEach((e, index) => {
+        const color = MULTI_COLORS[index % MULTI_COLORS.length];
+        chipHtml += `
+          <div class="legend-chip" id="chip-${chartId}-${index}" onclick="toggleSingleSeries('${chartId}', '${e}', ${index})">
+            <span class="legend-dot" style="background-color: ${color};"></span>${e}
+          </div>`;
+      });
+      chipContainer.innerHTML = chipHtml;
+    }
+
+    function toggleSingleSeries(chartId, seriesName, index) {
+      chartInstances[chartId].toggleSeries(seriesName);
+      document.getElementById(`chip-${chartId}-${index}`).classList.toggle('inactive');
+    }
+
+    window.toggleAllSeries = function(chartId, show) {
+      const entities = chartSeriesMap[chartId];
+      if (!entities) return;
+      entities.forEach((e, index) => {
+        const chip = document.getElementById(`chip-${chartId}-${index}`);
+        const isCurrentlyHidden = chip.classList.contains('inactive');
+        if (show && isCurrentlyHidden) { chartInstances[chartId].showSeries(e); chip.classList.remove('inactive'); } 
+        else if (!show && !isCurrentlyHidden) { chartInstances[chartId].hideSeries(e); chip.classList.add('inactive'); }
+      });
+    }
+
+    // --- TAB 2: PODS ---
+    function renderPodCharts() {
+      renderLineChartWithCustomLegend('pod-line-chart', 'pod-legend-title', 'pod-legend-chips', 'pod');
+
+      const container = document.getElementById('pod-cards-container');
+      const podStats = {};
+      
+      globalPods.forEach(p => { 
+        podStats[p.name] = { name: p.name, lead: p.lead || 'Unknown', total: 0, l1Accepted: 0, rework: 0, l2Approved: 0, trainers: p.trainers.length }; 
+      });
+      podStats['Unassigned Pod'] = { name: 'Unassigned Pod', lead: 'N/A', total: 0, l1Accepted: 0, rework: 0, l2Approved: 0, trainers: 0 };
+
+      globalTasks.forEach(t => {
+        if (!podStats[t.pod]) return;
+        podStats[t.pod].total++;
+        if (['L2 Review', 'Approved'].includes(t.normState)) podStats[t.pod].l1Accepted++;
+        if (t.normState === 'Rework') podStats[t.pod].rework++;
+        if (t.normState === 'Approved') podStats[t.pod].l2Approved++;
+      });
+
+      let html = '';
+      Object.values(podStats).filter(p => p.total > 0 || p.trainers > 0).forEach(p => {
+        const l1Pct = p.total > 0 ? Math.round((p.l1Accepted / p.total) * 100) : 0;
+        const rewPct = p.total > 0 ? Math.round((p.rework / p.total) * 100) : 0;
+        const l2Pct = p.total > 0 ? Math.round((p.l2Approved / p.total) * 100) : 0;
+        
+        html += `
+          <div class="pod-card">
+            <div class="pod-card-header">
+              <div>
+                <div class="pod-title">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                  ${p.name}
+                </div>
+                <div class="pod-meta">
+                  <span class="pod-lead">Lead: ${p.lead}</span>
+                  <span>${p.trainers} Assigned Trainers</span>
+                </div>
               </div>
-            </td>
-            <td>${esc(reviewer)}</td>
-            <td><span class="status-badge ${badgeClass}">${status}</span></td>
-            <td>${commentsHtml}</td>
-          </tr>`;
+            </div>
+            
+            <div class="metric-grid">
+              <div class="metric-box">
+                <div class="metric-label">Total Tasks</div>
+                <div class="metric-value val-total">${p.total}</div>
+              </div>
+              <div class="metric-box">
+                <div class="metric-label">L1-Accepted</div>
+                <div class="metric-value val-l1">${p.l1Accepted}</div>
+              </div>
+              <div class="metric-box">
+                <div class="metric-label">Rework Assigned</div>
+                <div class="metric-value val-rework">${p.rework}</div>
+              </div>
+              <div class="metric-box">
+                <div class="metric-label">Final Approved</div>
+                <div class="metric-value val-l2">${p.l2Approved}</div>
+              </div>
+            </div>
+
+            <div class="progress-group">
+              <div class="progress-item">
+                <div class="progress-header"><span>L1 Approval Progress:</span> <span>${p.l1Accepted}/${p.total} (${l1Pct}%)</span></div>
+                <div class="progress-bar-bg"><div class="progress-bar-fill" style="background: var(--info); width: ${l1Pct}%"></div></div>
+              </div>
+              <div class="progress-item">
+                <div class="progress-header"><span>Rework Rate:</span> <span>${p.rework}/${p.total} (${rewPct}%)</span></div>
+                <div class="progress-bar-bg"><div class="progress-bar-fill" style="background: var(--warning); width: ${rewPct}%"></div></div>
+              </div>
+              <div class="progress-item">
+                <div class="progress-header"><span>L2 Approval Progress:</span> <span>${p.l2Approved}/${p.total} (${l2Pct}%)</span></div>
+                <div class="progress-bar-bg"><div class="progress-bar-fill" style="background: var(--secondary); width: ${l2Pct}%"></div></div>
+              </div>
+            </div>
+          </div>`;
+      });
+      container.innerHTML = html;
+
+      const cIdStack = 'pod-stacked-chart';
+      tooltipStore[cIdStack] = [];
+      const podNames = Object.keys(podStats).filter(p => podStats[p].total > 0).sort();
+      const statuses = Object.keys(STATUS_COLORS);
+      
+      const seriesData = statuses.map((status, sIdx) => {
+        tooltipStore[cIdStack][sIdx] = [];
+        const data = podNames.map((p, pIdx) => {
+          const tasks = globalTasks.filter(t => t.pod === p && t.normState === status);
+          tooltipStore[cIdStack][sIdx][pIdx] = tasks.map(t => t.id); // FULL id
+          return { x: p, y: tasks.length };
+        });
+        return { name: status, data };
+      });
+
+      destroyChart(cIdStack);
+      const stackOptions = {
+        series: seriesData,
+        chart: { type: 'bar', height: 420, stacked: true, toolbar: { show: false }, fontFamily: 'Inter, sans-serif', events: getInteractiveChartEvents(cIdStack) },
+        colors: statuses.map(s => STATUS_COLORS[s]),
+        plotOptions: { bar: { horizontal: false, borderRadius: 2 } },
+        xaxis: { labels: { style: { colors: '#64748b' } } }, // Removed categories to rely on X mappings
+        yaxis: { labels: { style: { colors: '#64748b' } } },
+        legend: { position: 'top', horizontalAlign: 'right' },
+        tooltip: { custom: function(opt) { return buildTooltipHtml(cIdStack, opt.seriesIndex, opt.dataPointIndex, opt.w); } }
+      };
+      chartInstances[cIdStack] = new ApexCharts(document.querySelector(`#${cIdStack}`), stackOptions);
+      chartInstances[cIdStack].render();
+    }
+
+    // --- TAB 3: TRAINERS ---
+    function toggleTrainerLimit() {
+      showAllTrainers = !showAllTrainers;
+      document.getElementById('trainer-toggle-btn').innerText = showAllTrainers ? 'Show Top 10 Only' : 'Show All Trainers';
+      renderTrainerCharts();
+    }
+
+    function renderTrainerCharts() {
+      if (!chartInstances['trainer-line-chart']) {
+        renderLineChartWithCustomLegend('trainer-line-chart', 'trainer-legend-title', 'trainer-legend-chips', 'annotator');
+      }
+
+      const trainerStats = {};
+      globalTasks.forEach(t => {
+        if (!t.annotator || t.annotator === '—' || t.annotator === 'Unassigned') return;
+        if (!trainerStats[t.annotator]) trainerStats[t.annotator] = { total: 0 };
+        trainerStats[t.annotator].total++;
       });
       
-      html += tableRowsHtml;
+      let topTrainers = Object.entries(trainerStats).sort((a,b) => b[1].total - a[1].total).map(x => x[0]);
+      if (!showAllTrainers) topTrainers = topTrainers.slice(0, 10);
       
-      // Inject unique reviewers back into the select string
-      const reviewerOptions = [...uniqueReviewers].sort().map(r => `<option value="${esc(r)}">${esc(r)}</option>`).join('');
-      html = html.replace('<!-- Injected Below -->', reviewerOptions);
+      const cIdStack = 'trainer-stacked-chart';
+      tooltipStore[cIdStack] = [];
+      const statuses = Object.keys(STATUS_COLORS);
       
-      html += `
-        </tbody>
-      </table>
-    </div>
-  </div>
-  
-  <script>
-    function filterTable() {
-      var trainer = document.getElementById('filter-trainer').value;
-      var reviewer = document.getElementById('filter-reviewer').value;
-      var status = document.getElementById('filter-status').value;
-      var rows = document.querySelectorAll('tbody tr');
+      const stackSeries = statuses.map((status, sIdx) => {
+        tooltipStore[cIdStack][sIdx] = [];
+        const data = topTrainers.map((tr, tIdx) => {
+          const tasks = globalTasks.filter(t => t.annotator === tr && t.normState === status);
+          tooltipStore[cIdStack][sIdx][tIdx] = tasks.map(t => t.id);
+          return { x: tr, y: tasks.length };
+        });
+        return { name: status, data };
+      });
+
+      destroyChart(cIdStack);
+      const dynamicHeight = showAllTrainers ? (topTrainers.length * 28 + 100) : 480;
       
-      var visibleCount = 0;
-      rows.forEach(function(row) {
-        var matchT = (trainer === 'All' || row.getAttribute('data-trainer') === trainer);
-        var matchR = (reviewer === 'All' || row.getAttribute('data-reviewer') === reviewer);
-        var matchS = (status === 'All' || row.getAttribute('data-status') === status);
+      const barOptions = {
+        series: stackSeries,
+        chart: { type: 'bar', height: dynamicHeight, stacked: true, toolbar: { show: false }, fontFamily: 'Inter, sans-serif', events: getInteractiveChartEvents(cIdStack) },
+        colors: statuses.map(s => STATUS_COLORS[s]),
+        plotOptions: { bar: { horizontal: true, borderRadius: 2 } },
+        xaxis: { labels: { style: { colors: '#64748b' } } },
+        yaxis: { labels: { style: { colors: '#64748b', fontWeight: 600 } } },
+        legend: { position: 'top', horizontalAlign: 'right' },
+        tooltip: { custom: function(opt) { return buildTooltipHtml(cIdStack, opt.seriesIndex, opt.dataPointIndex, opt.w); } }
+      };
+      
+      document.querySelector(`#${cIdStack}`).style.height = `${dynamicHeight}px`;
+      chartInstances[cIdStack] = new ApexCharts(document.querySelector(`#${cIdStack}`), barOptions);
+      chartInstances[cIdStack].render();
+    }
+
+    // --- TAB 4: REVIEWERS ---
+    window.toggleReviewerLimit = function() {
+      showAllReviewers = !showAllReviewers;
+      document.getElementById('reviewer-toggle-btn').innerText = showAllReviewers ? 'Show Top 10 Only' : 'Show All Reviewers';
+      renderReviewerCharts();
+    }
+
+    function renderReviewerCharts() {
+      const dates = generateDateRange(globalTasks);
+      
+      // Calculate TRUE distinct reviewer final actions directly from history
+      const revStats = {};
+      
+      globalTasks.forEach(t => {
+        if (!t.history) return;
         
-        if (matchT && matchR && matchS) {
-          row.style.display = '';
-          visibleCount++;
-        } else {
-          row.style.display = 'none';
+        // Find the LAST action applied by EACH distinct reviewer for this single task
+        const reviewerLastAction = {};
+        const reviewerLastDate = {};
+        
+        t.history.forEach(h => {
+          const actor = h.actor_name;
+          if (!actor || actor === 'System' || actor === '—' || actor === t.annotator) return;
+          
+          const lLower = (h.label || '').toLowerCase();
+          let actionType = null;
+          
+          if (lLower.includes('approved') || lLower.includes('cleared')) actionType = 'Accepted';
+          else if (lLower.includes('rework')) actionType = 'Rework Assigned';
+          else if (lLower.includes('quarantine')) actionType = 'Quarantined';
+          
+          // Overwrites naturally as we loop through chronological history -> leaving the final determination
+          if (actionType) {
+            reviewerLastAction[actor] = actionType;
+            reviewerLastDate[actor] = h.occurred_at ? h.occurred_at.split('T')[0] : t.dateStr;
+          }
+        });
+        
+        // Apply only the final action per task to the global reviewer statistics
+        Object.keys(reviewerLastAction).forEach(actor => {
+          const finalAction = reviewerLastAction[actor];
+          const actionDate = reviewerLastDate[actor];
+          
+          if (!revStats[actor]) {
+            revStats[actor] = { total: 0, byStatus: { 'Accepted': [], 'Rework Assigned': [], 'Quarantined': [] }, dates: {} };
+          }
+          
+          if (!revStats[actor].dates[actionDate]) revStats[actor].dates[actionDate] = [];
+          
+          revStats[actor].total++;
+          revStats[actor].byStatus[finalAction].push(t.id);
+          revStats[actor].dates[actionDate].push(t.id);
+        });
+      });
+
+      const reviewers = Object.keys(revStats).sort();
+      
+      // Line Chart Setup
+      const cIdLine = 'reviewer-line-chart';
+      document.getElementById('reviewer-legend-title').textContent = `TOGGLE LINES (${reviewers.length}):`;
+      tooltipStore[cIdLine] = [];
+
+      const seriesData = reviewers.map((rev, sIdx) => {
+        tooltipStore[cIdLine][sIdx] = [];
+        const data = dates.map((d, dIdx) => {
+          const tasks = revStats[rev].dates[d] || [];
+          tooltipStore[cIdLine][sIdx][dIdx] = tasks;
+          return tasks.length;
+        });
+        return { name: rev, data };
+      });
+
+      destroyChart(cIdLine);
+      const lineOptions = {
+        series: seriesData,
+        chart: { type: 'line', height: 400, toolbar: { show: false }, fontFamily: 'Inter, sans-serif', events: getInteractiveChartEvents(cIdLine) },
+        colors: MULTI_COLORS,
+        stroke: { curve: 'smooth', width: 2 },
+        markers: { size: 4, hover: { size: 6 } }, 
+        xaxis: { categories: dates, type: 'category', tickAmount: 10, labels: { style: { colors: '#64748b' } } },
+        yaxis: { labels: { style: { colors: '#64748b' } } },
+        legend: { show: false }, 
+        grid: { borderColor: '#f1f5f9', strokeDashArray: 4 },
+        tooltip: { custom: function(opt) { return buildTooltipHtml(cIdLine, opt.seriesIndex, opt.dataPointIndex, opt.w); } }
+      };
+      
+      chartInstances[cIdLine] = new ApexCharts(document.querySelector(`#${cIdLine}`), lineOptions);
+      chartInstances[cIdLine].render();
+      chartSeriesMap[cIdLine] = reviewers;
+
+      const chipContainer = document.getElementById('reviewer-legend-chips');
+      let chipHtml = '';
+      reviewers.forEach((e, index) => {
+        const color = MULTI_COLORS[index % MULTI_COLORS.length];
+        chipHtml += `
+          <div class="legend-chip" id="chip-${cIdLine}-${index}" onclick="toggleSingleSeries('${cIdLine}', '${e}', ${index})">
+            <span class="legend-dot" style="background-color: ${color};"></span>${e}
+          </div>`;
+      });
+      chipContainer.innerHTML = chipHtml;
+
+      // Stacked Bar Chart Setup (Fixed Name Rendering)
+      const cIdStack = 'reviewer-stacked-chart';
+      tooltipStore[cIdStack] = [];
+      
+      let topReviewers = Object.entries(revStats).sort((a,b) => b[1].total - a[1].total).map(x => x[0]);
+      if (!showAllReviewers) topReviewers = topReviewers.slice(0, 10);
+      
+      const statuses = ['Accepted', 'Rework Assigned', 'Quarantined'];
+      const actionColors = ['#10b981', '#f59e0b', '#ef4444'];
+      
+      const stackSeries = statuses.map((status, sIdx) => {
+        tooltipStore[cIdStack][sIdx] = [];
+        const data = topReviewers.map((rev, rIdx) => {
+          const tasks = revStats[rev].byStatus[status] || [];
+          tooltipStore[cIdStack][sIdx][rIdx] = tasks;
+          // Format changed to {x,y} to strictly bind string categories to the left margin
+          return { x: rev, y: tasks.length };
+        });
+        return { name: status, data };
+      });
+
+      destroyChart(cIdStack);
+      const dynamicHeight = showAllReviewers ? (topReviewers.length * 28 + 100) : 480;
+      
+      const barOptions = {
+        series: stackSeries,
+        chart: { type: 'bar', height: dynamicHeight, stacked: true, toolbar: { show: false }, fontFamily: 'Inter, sans-serif', events: getInteractiveChartEvents(cIdStack) },
+        colors: actionColors,
+        plotOptions: { bar: { horizontal: true, borderRadius: 2 } },
+        xaxis: { labels: { style: { colors: '#64748b' } } },
+        yaxis: { labels: { style: { colors: '#64748b', fontWeight: 600 } } },
+        legend: { position: 'top', horizontalAlign: 'right' },
+        tooltip: { custom: function(opt) { return buildTooltipHtml(cIdStack, opt.seriesIndex, opt.dataPointIndex, opt.w); } }
+      };
+      
+      document.querySelector(`#${cIdStack}`).style.height = `${dynamicHeight}px`;
+      chartInstances[cIdStack] = new ApexCharts(document.querySelector(`#${cIdStack}`), barOptions);
+      chartInstances[cIdStack].render();
+    }
+
+    // --- TAB 5: L2 REVIEW (FINAL APPROVALS) ---
+    function renderL2Charts() {
+      const dates = generateDateRange(globalTasks);
+      
+      const cIdTL = 'l2-timeline-chart';
+      tooltipStore[cIdTL] = [[]];
+      
+      const approvedData = dates.map((d, dIdx) => {
+        const tasks = globalTasks.filter(t => t.normState === 'Approved' && t.dateStr === d);
+        tooltipStore[cIdTL][0][dIdx] = tasks.map(t => t.id);
+        return tasks.length;
+      });
+
+      destroyChart(cIdTL);
+      const areaOptions = {
+        series: [{ name: 'L2 Final Approvals', data: approvedData }],
+        chart: { type: 'area', height: 380, toolbar: { show: false }, fontFamily: 'Inter, sans-serif', events: getInteractiveChartEvents(cIdTL) },
+        colors: ['#10b981'], 
+        dataLabels: { enabled: false }, stroke: { curve: 'smooth', width: 2 },
+        markers: { size: 4, hover: { size: 6 } }, 
+        fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0.05, stops: [0, 90, 100] } },
+        xaxis: { categories: dates, type: 'category', tickAmount: 10, labels: { style: { colors: '#64748b' } } },
+        yaxis: { labels: { style: { colors: '#64748b' } } },
+        grid: { borderColor: '#f1f5f9', strokeDashArray: 4 },
+        tooltip: { custom: function(opt) { return buildTooltipHtml(cIdTL, opt.seriesIndex, opt.dataPointIndex, opt.w); } }
+      };
+      chartInstances[cIdTL] = new ApexCharts(document.querySelector(`#${cIdTL}`), areaOptions);
+      chartInstances[cIdTL].render();
+
+      const cIdPod = 'l2-pod-bar-chart';
+      tooltipStore[cIdPod] = [[]];
+      
+      const podStats = {};
+      globalTasks.forEach(t => {
+        if (t.normState === 'Approved') {
+          if (!podStats[t.pod]) podStats[t.pod] = [];
+          podStats[t.pod].push(t.id);
         }
       });
+      globalPods.forEach(p => { if (!podStats[p.name]) podStats[p.name] = []; });
       
-      document.getElementById('task-count').innerText = visibleCount;
-    }
-    
-    function copyId(el, text) {
-      navigator.clipboard.writeText(text).then(function() {
-        var oldBg = el.style.background;
-        var oldColor = el.style.color;
-        var oldBorder = el.style.borderColor;
-        el.style.background = '#ecfdf5';
-        el.style.color = '#047857';
-        el.style.borderColor = '#6ee7b7';
-        setTimeout(function() {
-          el.style.background = oldBg;
-          el.style.color = oldColor;
-          el.style.borderColor = oldBorder;
-        }, 800);
+      const podNames = Object.keys(podStats).sort();
+      const podData = podNames.map((p, pIdx) => {
+        tooltipStore[cIdPod][0][pIdx] = podStats[p];
+        return { x: p, y: podStats[p].length };
       });
+      
+      destroyChart(cIdPod);
+      const barOptions = {
+        series: [{ name: 'Total Approved', data: podData }],
+        chart: { type: 'bar', height: 380, toolbar: { show: false }, fontFamily: 'Inter, sans-serif', events: getInteractiveChartEvents(cIdPod) },
+        colors: ['#10b981'],
+        plotOptions: { bar: { horizontal: false, columnWidth: '45%', borderRadius: 4 } },
+        dataLabels: { enabled: true, style: { colors: ['#fff'] } },
+        xaxis: { labels: { style: { colors: '#64748b', fontSize: '12px' } } },
+        yaxis: { labels: { style: { colors: '#64748b' } } },
+        grid: { borderColor: '#f1f5f9', strokeDashArray: 4 },
+        tooltip: { custom: function(opt) { return buildTooltipHtml(cIdPod, opt.seriesIndex, opt.dataPointIndex, opt.w); } }
+      };
+      chartInstances[cIdPod] = new ApexCharts(document.querySelector(`#${cIdPod}`), barOptions);
+      chartInstances[cIdPod].render();
     }
-  <\/script>
-</body>
-</html>`;
 
-      const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `Pending_Queue_Report_${new Date().toISOString().split('T')[0]}.html`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+    // --- TAB 6: SLACK INTEGRATION ---
+    window.selectSlackNode = function(el, event) {
+      event.stopPropagation();
+      const selection = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      selection.removeAllRanges();
+      selection.addRange(range);
+      showToast('Text automatically selected! Press Cmd+C or Ctrl+C to copy.');
+    };
+
+    function renderSlackTab() {
+      const slackData = {}; 
+      
+      // Filter out tasks that are finalized (Approved). Collect pending for the hierarchy.
+      globalTasks.forEach(t => {
+        if (t.normState === 'Approved') return; 
+        if (!t.annotator || t.annotator === '—' || t.annotator === 'Unassigned') return;
+        if (!t.reviewer || t.reviewer === '—' || t.reviewer === 'Unassigned') return;
+        
+        const pod = t.pod || 'Unassigned Pod';
+        const rev = t.reviewer;
+        const train = t.annotator;
+        
+        if (!slackData[pod]) slackData[pod] = {};
+        if (!slackData[pod][rev]) slackData[pod][rev] = {};
+        if (!slackData[pod][rev][train]) slackData[pod][rev][train] = [];
+        
+        slackData[pod][rev][train].push(t.id);
+      });
+
+      let html = '';
+      const sortedPods = Object.keys(slackData).sort();
+      
+      if (sortedPods.length === 0) {
+        document.getElementById('slack-render-area').innerHTML = '<div style="padding: 40px; text-align: center; color: var(--text-sub);">No pending tasks found requiring Slack messaging.</div>';
+        return;
+      }
+
+      sortedPods.forEach(podName => {
+        html += `
+          <div class="slack-box" ondblclick="selectSlackNode(this, event)">
+            <div class="slack-box-label no-select">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path></svg>
+              POD: ${podName} (Double-Click to Copy Complete Pod)
+            </div>
+            <div class="slack-content-area">`;
+        
+        const sortedRevs = Object.keys(slackData[podName]).sort();
+        sortedRevs.forEach(revName => {
+          html += `
+            <div class="slack-rev-box" ondblclick="selectSlackNode(this, event)">
+              <div class="slack-box-label no-select">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                REVIEWER: ${revName} (Double-Click to Copy Reviewer Hierarchy)
+              </div>
+              <div class="slack-text">🧵 @${revName}, pending tasks in ${podName}<br><br></div>
+              <div class="slack-content-area">`;
+          
+          const sortedTrains = Object.keys(slackData[podName][revName]).sort();
+          sortedTrains.forEach(trainName => {
+            const tasks = slackData[podName][revName][trainName];
+            const taskStr = tasks.join('<br>');
+            
+            html += `
+              <div class="slack-train-box" ondblclick="selectSlackNode(this, event)">
+                <div class="slack-box-label no-select">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+                  TRAINER: ${trainName} (Double-Click to Copy Trainer Only)
+                </div>
+                <div class="slack-text">Trainer: @${trainName}<br>Pending Tasks: ${tasks.length}<br>Task IDs:<br><br>${taskStr}<br></div>
+              </div>`;
+          });
+          html += `</div></div>`;
+        });
+        html += `</div></div>`;
+      });
+      document.getElementById('slack-render-area').innerHTML = html;
     }
 
     init();
