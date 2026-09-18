@@ -548,53 +548,46 @@
     function getReviewers(task) {
        let l1Rev = 'NA';
        let l2Rev = 'NA';
-       let currentStage = 'L1'; 
+       let l1Cleared = false;
+       const annotatorLower = (task.annotator || '').toLowerCase();
 
        if (task.history) {
          for (let h of task.history) {
             const actor = h.actor_name;
-            if (actor && actor !== 'System' && actor !== task.annotator && actor !== '—') {
+            if (actor && actor !== 'System' && actor !== '—' && actor !== 'None' && actor.toLowerCase() !== annotatorLower) {
+               const kLower = (h.kind || '').toLowerCase();
                const lLower = (h.label || '').toLowerCase();
                const dLower = (h.detail || '').toLowerCase();
-               const kLower = (h.kind || '').toLowerCase();
-               const sLower = (h.state || '').toLowerCase();
 
-               const isFinalApp = kLower === 'review_approved' || lLower === 'approved';
-               const stateIsL2 = sLower.includes('l2');
-               // The actor advancing to L2 is explicitly the L1 Reviewer
-               const isAdvancingToL2 = kLower === 'review_cleared' || lLower.includes('advanced to l2') || lLower.includes('l1 approved') || dLower.includes('review_l2');
+               const isReviewAction = kLower.startsWith('review_') || lLower.includes('review') || kLower === 'approved' || lLower === 'approved' || lLower.includes('cleared for claim pool') || lLower.includes('advanced to l2');
 
-               if (stateIsL2 || isFinalApp) {
-                   currentStage = 'L2';
-               }
-
-               if (currentStage === 'L1') {
-                   l1Rev = actor;
-                   if (isAdvancingToL2) {
-                       currentStage = 'L2';
-                   }
-               } else if (currentStage === 'L2') {
-                   if (isAdvancingToL2) {
-                       l1Rev = actor; 
+               if (isReviewAction) {
+                   if (!l1Cleared) {
+                       l1Rev = actor;
+                       // Check if this specific action clears L1
+                       if ((kLower === 'review_cleared' && dLower.includes('review_l2')) ||
+                           lLower.includes('cleared for claim pool') ||
+                           lLower.includes('l1 approved') ||
+                           lLower.includes('advanced to l2')) {
+                           l1Cleared = true;
+                       }
                    } else {
-                       l2Rev = actor; // Only actual L2 assignments or actions are credited here
+                       // Any review action after L1 is cleared is credited to L2
+                       l2Rev = actor;
                    }
                }
             }
          }
        }
 
+       // Fallback logic
        if (task.reviewer && task.reviewer !== '—' && task.reviewer !== 'Unassigned') {
-           if (currentStage === 'L2') {
-               if (l2Rev === 'NA' && task.reviewer !== l1Rev) l2Rev = task.reviewer;
+           if (l1Cleared) {
+               if (l2Rev === 'NA' && task.reviewer.toLowerCase() !== l1Rev.toLowerCase()) {
+                   l2Rev = task.reviewer;
+               }
            } else {
                if (l1Rev === 'NA') l1Rev = task.reviewer;
-           }
-       }
-
-       if (l2Rev === l1Rev && l2Rev !== 'NA') {
-           if (!l2ReviewersSet.has(l2Rev)) {
-               l2Rev = 'NA';
            }
        }
 
@@ -848,8 +841,8 @@
           <span class="summary-label">Final Approved (L2)</span>
           <span class="summary-value">${stats.l2Approved}</span>
         </div>
-        <div class="summary-card card-l1 ${selectedChips.has('L1-Approved (Wait L2)') ? 'selected' : ''}" onclick="toggleChip('L1-Approved (Wait L2)', this)">
-          <span class="summary-label">L1-Approved (Wait L2)</span>
+        <div class="summary-card card-l1 ${selectedChips.has('L1-Accepted (Pending L2)') ? 'selected' : ''}" onclick="toggleChip('L1-Accepted (Pending L2)', this)">
+          <span class="summary-label">L1-Accepted (Pending L2)</span>
           <span class="summary-value">${stats.l1Approved}</span>
         </div>
         <div class="summary-card card-rework ${selectedChips.has('In Rework') ? 'selected' : ''}" onclick="toggleChip('In Rework', this)">
@@ -1182,7 +1175,7 @@
         const c = getCombinedStatus(t);
         
         if (c === 'Final Approved (L2)') cats.add('Final Approved (L2)');
-        else if (c === 'L1-Accepted (Pending L2)') cats.add('L1-Approved (Wait L2)');
+        else if (c === 'L1-Accepted (Pending L2)') cats.add('L1-Accepted (Pending L2)');
         else if (c.includes('Rework')) cats.add('In Rework');
         else if (c === 'Quarantined (L1-Accepted)') { cats.add('Quarantined (All)'); cats.add('Quarantined (Post-L1)'); cats.add('Quarantined (Post-L2)'); }
         else if (c === 'Quarantined') cats.add('Quarantined (All)');
