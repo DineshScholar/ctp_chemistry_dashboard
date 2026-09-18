@@ -337,26 +337,8 @@
     let globalTasks = []; 
     let globalPods = [];
     let trainerToPod = {}; 
-    let identifiedNames = new Set();
     let chartInstances = {};
     let chartSeriesMap = {}; 
-
-    // --- Roster Matching Helpers (kept in sync with index.html) ---
-    // Normalizes names so matching between the tasks API and the Team Builder
-    // roster is case/whitespace-insensitive, fixing tasks being mis-bucketed
-    // into 'Unassigned Pod' when the trainer is actually in the roster.
-    function normalizeName(name) {
-      return (name || '').toString().trim().toLowerCase().replace(/\s+/g, ' ');
-    }
-    function isRealPerson(name) {
-      return !!name && name !== '—' && name !== 'Unassigned';
-    }
-    function isIdentified(name) {
-      return identifiedNames.has(normalizeName(name));
-    }
-    function getPodForName(name) {
-      return trainerToPod[normalizeName(name)];
-    }
     
     // Global Tooltip Store: chartId -> seriesIndex -> dataIndex -> array of FULL task IDs
     const tooltipStore = {};
@@ -381,38 +363,16 @@
         
         globalPods = rosterData.pods || [];
         globalPods.forEach(pod => {
-          pod.trainers.forEach(t => {
-            const key = normalizeName(t.name);
-            trainerToPod[key] = pod.name;
-            identifiedNames.add(key);
-          });
+          pod.trainers.forEach(t => trainerToPod[t.name] = pod.name);
         });
-        (rosterData.l2_reviewers || []).forEach(r => identifiedNames.add(normalizeName(r.name)));
 
-        globalTasks = (taskData.tasks || []).map(t => {
-          const trainerReal = isRealPerson(t.annotator);
-          const reviewerReal = isRealPerson(t.reviewer);
-          const trainerIdentified = trainerReal && isIdentified(t.annotator);
-          const reviewerIdentified = reviewerReal && isIdentified(t.reviewer);
-
-          let pod;
-          if (!trainerReal) {
-            pod = 'Unassigned Pod'; // No trainer assigned at all - unchanged
-          } else if (trainerIdentified) {
-            pod = getPodForName(t.annotator);
-          } else {
-            pod = 'UNIDENTIFIED'; // Trainer present but not found in the roster
-          }
-
-          return {
-            ...t,
-            shortId: t.id ? t.id.split('-')[0] : 'Unknown', // Stored for display, but full t.id is retained
-            pod,
-            reviewerUnidentified: reviewerReal && !reviewerIdentified,
-            normState: normalizeState(t.state),
-            dateStr: t.submitted_at ? t.submitted_at.split('T')[0] : null
-          };
-        }).filter(t => t.dateStr);
+        globalTasks = (taskData.tasks || []).map(t => ({ 
+          ...t, 
+          shortId: t.id ? t.id.split('-')[0] : 'Unknown', // Stored for display, but full t.id is retained
+          pod: trainerToPod[t.annotator] || 'Unassigned Pod',
+          normState: normalizeState(t.state),
+          dateStr: t.submitted_at ? t.submitted_at.split('T')[0] : null
+        })).filter(t => t.dateStr);
 
         renderOverviewCharts();
       } catch (err) {
@@ -684,7 +644,6 @@
         podStats[p.name] = { name: p.name, lead: p.lead || 'Unknown', total: 0, l1Accepted: 0, rework: 0, l2Approved: 0, trainers: p.trainers.length }; 
       });
       podStats['Unassigned Pod'] = { name: 'Unassigned Pod', lead: 'N/A', total: 0, l1Accepted: 0, rework: 0, l2Approved: 0, trainers: 0 };
-      podStats['UNIDENTIFIED'] = { name: '🚫 UNIDENTIFIED (Not In Any Pod)', lead: 'N/A', total: 0, l1Accepted: 0, rework: 0, l2Approved: 0, trainers: 0 };
 
       globalTasks.forEach(t => {
         if (!podStats[t.pod]) return;

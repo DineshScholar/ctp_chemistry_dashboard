@@ -341,7 +341,6 @@
 
       <select id="filter-pod" class="filter-input" onchange="renderTable()">
         <option value="All">All Pods</option>
-        <option value="UNIDENTIFIED">🚫 UNIDENTIFIED (Not In Any Pod)</option>
       </select>
 
       <select id="filter-state" class="filter-input" onchange="renderTable()">
@@ -362,12 +361,10 @@
 
       <select id="filter-trainer" class="filter-input" onchange="renderTable()">
         <option value="All">All Trainers</option>
-        <option value="UNIDENTIFIED">🚫 UNIDENTIFIED (Not In Any Pod)</option>
       </select>
 
       <select id="filter-reviewer" class="filter-input" onchange="renderTable()">
         <option value="All">All Reviewers</option>
-        <option value="UNIDENTIFIED">🚫 UNIDENTIFIED (Not In Any Pod)</option>
       </select>
     </div>
 
@@ -483,37 +480,6 @@
     let trainerToPod = {};
     let userToEmail = {};
     let l2ReviewersSet = new Set();
-    let identifiedNames = new Set();
-
-    // --- Roster Matching Helpers ---
-    // The Task Ledger (this file) and Team Builder (admin.html) are two separate
-    // sources of truth. Names coming back from the tasks API don't always match
-    // the roster's spelling/casing/whitespace exactly, which was causing the
-    // wrong (auto-generated) email to show up and tasks to fall into the wrong
-    // pod (or "Unassigned Pod") even though the person IS in the roster.
-    // Every lookup below goes through normalizeName() so matching is
-    // case-insensitive and whitespace-tolerant.
-    function normalizeName(name) {
-      return (name || '').toString().trim().toLowerCase().replace(/\s+/g, ' ');
-    }
-
-    function isRealPerson(name) {
-      return !!name && name !== '—' && name !== 'Unassigned';
-    }
-
-    // True if this name matches SOMEONE in the Team Builder roster
-    // (a pod trainer, regardless of status, OR an L2 reviewer).
-    function isIdentified(name) {
-      return identifiedNames.has(normalizeName(name));
-    }
-
-    function getPodForName(name) {
-      return trainerToPod[normalizeName(name)];
-    }
-
-    function getEmailForName(name) {
-      return userToEmail[normalizeName(name)];
-    }
 
     function getReviewCycles(task) {
       if (task.review_cycles !== undefined) return task.review_cycles;
@@ -556,10 +522,8 @@
         if (rosterJson.pods) {
           rosterJson.pods.forEach(pod => {
             pod.trainers.forEach(t => {
-                const key = normalizeName(t.name);
-                trainerToPod[key] = pod.name;
-                identifiedNames.add(key);
-                if (t.email) userToEmail[key] = t.email;
+                trainerToPod[t.name] = pod.name;
+                if (t.email) userToEmail[t.name] = t.email;
             });
           });
         }
@@ -567,35 +531,14 @@
         if (rosterJson.l2_reviewers) {
           rosterJson.l2_reviewers.forEach(r => {
              l2ReviewersSet.add(r.name);
-             identifiedNames.add(normalizeName(r.name));
-             if (r.email) userToEmail[normalizeName(r.name)] = r.email;
+             if (r.email) userToEmail[r.name] = r.email;
           });
         }
 
-        globalData = (json.tasks || []).map(t => {
-          const trainerReal = isRealPerson(t.annotator);
-          const reviewerReal = isRealPerson(t.reviewer);
-          const trainerIdentified = trainerReal && isIdentified(t.annotator);
-          const reviewerIdentified = reviewerReal && isIdentified(t.reviewer);
-
-          let pod;
-          if (!trainerReal) {
-            // No trainer assigned at all - keep exactly as before.
-            pod = 'Unassigned Pod';
-          } else if (trainerIdentified) {
-            pod = getPodForName(t.annotator);
-          } else {
-            // Trainer IS present but doesn't match anyone in the Team Builder roster.
-            pod = 'UNIDENTIFIED';
-          }
-
-          return {
-            ...t,
-            pod,
-            // Reviewer present but not found in the roster either (pods or L2 list).
-            reviewerUnidentified: reviewerReal && !reviewerIdentified
-          };
-        });
+        globalData = (json.tasks || []).map(t => ({
+          ...t,
+          pod: trainerToPod[t.annotator] || 'Unassigned Pod'
+        }));
       } catch (err) {
         console.warn("Using fallback data or failed to fetch fully.", err);
       }
@@ -611,7 +554,7 @@
       globalData.forEach(t => {
         if (t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned') trainers.add(t.annotator);
         if (t.reviewer && t.reviewer !== '—' && t.reviewer !== 'Unassigned') reviewers.add(t.reviewer);
-        if (t.pod && t.pod !== 'UNIDENTIFIED') pods.add(t.pod); // UNIDENTIFIED is a static option above
+        if (t.pod) pods.add(t.pod);
       });
 
       const fillOptions = (id, set) => {
@@ -837,20 +780,9 @@
           }
         }
         
-        const matchTrainer = qTrainer === 'All' ? true
-          : qTrainer === 'UNIDENTIFIED' ? (t.pod === 'UNIDENTIFIED')
-          : t.annotator === qTrainer;
-
-        const matchReviewer = qReviewer === 'All' ? true
-          : qReviewer === 'UNIDENTIFIED' ? !!t.reviewerUnidentified
-          : t.reviewer === qReviewer;
-
-        // UNIDENTIFIED pod filter combines BOTH conditions: an unidentified trainer
-        // OR an unidentified reviewer. It never touches 'Unassigned Pod' (tasks with
-        // no trainer assigned at all), which is left exactly as it was.
-        const matchPod = qPod === 'All' ? true
-          : qPod === 'UNIDENTIFIED' ? (t.pod === 'UNIDENTIFIED' || !!t.reviewerUnidentified)
-          : t.pod === qPod;
+        const matchTrainer = qTrainer === 'All' || t.annotator === qTrainer;
+        const matchReviewer = qReviewer === 'All' || t.reviewer === qReviewer;
+        const matchPod = qPod === 'All' || t.pod === qPod;
         
         let matchMilestone = true;
         if (qMilestone === 'L1') matchMilestone = hasClearedL1(t);
@@ -880,7 +812,7 @@
           }).join('');
         }
 
-        const trEmail = getEmailForName(t.annotator) || (t.annotator !== 'Unassigned' ? t.annotator.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '');
+        const trEmail = userToEmail[t.annotator] || (t.annotator !== 'Unassigned' ? t.annotator.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '');
         const displayState = (!t.state || t.state === '') ? 'Pool / Draft' : t.state;
         const cycleCount = getReviewCycles(t);
 
@@ -926,9 +858,9 @@
 
       document.getElementById('modal-task-id').textContent = task.id;
       document.getElementById('modal-trainer-name').textContent = task.annotator;
-      document.getElementById('modal-trainer-email').textContent = getEmailForName(task.annotator) || (task.annotator !== 'Unassigned' ? task.annotator.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '—');
+      document.getElementById('modal-trainer-email').textContent = userToEmail[task.annotator] || (task.annotator !== 'Unassigned' ? task.annotator.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '—');
       document.getElementById('modal-reviewer-name').textContent = task.reviewer;
-      document.getElementById('modal-reviewer-email').textContent = getEmailForName(task.reviewer) || (task.reviewer !== '—' ? task.reviewer.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '—');
+      document.getElementById('modal-reviewer-email').textContent = userToEmail[task.reviewer] || (task.reviewer !== '—' ? task.reviewer.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '—');
       document.getElementById('modal-domain').textContent = task.domain;
       document.getElementById('modal-date').textContent = task.submitted_at ? formatDateShort(task.submitted_at) + ', ' + new Date(task.submitted_at).getFullYear() : '—';
       
