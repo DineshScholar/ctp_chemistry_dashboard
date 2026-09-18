@@ -280,8 +280,8 @@
       <div class="chart-card">
         <div class="chart-header">
           <div class="chart-header-text">
-            <h2>TOP REVIEWERS BY STATUS</h2>
-            <p>True reviewer output segmented by recorded actions (Accepts, Reworks, Quarantines). Click bars to copy IDs.</p>
+            <h2>TOP REVIEWERS BY STATUS (UNIQUE TASKS)</h2>
+            <p>True reviewer output representing their unique final decision per task (Accepts, Reworks, Quarantines). Click bars to copy IDs.</p>
           </div>
           <button id="reviewer-toggle-btn" class="btn-action" onclick="toggleReviewerLimit()">Show All Reviewers</button>
         </div>
@@ -448,7 +448,14 @@
     };
 
     function buildTooltipHtml(chartId, seriesIndex, dataPointIndex, w) {
-      const val = w.globals.initialSeries[seriesIndex].data[dataPointIndex];
+      let val = 0;
+      const dataObj = w.globals.initialSeries[seriesIndex].data[dataPointIndex];
+      // Handle both standard array and Object `{x,y}` data structures
+      if (dataObj !== null && typeof dataObj === 'object' && 'y' in dataObj) {
+        val = dataObj.y;
+      } else {
+        val = dataObj;
+      }
       if (!val) return '';
       
       const fullIds = tooltipStore[chartId]?.[seriesIndex]?.[dataPointIndex] || [];
@@ -459,7 +466,7 @@
         : 'None';
       
       const seriesName = w.globals.seriesNames[seriesIndex];
-      const catName = w.globals.labels[dataPointIndex] || w.globals.categoryLabels[dataPointIndex] || '';
+      const catName = w.globals.labels[dataPointIndex] || w.globals.categoryLabels[dataPointIndex] || (dataObj && dataObj.x ? dataObj.x : '');
       const displayTitle = catName ? `${catName} &rarr; ${seriesName}` : seriesName;
 
       return `
@@ -751,7 +758,7 @@
         const data = podNames.map((p, pIdx) => {
           const tasks = globalTasks.filter(t => t.pod === p && t.normState === status);
           tooltipStore[cIdStack][sIdx][pIdx] = tasks.map(t => t.id); // FULL id
-          return tasks.length;
+          return { x: p, y: tasks.length };
         });
         return { name: status, data };
       });
@@ -762,7 +769,7 @@
         chart: { type: 'bar', height: 420, stacked: true, toolbar: { show: false }, fontFamily: 'Inter, sans-serif', events: getInteractiveChartEvents(cIdStack) },
         colors: statuses.map(s => STATUS_COLORS[s]),
         plotOptions: { bar: { horizontal: false, borderRadius: 2 } },
-        xaxis: { categories: podNames, labels: { style: { colors: '#64748b' } } },
+        xaxis: { labels: { style: { colors: '#64748b' } } }, // Removed categories to rely on X mappings
         yaxis: { labels: { style: { colors: '#64748b' } } },
         legend: { position: 'top', horizontalAlign: 'right' },
         tooltip: { custom: function(opt) { return buildTooltipHtml(cIdStack, opt.seriesIndex, opt.dataPointIndex, opt.w); } }
@@ -802,7 +809,7 @@
         const data = topTrainers.map((tr, tIdx) => {
           const tasks = globalTasks.filter(t => t.annotator === tr && t.normState === status);
           tooltipStore[cIdStack][sIdx][tIdx] = tasks.map(t => t.id);
-          return tasks.length;
+          return { x: tr, y: tasks.length };
         });
         return { name: status, data };
       });
@@ -816,7 +823,7 @@
         colors: statuses.map(s => STATUS_COLORS[s]),
         plotOptions: { bar: { horizontal: true, borderRadius: 2 } },
         xaxis: { labels: { style: { colors: '#64748b' } } },
-        yaxis: { categories: topTrainers, labels: { style: { colors: '#64748b', fontWeight: 600 } } },
+        yaxis: { labels: { style: { colors: '#64748b', fontWeight: 600 } } },
         legend: { position: 'top', horizontalAlign: 'right' },
         tooltip: { custom: function(opt) { return buildTooltipHtml(cIdStack, opt.seriesIndex, opt.dataPointIndex, opt.w); } }
       };
@@ -836,13 +843,18 @@
     function renderReviewerCharts() {
       const dates = generateDateRange(globalTasks);
       
-      // Calculate TRUE reviewer actions directly from complete history
+      // Calculate TRUE distinct reviewer final actions directly from history
       const revStats = {};
+      
       globalTasks.forEach(t => {
         if (!t.history) return;
+        
+        // Find the LAST action applied by EACH distinct reviewer for this single task
+        const reviewerLastAction = {};
+        const reviewerLastDate = {};
+        
         t.history.forEach(h => {
           const actor = h.actor_name;
-          // Filter out System generated events and trainers actions on their own tasks
           if (!actor || actor === 'System' || actor === '—' || actor === t.annotator) return;
           
           const lLower = (h.label || '').toLowerCase();
@@ -852,18 +864,27 @@
           else if (lLower.includes('rework')) actionType = 'Rework Assigned';
           else if (lLower.includes('quarantine')) actionType = 'Quarantined';
           
+          // Overwrites naturally as we loop through chronological history -> leaving the final determination
           if (actionType) {
-            if (!revStats[actor]) {
-              revStats[actor] = { total: 0, byStatus: { 'Accepted': [], 'Rework Assigned': [], 'Quarantined': [] }, dates: {} };
-            }
-            
-            const dateStr = h.occurred_at ? h.occurred_at.split('T')[0] : t.dateStr;
-            if (!revStats[actor].dates[dateStr]) revStats[actor].dates[dateStr] = [];
-            
-            revStats[actor].total++;
-            revStats[actor].byStatus[actionType].push(t.id);
-            revStats[actor].dates[dateStr].push(t.id);
+            reviewerLastAction[actor] = actionType;
+            reviewerLastDate[actor] = h.occurred_at ? h.occurred_at.split('T')[0] : t.dateStr;
           }
+        });
+        
+        // Apply only the final action per task to the global reviewer statistics
+        Object.keys(reviewerLastAction).forEach(actor => {
+          const finalAction = reviewerLastAction[actor];
+          const actionDate = reviewerLastDate[actor];
+          
+          if (!revStats[actor]) {
+            revStats[actor] = { total: 0, byStatus: { 'Accepted': [], 'Rework Assigned': [], 'Quarantined': [] }, dates: {} };
+          }
+          
+          if (!revStats[actor].dates[actionDate]) revStats[actor].dates[actionDate] = [];
+          
+          revStats[actor].total++;
+          revStats[actor].byStatus[finalAction].push(t.id);
+          revStats[actor].dates[actionDate].push(t.id);
         });
       });
 
@@ -913,7 +934,7 @@
       });
       chipContainer.innerHTML = chipHtml;
 
-      // Stacked Bar Chart Setup
+      // Stacked Bar Chart Setup (Fixed Name Rendering)
       const cIdStack = 'reviewer-stacked-chart';
       tooltipStore[cIdStack] = [];
       
@@ -928,7 +949,8 @@
         const data = topReviewers.map((rev, rIdx) => {
           const tasks = revStats[rev].byStatus[status] || [];
           tooltipStore[cIdStack][sIdx][rIdx] = tasks;
-          return tasks.length;
+          // Format changed to {x,y} to strictly bind string categories to the left margin
+          return { x: rev, y: tasks.length };
         });
         return { name: status, data };
       });
@@ -942,14 +964,7 @@
         colors: actionColors,
         plotOptions: { bar: { horizontal: true, borderRadius: 2 } },
         xaxis: { labels: { style: { colors: '#64748b' } } },
-        yaxis: { 
-          categories: topReviewers, 
-          labels: { 
-            style: { colors: '#64748b', fontWeight: 600 },
-            minWidth: 120, // Forces long reviewer names to be legible
-            maxWidth: 250
-          } 
-        },
+        yaxis: { labels: { style: { colors: '#64748b', fontWeight: 600 } } },
         legend: { position: 'top', horizontalAlign: 'right' },
         tooltip: { custom: function(opt) { return buildTooltipHtml(cIdStack, opt.seriesIndex, opt.dataPointIndex, opt.w); } }
       };
@@ -1003,7 +1018,7 @@
       const podNames = Object.keys(podStats).sort();
       const podData = podNames.map((p, pIdx) => {
         tooltipStore[cIdPod][0][pIdx] = podStats[p];
-        return podStats[p].length;
+        return { x: p, y: podStats[p].length };
       });
       
       destroyChart(cIdPod);
@@ -1013,7 +1028,7 @@
         colors: ['#10b981'],
         plotOptions: { bar: { horizontal: false, columnWidth: '45%', borderRadius: 4 } },
         dataLabels: { enabled: true, style: { colors: ['#fff'] } },
-        xaxis: { categories: podNames, labels: { style: { colors: '#64748b', fontSize: '12px' } } },
+        xaxis: { labels: { style: { colors: '#64748b', fontSize: '12px' } } },
         yaxis: { labels: { style: { colors: '#64748b' } } },
         grid: { borderColor: '#f1f5f9', strokeDashArray: 4 },
         tooltip: { custom: function(opt) { return buildTooltipHtml(cIdPod, opt.seriesIndex, opt.dataPointIndex, opt.w); } }
