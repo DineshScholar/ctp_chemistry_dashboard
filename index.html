@@ -543,9 +543,16 @@
 
         globalData = (json.tasks || []).map(t => {
           const annKey = t.annotator ? t.annotator.trim().toLowerCase() : '';
+          
+          let podName = 'Unassigned Pod'; 
+          if (t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned') {
+             // Valid name exists. Assign based on roster, otherwise fallback to auto-synced UNIDENTIFIED.
+             podName = trainerToPod[annKey] || 'UNIDENTIFIED';
+          }
+          
           return {
             ...t,
-            pod: trainerToPod[annKey] || 'UNIDENTIFIED'
+            pod: podName
           };
         });
       } catch (err) {
@@ -561,38 +568,38 @@
       const pods = new Set();
 
       globalData.forEach(t => {
+        const annKey = t.annotator ? t.annotator.trim().toLowerCase() : '';
+        const revKey = t.reviewer ? t.reviewer.trim().toLowerCase() : '';
+
         if (t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned') {
-          if (knownPeople.has(t.annotator.trim().toLowerCase())) trainers.add(t.annotator);
+          if (knownPeople.has(annKey)) trainers.add(t.annotator);
         }
         if (t.reviewer && t.reviewer !== '—' && t.reviewer !== 'Unassigned') {
-          if (knownPeople.has(t.reviewer.trim().toLowerCase())) reviewers.add(t.reviewer);
+          if (knownPeople.has(revKey)) reviewers.add(t.reviewer);
         }
         if (t.pod) pods.add(t.pod);
       });
 
-      const fillOptions = (id, set, hasUnidentified = false) => {
+      const fillOptions = (id, set, unidentifiedLabel) => {
         const select = document.getElementById(id);
         Array.from(set).sort().forEach(item => {
-          if (item !== 'UNIDENTIFIED') {
+          if (item !== 'UNIDENTIFIED' && item !== 'Unassigned Pod') {
             select.insertAdjacentHTML('beforeend', `<option value="${item}">${item}</option>`);
           }
         });
-        if (hasUnidentified) {
-          select.insertAdjacentHTML('beforeend', `<option value="UNIDENTIFIED">Not In Chemistry (Unidentified)</option>`);
+        
+        // Dynamically add the fallbacks/filters to the bottom of the list
+        if (id === 'filter-pod') {
+          if (pods.has('Unassigned Pod')) select.insertAdjacentHTML('beforeend', `<option value="Unassigned Pod">Unassigned Pod</option>`);
+          if (pods.has('UNIDENTIFIED')) select.insertAdjacentHTML('beforeend', `<option value="UNIDENTIFIED">UNIDENTIFIED</option>`);
+        } else if (unidentifiedLabel) {
+          select.insertAdjacentHTML('beforeend', `<option value="UNIDENTIFIED">${unidentifiedLabel}</option>`);
         }
       };
 
-      fillOptions('filter-trainer', trainers, true);
-      fillOptions('filter-reviewer', reviewers, true);
-      
-      const podSelect = document.getElementById('filter-pod');
-      const podsArray = Array.from(pods).filter(p => p !== 'UNIDENTIFIED').sort();
-      podsArray.forEach(p => {
-        podSelect.insertAdjacentHTML('beforeend', `<option value="${p}">${p}</option>`);
-      });
-      if (pods.has('UNIDENTIFIED')) {
-        podSelect.insertAdjacentHTML('beforeend', `<option value="UNIDENTIFIED">UNIDENTIFIED</option>`);
-      }
+      fillOptions('filter-trainer', trainers, 'Not In Chemistry (Unidentified)');
+      fillOptions('filter-reviewer', reviewers, 'Not In Chemistry (Unidentified)');
+      fillOptions('filter-pod', pods, null);
     }
 
     function toggleCustomDate() {
@@ -809,10 +816,15 @@
         const annKey = t.annotator ? t.annotator.trim().toLowerCase() : '';
         const revKey = t.reviewer ? t.reviewer.trim().toLowerCase() : '';
 
+        const isRealAnnotator = t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned';
+        const isRealReviewer = t.reviewer && t.reviewer !== '—' && t.reviewer !== 'Unassigned';
+
         const matchTrainer = qTrainer === 'All' || 
-                             (qTrainer === 'UNIDENTIFIED' ? !knownPeople.has(annKey) : t.annotator === qTrainer);
+                             (qTrainer === 'UNIDENTIFIED' ? (isRealAnnotator && !knownPeople.has(annKey)) : t.annotator === qTrainer);
+                             
         const matchReviewer = qReviewer === 'All' || 
-                              (qReviewer === 'UNIDENTIFIED' ? !knownPeople.has(revKey) : t.reviewer === qReviewer);
+                              (qReviewer === 'UNIDENTIFIED' ? (isRealReviewer && !knownPeople.has(revKey)) : t.reviewer === qReviewer);
+                              
         const matchPod = qPod === 'All' || t.pod === qPod;
         
         let matchMilestone = true;
