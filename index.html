@@ -175,8 +175,182 @@
     }
 
     table { width: 100%; border-collapse: collapse; text-align: left; }
-    th { background: #faf9fb; padding: 16px; font-size: 12px; font-weight: 700; color: var(--text-main); border-bottom: 1px solid var(--border); white-space: nowrap; }
-    td { padding: 16px; border-bottom: 1px solid var(--border); font-size: 13px; vertical-align: top; cursor: pointer; }
+    th { background: #faf9fb; padding: 16px; font-size: 12px; font-weight: 700; color: var(--text-main); border-bottom: 1px solid var(--border); white-Here is the complete, updated code for your `index.html` file. 
+
+The primary logic and UI updates address your requests directly:
+1. **L1 Reviewer Rework Fix:** The new `getReviewers()` logic sweeps the task history chronologically. Any actor who interacted with a task before L2 (including assigning a Rework) will now be accurately stamped into the L1 Reviewer column. 
+2. **L1 and L2 Name Columns:** Both the L1 Reviewer and L2 Reviewer columns have been permanently added to the main ledger table. If a reviewer hasn't reached the task yet, it strictly defaults to `"NA"`.
+3. **Combined Granular Statuses:** The main "Current Status" filter and badging system has been entirely upgraded. It now outputs unified states: *Fresh Submission, Rework (L1), Rework (L2), Pending L1, Pending L2, Quarantined, Quarantined (L1-accepted), and Approved.*
+4. **Enhanced UI & Colors:** I’ve introduced a new inline "chip" UI to neatly distinguish individuals. Trainers (blue), L1 Reviewers (purple), L2 Reviewers (green), and "NA" (grey) now have dedicated visual separation. The Status Badges are also fully color-mapped to these new granular stages.
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Turing Task Ledger</title>
+  <style>
+    :root {
+      --bg-page: #f9f8fc;
+      --bg-card: #ffffff;
+      --border: #e2e0e7;
+      --text-main: #1f1d24;
+      --text-sub: #8a8894;
+      --primary: #6b21a8;
+      --primary-light: #f3e8ff;
+      --accent-blue: #3b82f6;
+      --accent-blue-light: #eff6ff;
+      --warning: #b45309;
+      --warning-light: #fffbeb;
+      --success: #047857;
+      --success-light: #d1fae5;
+      --quarantine: #9f1239;
+      --quarantine-light: #ffe4e6;
+      --combo-purple: #7e22ce;
+      --combo-teal: #0f766e;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background-color: var(--bg-page);
+      color: var(--text-main);
+      margin: 0;
+      padding: 0;
+    }
+
+    /* Navigation */
+    nav {
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border);
+      padding: 0 30px;
+      display: flex;
+      gap: 30px;
+    }
+    nav a {
+      text-decoration: none;
+      color: var(--text-sub);
+      font-weight: 600;
+      font-size: 14px;
+      padding: 20px 0;
+      border-bottom: 2px solid transparent;
+    }
+    nav a.active { color: var(--primary); border-bottom-color: var(--primary); }
+    nav a:hover:not(.active) { color: var(--text-main); }
+
+    .main-content { padding: 30px; max-width: 1600px; margin: 0 auto; }
+
+    /* Summary Metrics Grid */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .summary-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02);
+      transition: transform 0.2s, box-shadow 0.2s;
+      cursor: pointer;
+      user-select: none;
+    }
+    .summary-card:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(0,0,0,0.04); }
+    .summary-card.selected { outline: 3px solid var(--primary); transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(107, 33, 168, 0.15); }
+    
+    .summary-label {
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      color: var(--text-sub);
+      letter-spacing: 0.05em;
+    }
+    .summary-value {
+      font-size: 26px;
+      font-weight: 800;
+      line-height: 1;
+    }
+    
+    /* Specific Card Accents */
+    .card-total { border-top: 4px solid var(--primary); }
+    .card-total .summary-value { color: var(--primary); }
+    .card-l2 { border-top: 4px solid var(--success); }
+    .card-l2 .summary-value { color: var(--success); }
+    .card-l1 { border-top: 4px solid var(--accent-blue); }
+    .card-l1 .summary-value { color: var(--accent-blue); }
+    .card-rework { border-top: 4px solid var(--warning); }
+    .card-rework .summary-value { color: var(--warning); }
+    .card-quarantine { border-top: 4px solid var(--quarantine); }
+    .card-quarantine .summary-value { color: var(--quarantine); }
+    .card-pending { border-top: 4px solid #6366f1; }
+    .card-pending .summary-value { color: #6366f1; }
+    .card-draft { border-top: 4px solid var(--text-sub); }
+    .card-draft .summary-value { color: var(--text-main); }
+    .card-quar-l1 { border-top: 4px solid var(--combo-purple); background: #faf9fb; }
+    .card-quar-l1 .summary-value { color: var(--combo-purple); }
+    .card-quar-l2 { border-top: 4px solid var(--combo-teal); background: #faf9fb; }
+    .card-quar-l2 .summary-value { color: var(--combo-teal); }
+
+    /* Filters Section */
+    .filters-container {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 24px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+      align-items: center;
+    }
+
+    .filter-input {
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 13px;
+      color: var(--text-main);
+      outline: none;
+      min-width: 170px;
+      flex: 1;
+      cursor: pointer;
+    }
+    .filter-input:focus { border-color: var(--primary); }
+    
+    .filter-group { display: flex; gap: 8px; flex: 1.5; min-width: 250px; }
+    #custom-date-range { display: none; gap: 8px; align-items: center; flex: 2; }
+
+    /* Ledger Actions Bar */
+    .table-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      padding: 0 4px;
+    }
+    .table-actions h3 { margin: 0; font-size: 14px; font-weight: 700; color: var(--text-main); }
+    .table-actions-btns { display: flex; gap: 12px; }
+
+    /* Ledger Table */
+    .ledger-container {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow-x: auto;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
+
+    table { width: 100%; border-collapse: collapse; text-align: left; }
+    th { background: #faf9fb; padding: 14px 12px; font-size: 12px; font-weight: 700; color: var(--text-main); border-bottom: 1px solid var(--border); white-space: nowrap; }
+    td { padding: 14px 12px; border-bottom: 1px solid var(--border); font-size: 13px; vertical-align: top; cursor: pointer; }
     tr:hover td { background-color: #f8f7fa; }
 
     .task-id-pill {
@@ -197,12 +371,20 @@
     .copy-icon { cursor: pointer; color: var(--primary); opacity: 0.6; transition: opacity 0.2s; flex-shrink: 0; }
     .copy-icon:hover { opacity: 1; }
 
-    .user-block { display: flex; flex-direction: column; gap: 4px; }
-    .user-name { font-weight: 600; color: var(--text-main); }
-    .user-email { font-family: ui-monospace, monospace; font-size: 11.5px; color: var(--text-sub); }
+    .user-block { display: flex; flex-direction: column; gap: 6px; }
+    .user-email { font-family: ui-monospace, monospace; font-size: 11px; color: var(--text-sub); }
 
+    /* Name Chips */
+    .name-chip { display: inline-flex; align-items: center; padding: 4px 8px; border-radius: 6px; font-size: 11.5px; font-weight: 600; white-space: nowrap; word-break: keep-all; }
+    .name-trainer { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+    .name-reviewer-l1 { background: #f5f3ff; color: #6d28d9; border: 1px solid #ddd6fe; }
+    .name-reviewer-l2 { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+    .name-na { background: #f8fafc; color: #94a3b8; border: 1px solid #e2e8f0; font-style: italic; }
+
+    /* Detailed Status Badges */
     .status-badge {
-      display: inline-block;
+      display: inline-flex;
+      justify-content: center;
       padding: 4px 10px;
       border-radius: 4px;
       font-size: 11px;
@@ -210,13 +392,17 @@
       text-transform: uppercase;
       border: 1px solid currentColor;
       white-space: nowrap;
+      min-width: 110px;
     }
-    .status-rework { background: var(--warning-light); color: var(--warning); border-color: #fcd34d; }
-    .status-approved { background: var(--success-light); color: var(--success); border-color: #6ee7b7; }
-    .status-l1 { background: var(--primary-light); color: var(--primary); border-color: #d8b4fe; }
-    .status-l2 { background: var(--accent-blue-light); color: var(--accent-blue); border-color: #93c5fd; }
-    .status-quarantined { background: var(--quarantine-light); color: var(--quarantine); border-color: #fda4af; }
     .status-draft { background: #f1f5f9; color: var(--text-sub); border-color: #cbd5e1; }
+    .status-fresh { background: #eff6ff; color: #2563eb; border-color: #bfdbfe; }
+    .status-rework-l1 { background: #fffbeb; color: #b45309; border-color: #fde68a; }
+    .status-rework-l2 { background: #ffedd5; color: #c2410c; border-color: #fed7aa; }
+    .status-pending-l1 { background: #f5f3ff; color: #7c3aed; border-color: #ddd6fe; }
+    .status-pending-l2 { background: #e0e7ff; color: #4f46e5; border-color: #c7d2fe; }
+    .status-quar { background: #fef2f2; color: #e11d48; border-color: #fecdd3; }
+    .status-quar-l1 { background: #fff1f2; color: #9f1239; border-color: #fda4af; }
+    .status-approved { background: #ecfdf5; color: #047857; border-color: #6ee7b7; }
 
     .mini-history { display: flex; flex-direction: column; gap: 6px; font-size: 11.5px; color: var(--text-sub); }
     .mini-history-item span { font-weight: 600; color: var(--text-main); }
@@ -318,7 +504,7 @@
     
     <!-- Top Level Dashboard Summaries -->
     <div class="summary-grid" id="summary-grid">
-      <!-- Generated via JS to accurately reflect currently filtered data -->
+      <!-- Generated via JS -->
     </div>
 
     <!-- Filters -->
@@ -346,11 +532,14 @@
 
       <select id="filter-state" class="filter-input" onchange="renderTable()">
         <option value="All">All Current Statuses</option>
-        <option value="Draft">Draft / Pool</option>
-        <option value="L1 review">Awaiting L1 Review</option>
-        <option value="L2 review">Awaiting L2 Review</option>
-        <option value="Rework">Rework</option>
+        <option value="Draft / Unsubmitted">Draft / Unsubmitted</option>
+        <option value="Fresh Submission">Fresh Submission</option>
+        <option value="Pending L1">Pending L1</option>
+        <option value="Rework (L1)">Rework (L1)</option>
+        <option value="Pending L2">Pending L2</option>
+        <option value="Rework (L2)">Rework (L2)</option>
         <option value="Quarantined">Quarantined</option>
+        <option value="Quarantined (L1-accepted)">Quarantined (L1-accepted)</option>
         <option value="Approved">Approved</option>
       </select>
 
@@ -408,6 +597,8 @@
             <th>Trainer</th>
             <th>Domain</th>
             <th>Report Date</th>
+            <th>L1 Reviewer</th>
+            <th>L2 Reviewer</th>
             <th>Current Status</th>
             <th style="text-align: center;">Review Cycles</th>
             <th>Status History</th>
@@ -415,7 +606,7 @@
           </tr>
         </thead>
         <tbody id="table-body">
-          <tr><td colspan="9" style="text-align:center; color:#8a8894; padding: 40px;">Loading data...</td></tr>
+          <tr><td colspan="11" style="text-align:center; color:#8a8894; padding: 40px;">Loading data...</td></tr>
         </tbody>
       </table>
     </div>
@@ -440,15 +631,15 @@
           <div>
             <div class="meta-label">Trainer</div>
             <div class="user-block">
-              <span class="user-name" id="modal-trainer-name"></span>
+              <span class="name-chip name-trainer" id="modal-trainer-name"></span>
               <span class="user-email" id="modal-trainer-email"></span>
             </div>
           </div>
           <div>
-            <div class="meta-label">Reviewer</div>
+            <div class="meta-label">Reviewers Snapshot</div>
             <div class="user-block">
-              <span class="user-name" id="modal-reviewer-name"></span>
-              <span class="user-email" id="modal-reviewer-email"></span>
+              <div style="font-size: 11.5px; color: var(--text-sub);">L1: <span class="name-chip name-reviewer-l1" id="modal-reviewer-name"></span></div>
+              <div style="font-size: 11.5px; color: var(--text-sub);">L2: <span class="name-chip name-reviewer-l2" id="modal-l2-name"></span></div>
             </div>
           </div>
           <div>
@@ -482,8 +673,8 @@
   </div>
 
   <script>
-    const CLOUDFLARE_URL = 'https://turing-api.dineshkashyaparya.workers.dev';
-    const ROSTER_URL = 'https://turing-api.dineshkashyaparya.workers.dev/roster';
+    const CLOUDFLARE_URL = '[https://turing-api.dineshkashyaparya.workers.dev](https://turing-api.dineshkashyaparya.workers.dev)';
+    const ROSTER_URL = '[https://turing-api.dineshkashyaparya.workers.dev/roster](https://turing-api.dineshkashyaparya.workers.dev/roster)';
     
     let globalData = [];
     let trainerToPod = {};
@@ -519,17 +710,99 @@
       return reworks + 1;
     }
 
+    function hasClearedL1(task) {
+      if (['Approved', 'L2 review'].includes(task.state)) return true;
+      if (!task.history) return false;
+      return task.history.some(h => 
+        (h.kind === 'review_cleared' && h.detail && h.detail.includes('review_l2')) ||
+        (h.label && h.label.toLowerCase().includes('cleared for claim pool')) ||
+        (h.label && h.label.toLowerCase().includes('l1 approved')) || 
+        (h.label === 'Approved' && h.actor_name !== 'System')
+      );
+    }
+
+    function hasClearedL2(task) {
+      if (task.state === 'Approved') return true;
+      if (!task.history) return false;
+      return task.history.some(h => h.label === 'Approved' || h.kind === 'approved' || h.state === 'Approved' || (h.label && h.label.toLowerCase().includes('l2 approved')));
+    }
+
+    // Unified Reviewer Assignment Logic (Accurately catches Reworkers as L1)
+    function getReviewers(task) {
+        let l1 = 'NA';
+        let l2 = 'NA';
+
+        if (task.history) {
+            for (let h of task.history) {
+                if (h.actor_name && h.actor_name !== 'System' && h.actor_name !== task.annotator && h.actor_name !== '—' && h.actor_name !== 'Unassigned') {
+                    if (l2ReviewersSet.has(h.actor_name)) {
+                        l2 = h.actor_name;
+                    } else {
+                        l1 = h.actor_name;
+                    }
+                }
+            }
+        }
+
+        if (task.reviewer && task.reviewer !== '—' && task.reviewer !== 'Unassigned') {
+            if (l2ReviewersSet.has(task.reviewer)) {
+                if (l2 === 'NA') l2 = task.reviewer;
+            } else {
+                if (l1 === 'NA') l1 = task.reviewer;
+            }
+        }
+
+        return { l1, l2 };
+    }
+
+    // Unified Detailed Status Logic
+    function getDetailedStatus(t) {
+        const s = (t.state || '').toLowerCase();
+        if (s.includes('pool') || s.includes('draft') || s === '' || s === 'unassigned' || s === '—') return 'Draft / Unsubmitted';
+        if (hasClearedL2(t)) return 'Approved';
+        
+        if (hasClearedL1(t)) {
+            if (s.includes('rework')) return 'Rework (L2)';
+            if (s.includes('quarantine')) return 'Quarantined (L1-accepted)';
+            return 'Pending L2';
+        } else {
+            if (s.includes('rework')) return 'Rework (L1)';
+            if (s.includes('quarantine')) return 'Quarantined';
+            
+            let reworks = 0;
+            if (t.history) {
+                t.history.forEach(h => {
+                    if (h.label && h.label.toLowerCase().includes('rework')) reworks++;
+                });
+            }
+            if (reworks === 0) return 'Fresh Submission';
+            return 'Pending L1'; 
+        }
+    }
+
+    function getBadgeClass(detailedStatus) {
+        switch(detailedStatus) {
+            case 'Draft / Unsubmitted': return 'status-draft';
+            case 'Fresh Submission': return 'status-fresh';
+            case 'Rework (L1)': return 'status-rework-l1';
+            case 'Rework (L2)': return 'status-rework-l2';
+            case 'Pending L1': return 'status-pending-l1';
+            case 'Pending L2': return 'status-pending-l2';
+            case 'Quarantined': return 'status-quar';
+            case 'Quarantined (L1-accepted)': return 'status-quar-l1';
+            case 'Approved': return 'status-approved';
+            default: return 'status-draft';
+        }
+    }
+
     function resolveAnnotator(rawName, members, mappings) {
       if (!rawName || rawName === '—' || rawName === 'Unassigned') return rawName;
       if (mappings && mappings[rawName]) return mappings[rawName];
-
       const exactMatch = members.find(r => r.name.toLowerCase() === rawName.toLowerCase());
       if (exactMatch) return exactMatch.name;
-
       const rawFirstName = rawName.trim().split(' ')[0].toLowerCase();
       const firstMatch = members.find(r => r.name.trim().split(' ')[0].toLowerCase() === rawFirstName);
       if (firstMatch) return firstMatch.name;
-
       return rawName;
     }
 
@@ -604,6 +877,15 @@
         if (t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned') trainers.add(t.annotator);
         if (t.reviewer && t.reviewer !== '—' && t.reviewer !== 'Unassigned') reviewers.add(t.reviewer);
         if (t.pod) pods.add(t.pod);
+        
+        // Also capture history reviewers just to populate drop-downs fully
+        if (t.history) {
+            t.history.forEach(h => {
+                if (h.actor_name && h.actor_name !== 'System' && h.actor_name !== t.annotator && h.actor_name !== '—') {
+                    reviewers.add(h.actor_name);
+                }
+            });
+        }
       });
 
       const fillOptions = (id, set) => {
@@ -651,33 +933,6 @@
       return true;
     }
 
-    function hasClearedL1(task) {
-      if (['Approved', 'L2 review'].includes(task.state)) return true;
-      if (!task.history) return false;
-      return task.history.some(h => 
-        (h.kind === 'review_cleared' && h.detail && h.detail.includes('review_l2')) ||
-        (h.label && h.label.toLowerCase().includes('cleared for claim pool')) ||
-        (h.label && h.label.toLowerCase().includes('l1 approved')) || 
-        (h.label === 'Approved' && h.actor_name !== 'System')
-      );
-    }
-
-    function hasClearedL2(task) {
-      if (task.state === 'Approved') return true;
-      if (!task.history) return false;
-      return task.history.some(h => h.label === 'Approved' || h.kind === 'approved' || h.state === 'Approved' || (h.label && h.label.toLowerCase().includes('l2 approved')));
-    }
-
-    function getBadgeClass(state) {
-      const s = (state || '').toLowerCase();
-      if (s.includes('rework')) return 'status-rework';
-      if (s.includes('approved')) return 'status-approved';
-      if (s.includes('l2') || s.includes('l1-approved')) return 'status-l2';
-      if (s.includes('quarantine')) return 'status-quarantined';
-      if (s.includes('pool') || s.includes('draft') || s === '') return 'status-draft';
-      return 'status-l1';
-    }
-
     function formatDateShort(dateStr) {
       if (!dateStr) return '—';
       return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -696,27 +951,17 @@
       
       filteredData.forEach(t => {
         stats.total++;
-        const s = (t.state || '').toLowerCase();
+        const ds = getDetailedStatus(t);
         
-        if (s.includes('approved')) {
-          stats.l2Approved++;
-        } else if (s.includes('l2') || s.includes('l1-approved')) {
-          stats.l1Approved++;
-        } else if (s.includes('rework')) {
-          stats.rework++;
-        } else if (s.includes('quarantine')) {
+        if (ds === 'Approved') stats.l2Approved++;
+        else if (ds.includes('Pending L2') || ds === 'Rework (L2)') stats.l1Approved++; 
+        else if (ds.includes('Rework')) stats.rework++;
+        else if (ds.includes('Quarantined')) {
           stats.quarantined++;
-          
-          if (hasClearedL2(t)) {
-            stats.quarPostL2++;
-          } else if (hasClearedL1(t)) {
-            stats.quarPostL1++;
-          }
-        } else if (s.includes('pool') || s.includes('draft') || s === '' || s === 'unassigned' || s === '—') {
-          stats.draft++;
-        } else {
-          stats.pendingL1++;
+          if (ds === 'Quarantined (L1-accepted)') stats.quarPostL1++;
         }
+        else if (ds === 'Draft / Unsubmitted') stats.draft++;
+        else stats.pendingL1++;
       });
 
       document.getElementById('summary-grid').innerHTML = `
@@ -782,7 +1027,6 @@
 
     function downloadOfflineLedger() {
       const doc = document.documentElement.cloneNode(true);
-      
       const existingScript = doc.querySelector('#offline-payload-script');
       if (existingScript) existingScript.remove();
 
@@ -818,18 +1062,16 @@
       window.currentFilteredTasks = globalData.filter(t => {
         const matchSearch = t.id.toLowerCase().includes(qSearch);
         const matchDate = checkDateMatch(t.submitted_at, qDate);
-        let matchState = true;
         
+        let matchState = true;
+        const detStatus = getDetailedStatus(t);
         if (qState !== 'All') {
-          if (qState === 'Draft') {
-            matchState = (!t.state || t.state.toLowerCase().includes('draft') || t.state.toLowerCase().includes('pool'));
-          } else {
-            matchState = (t.state && t.state.toLowerCase().includes(qState.toLowerCase()));
-          }
+          matchState = (detStatus === qState);
         }
         
+        const revs = getReviewers(t);
         const matchTrainer = qTrainer === 'All' || t.annotator === qTrainer;
-        const matchReviewer = qReviewer === 'All' || t.reviewer === qReviewer;
+        const matchReviewer = qReviewer === 'All' || revs.l1 === qReviewer || revs.l2 === qReviewer || t.reviewer === qReviewer;
         const matchPod = qPod === 'All' || t.pod === qPod;
         
         let matchMilestone = true;
@@ -843,26 +1085,27 @@
       updateSummaryMetrics(filtered);
 
       if (filtered.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; color:var(--text-sub); padding: 40px;">No tasks found matching criteria.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="11" style="text-align:center; color:var(--text-sub); padding: 40px;">No tasks found matching criteria.</td></tr>';
         return;
       }
 
       filtered.sort((a, b) => new Date(b.submitted_at || 0) - new Date(a.submitted_at || 0));
 
       tbody.innerHTML = filtered.map(t => {
-        const badgeCls = getBadgeClass(t.state);
+        const detailedStatus = getDetailedStatus(t);
+        const badgeCls = getBadgeClass(detailedStatus);
+        const revs = getReviewers(t);
         
         let miniHistoryHTML = '<span style="color:#ccc">—</span>';
         if (t.history && t.history.length > 0) {
           const recent = t.history.slice(-2);
           miniHistoryHTML = recent.map(h => {
-            const rolePrefix = (h.actor_name === t.reviewer) ? 'RV' : (h.actor_name === t.annotator ? 'TR' : 'SYS');
+            const rolePrefix = (h.actor_name === revs.l1 || h.actor_name === revs.l2) ? 'RV' : (h.actor_name === t.annotator ? 'TR' : 'SYS');
             return `<div class="mini-history-item"><span class="mini-history-date">${formatDateShort(h.occurred_at)}</span> &rarr; <span>${rolePrefix}: ${esc(h.label)}</span></div>`;
           }).join('');
         }
 
         const trEmail = userToEmail[t.annotator] || (t.annotator !== 'Unassigned' ? t.annotator.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '');
-        const displayState = (!t.state || t.state === '') ? 'Pool / Draft' : t.state;
         const cycleCount = getReviewCycles(t);
 
         return `
@@ -876,17 +1119,19 @@
             </td>
             <td>
               <div class="user-block">
-                <span class="user-name">${esc(t.annotator)}</span>
+                <span class="name-chip name-trainer">${esc(t.annotator)}</span>
                 <span class="user-email">${trEmail}</span>
               </div>
             </td>
             <td style="color:var(--text-sub);">${esc(t.domain)}</td>
             <td style="font-weight:600;">${formatDateShort(t.submitted_at)}</td>
-            <td><span class="status-badge ${badgeCls}">${esc(displayState)}</span></td>
+            <td><span class="name-chip ${revs.l1 === 'NA' ? 'name-na' : 'name-reviewer-l1'}">${esc(revs.l1)}</span></td>
+            <td><span class="name-chip ${revs.l2 === 'NA' ? 'name-na' : 'name-reviewer-l2'}">${esc(revs.l2)}</span></td>
+            <td><span class="status-badge ${badgeCls}">${esc(detailedStatus)}</span></td>
             <td style="text-align: center; font-weight: 700; color: var(--text-main); font-size: 14px;">${cycleCount}</td>
             <td><div class="mini-history">${miniHistoryHTML}</div></td>
             <td onclick="event.stopPropagation()">
-              <a href="https://task.turing.com/admin/projects/43b7da4f-5f31-41a0-b51d-1c64c7fd0a38/delivery-quality/tasks/${t.id}?view=task-review-queue" target="_blank" class="action-btn">
+              <a href="[https://task.turing.com/admin/projects/43b7da4f-5f31-41a0-b51d-1c64c7fd0a38/delivery-quality/tasks/$](https://task.turing.com/admin/projects/43b7da4f-5f31-41a0-b51d-1c64c7fd0a38/delivery-quality/tasks/$){t.id}?view=task-review-queue" target="_blank" class="action-btn">
                 Audit
               </a>
             </td>
@@ -905,20 +1150,30 @@
       const task = globalData.find(t => t.id === id);
       if (!task) return;
 
+      const revs = getReviewers(task);
+
       document.getElementById('modal-task-id').textContent = task.id;
+      
       document.getElementById('modal-trainer-name').textContent = task.annotator;
+      document.getElementById('modal-trainer-name').className = "name-chip name-trainer";
+      
       document.getElementById('modal-trainer-email').textContent = userToEmail[task.annotator] || (task.annotator !== 'Unassigned' ? task.annotator.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '—');
-      document.getElementById('modal-reviewer-name').textContent = task.reviewer;
-      document.getElementById('modal-reviewer-email').textContent = userToEmail[task.reviewer] || (task.reviewer !== '—' && task.reviewer !== 'Unassigned' ? task.reviewer.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '—');
+      
+      document.getElementById('modal-reviewer-name').textContent = revs.l1;
+      document.getElementById('modal-reviewer-name').className = `name-chip ${revs.l1 === 'NA' ? 'name-na' : 'name-reviewer-l1'}`;
+      
+      document.getElementById('modal-l2-name').textContent = revs.l2;
+      document.getElementById('modal-l2-name').className = `name-chip ${revs.l2 === 'NA' ? 'name-na' : 'name-reviewer-l2'}`;
+
       document.getElementById('modal-domain').textContent = task.domain;
       document.getElementById('modal-date').textContent = task.submitted_at ? formatDateShort(task.submitted_at) + ', ' + new Date(task.submitted_at).getFullYear() : '—';
       
-      const badgeCls = getBadgeClass(task.state);
-      const displayState = (!task.state || task.state === '') ? 'Pool / Draft' : task.state;
+      const detailedStatus = getDetailedStatus(task);
+      const badgeCls = getBadgeClass(detailedStatus);
       document.getElementById('modal-status-badge').className = `status-badge ${badgeCls}`;
-      document.getElementById('modal-status-badge').textContent = displayState;
+      document.getElementById('modal-status-badge').textContent = detailedStatus;
       
-      document.getElementById('modal-action-btn').href = `https://task.turing.com/admin/projects/43b7da4f-5f31-41a0-b51d-1c64c7fd0a38/delivery-quality/tasks/${task.id}?view=task-review-queue`;
+      document.getElementById('modal-action-btn').href = `[https://task.turing.com/admin/projects/43b7da4f-5f31-41a0-b51d-1c64c7fd0a38/delivery-quality/tasks/$](https://task.turing.com/admin/projects/43b7da4f-5f31-41a0-b51d-1c64c7fd0a38/delivery-quality/tasks/$){task.id}?view=task-review-queue`;
 
       let timelineHTML = '<div style="color:var(--text-sub); font-size:13px;">No history available</div>';
       
@@ -927,12 +1182,12 @@
           let roleLabel = 'SYSTEM';
           let roleClass = 'system';
           
-          if (h.actor_name === task.reviewer) {
-            roleLabel = 'REVIEWER';
-            roleClass = 'reviewer';
+          if (l2ReviewersSet.has(h.actor_name) || h.actor_name === revs.l2) {
+            roleLabel = 'L2 REVIEWER'; roleClass = 'reviewer';
+          } else if (h.actor_name === revs.l1 || (h.actor_name === task.reviewer && h.actor_name !== task.annotator)) {
+            roleLabel = 'L1 REVIEWER'; roleClass = 'reviewer';
           } else if (h.actor_name === task.annotator) {
-            roleLabel = 'TRAINER';
-            roleClass = 'trainer';
+            roleLabel = 'TRAINER'; roleClass = 'trainer';
           }
           
           let displayLabel = esc(h.label);
@@ -947,16 +1202,13 @@
           if (lLower.includes('approved') || lLower.includes('cleared')) {
               if (dLower.includes('review_l2') || lLower.includes('claim pool') || lLower.includes('l1')) {
                   displayLabel = 'L1 Approved (Advanced to L2)';
-                  extraDotClass = 'status-l1-app';
-                  iconHtml = iconL1;
+                  extraDotClass = 'status-l1-app'; iconHtml = iconL1;
               } else if (lLower === 'approved' || h.kind === 'approved' || dLower.includes('final') || lLower.includes('l2')) {
                   displayLabel = 'L2 Final Approved';
-                  extraDotClass = 'status-l2-app';
-                  iconHtml = iconL2;
+                  extraDotClass = 'status-l2-app'; iconHtml = iconL2;
               } else {
                   displayLabel = 'Approved';
-                  extraDotClass = 'status-l2-app';
-                  iconHtml = iconL1;
+                  extraDotClass = 'status-l2-app'; iconHtml = iconL1;
               }
           } else if (lLower.includes('rework')) {
               extraDotClass = 'status-rework';
@@ -1000,17 +1252,8 @@
     
     function copyPendingL1Table() {
       const targetTasks = (window.currentFilteredTasks || globalData).filter(t => {
-        const s = (t.state || '').toLowerCase();
-        const isL2App = s.includes('approved');
-        const isL1App = s.includes('l2') || s.includes('l1-approved');
-        const isRework = s.includes('rework');
-        const isQuar = s.includes('quarantine');
-        const isDraft = s.includes('pool') || s.includes('draft') || s === '' || s === 'unassigned' || s === '—';
-        
-        const isPendingL1 = !isL2App && !isL1App && !isRework && !isQuar && !isDraft;
-        const isPreL1Quarantine = isQuar && !hasClearedL1(t);
-        
-        return isPendingL1 || isPreL1Quarantine;
+        const ds = getDetailedStatus(t);
+        return ds === 'Fresh Submission' || ds === 'Pending L1' || ds === 'Rework (L1)' || ds === 'Quarantined';
       });
 
       if (targetTasks.length === 0) {
@@ -1025,37 +1268,15 @@
       });
 
       let html = '<table border="1" style="border-collapse: collapse;">';
-      html += '<tr><th>Sr. No.</th><th>Trainer Name</th><th>Task ID</th><th>Previous Reviewer</th><th>Submission Status</th></tr>';
+      html += '<tr><th>Sr. No.</th><th>Trainer Name</th><th>Task ID</th><th>L1 Reviewer</th><th>Submission Status</th></tr>';
       
       targetTasks.forEach((t, index) => {
         const trainer = t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned' ? t.annotator : 'Unassigned';
         const taskId = t.id || '—';
-        
-        let reviewer = 'None';
-        if (t.history) {
-          const revEvents = t.history.filter(h => 
-            h.actor_name && h.actor_name !== 'System' && h.actor_name !== t.annotator && h.actor_name !== '—' && !l2ReviewersSet.has(h.actor_name)
-          );
-          if (revEvents.length > 0) reviewer = revEvents[revEvents.length - 1].actor_name;
-        }
-        if (reviewer === 'None' && t.reviewer && t.reviewer !== '—' && t.reviewer !== 'Unassigned' && !l2ReviewersSet.has(t.reviewer)) {
-          reviewer = t.reviewer;
-        }
-        
-        let status = 'Fresh Submission';
-        const s = (t.state || '').toLowerCase();
-        
-        let reworks = 0;
-        if (t.history) {
-          t.history.forEach(h => {
-            if (h.label && h.label.toLowerCase().includes('rework')) reworks++;
-          });
-        }
+        const revs = getReviewers(t);
+        const status = getDetailedStatus(t);
 
-        if (s.includes('quarantine')) status = 'Quarantined';
-        else if (reworks > 0) status = 'Rework';
-
-        html += `<tr><td>${index + 1}</td><td>${trainer}</td><td>${taskId}</td><td>${reviewer}</td><td>${status}</td></tr>`;
+        html += `<tr><td>${index + 1}</td><td>${trainer}</td><td>${taskId}</td><td>${revs.l1}</td><td>${status}</td></tr>`;
       });
       html += '</table>';
 
@@ -1089,22 +1310,18 @@
       function getTaskCategories(t) {
         const cats = new Set();
         cats.add('Total Selected View');
-        const s = (t.state || '').toLowerCase();
-        if (s.includes('approved')) {
-          cats.add('Final Approved (L2)');
-        } else if (s.includes('l2') || s.includes('l1-approved')) {
-          cats.add('L1-Approved (Wait L2)');
-        } else if (s.includes('rework')) {
-          cats.add('In Rework');
-        } else if (s.includes('quarantine')) {
-          cats.add('Quarantined (All)');
-          if (hasClearedL2(t)) cats.add('Quarantined (Post-L2)');
-          else if (hasClearedL1(t)) cats.add('Quarantined (Post-L1)');
-        } else if (s.includes('pool') || s.includes('draft') || s === '' || s === 'unassigned' || s === '—') {
-          cats.add('Draft / Unsubmitted');
-        } else {
-          cats.add('Pending L1');
+        const ds = getDetailedStatus(t);
+        
+        if (ds === 'Approved') cats.add('Final Approved (L2)');
+        else if (ds.includes('Pending L2') || ds === 'Rework (L2)') cats.add('L1-Approved (Wait L2)');
+        else if (ds.includes('Rework')) cats.add('In Rework');
+        else if (ds.includes('Quarantined')) {
+            cats.add('Quarantined (All)');
+            if (ds === 'Quarantined (L1-accepted)') cats.add('Quarantined (Post-L1)');
         }
+        else if (ds === 'Draft / Unsubmitted') cats.add('Draft / Unsubmitted');
+        else cats.add('Pending L1');
+        
         return cats;
       }
 
@@ -1123,64 +1340,21 @@
 
       targetTasks.sort((a, b) => new Date(b.submitted_at || 0) - new Date(a.submitted_at || 0));
 
-      function getL1Reviewer(task) {
-        let l1Rev = 'None';
-        if (task.history) {
-          for (let h of task.history) {
-            if (h.actor_name && h.actor_name !== 'System' && h.actor_name !== task.annotator && h.actor_name !== '—') {
-              const lLower = (h.label || '').toLowerCase();
-              if ((h.kind === 'review_cleared' && h.detail && h.detail.includes('review_l2')) || 
-                  lLower.includes('cleared for claim pool') || 
-                  lLower.includes('l1 approved') || 
-                  (h.label === 'Approved' && !l2ReviewersSet.has(h.actor_name))) {
-                l1Rev = h.actor_name;
-              }
-            }
-          }
-        }
-        if (l1Rev === 'None' && hasClearedL1(task) && task.reviewer && task.reviewer !== '—' && task.reviewer !== 'Unassigned') {
-          l1Rev = task.reviewer;
-        }
-        return l1Rev;
-      }
-
-      function getL2Status(task) {
-        const s = (task.state || '').toLowerCase();
-        if (s.includes('approved')) return 'Approved';
-        if (s.includes('quarantine') && hasClearedL2(task)) return 'Quarantined (Post-L2)';
-        if (hasClearedL1(task) && s.includes('rework')) return 'Rework (L2)';
-        if (hasClearedL1(task)) return 'Pending L2';
-        return 'Not Reached L2';
-      }
-
-      function getChipClass(val) {
-        if (!val) return 'chip-gray';
-        const v = val.toLowerCase();
-        if (v.includes('approve')) return 'chip-green';
-        if (v.includes('rework')) return 'chip-amber';
-        if (v.includes('quarantin')) return 'chip-red';
-        if (v.includes('pool') || v.includes('draft') || v === 'none' || v === 'unassigned') return 'chip-gray';
-        return 'chip-blue';
-      }
-
       const uniqueTrainers = new Set();
       const uniqueL1 = new Set();
       const uniqueStatuses = new Set();
-      const uniqueL2 = new Set();
 
       let tableRowsHtml = '';
       targetTasks.forEach((t, index) => {
-        const l1Rev = getL1Reviewer(t);
-        const l2Status = getL2Status(t);
+        const revs = getReviewers(t);
+        const detailedStatus = getDetailedStatus(t);
         const trainer = t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned' ? t.annotator : 'Unassigned';
         const taskId = t.id || '—';
         const domain = t.domain || '—';
-        const status = (!t.state || t.state === '') ? 'Pool / Draft' : t.state;
 
         uniqueTrainers.add(trainer);
-        uniqueL1.add(l1Rev);
-        uniqueStatuses.add(status);
-        uniqueL2.add(l2Status);
+        uniqueL1.add(revs.l1);
+        uniqueStatuses.add(detailedStatus);
 
         let timelineHTML = '<div style="color:#94a3b8; font-style:italic; font-size: 13px;">No history available</div>';
         
@@ -1188,7 +1362,8 @@
           timelineHTML = t.history.slice().reverse().map(h => {
             let roleLabel = 'SYSTEM';
             let roleClass = 'system';
-            if (h.actor_name === t.reviewer) { roleLabel = 'REVIEWER'; roleClass = 'reviewer'; } 
+            if (l2ReviewersSet.has(h.actor_name) || h.actor_name === revs.l2) { roleLabel = 'L2 REVIEWER'; roleClass = 'reviewer'; } 
+            else if (h.actor_name === revs.l1 || (h.actor_name === t.reviewer && h.actor_name !== t.annotator)) { roleLabel = 'L1 REVIEWER'; roleClass = 'reviewer'; }
             else if (h.actor_name === t.annotator) { roleLabel = 'TRAINER'; roleClass = 'trainer'; }
             
             let displayLabel = esc(h.label);
@@ -1231,7 +1406,7 @@
         const finalTimelineHtml = `<div class="timeline-container"><div class="timeline-box"><div class="timeline">${timelineHTML}</div></div></div>`;
 
         tableRowsHtml += `
-          <tr class="main-row" onclick="toggleHistory('hist-${t.id}')" data-taskid="${esc(t.id)}" data-trainer="${esc(trainer)}" data-l1="${esc(l1Rev)}" data-status="${esc(status)}" data-l2="${esc(l2Status)}">
+          <tr class="main-row" onclick="toggleHistory('hist-${t.id}')" data-taskid="${esc(t.id)}" data-trainer="${esc(trainer)}" data-l1="${esc(revs.l1)}" data-status="${esc(detailedStatus)}">
             <td style="color:#64748b; font-weight:600;">${index + 1}</td>
             <td onclick="event.stopPropagation()">
               <div class="taskId" onclick="copyId(this, '${esc(taskId)}')">
@@ -1241,9 +1416,9 @@
             </td>
             <td><span class="chip chip-trainer">${esc(trainer)}</span></td>
             <td style="color: #475569;">${esc(domain)}</td>
-            <td><span class="chip ${getChipClass(status)}">${esc(status)}</span></td>
-            <td><span class="chip chip-l1">${esc(l1Rev)}</span></td>
-            <td><span class="chip ${getChipClass(l2Status)}">${esc(l2Status)}</span></td>
+            <td><span class="chip ${getBadgeClass(detailedStatus)}">${esc(detailedStatus)}</span></td>
+            <td><span class="chip ${revs.l1 === 'NA' ? 'chip-gray' : 'chip-l1'}">${esc(revs.l1)}</span></td>
+            <td><span class="chip ${revs.l2 === 'NA' ? 'chip-gray' : 'chip-green'}">${esc(revs.l2)}</span></td>
           </tr>
           <tr id="hist-${t.id}" style="display:none;">
             <td colspan="7" style="padding: 24px; background: #f8fafc; border-bottom: 2px solid #cbd5e1;">
@@ -1274,14 +1449,21 @@
     .main-row { cursor: pointer; transition: background 0.1s; }
     .main-row:hover td { background: #f1f5f9; }
     
-    .chip { display: inline-flex; align-items: center; padding: 6px 12px; border-radius: 6px; font-size: 12px; font-weight: 700; border: 1px solid transparent; white-space: nowrap; }
+    .chip { display: inline-flex; align-items: center; padding: 6px 12px; border-radius: 6px; font-size: 11.5px; font-weight: 700; border: 1px solid transparent; white-space: nowrap; word-break: keep-all; }
     .chip-trainer { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
     .chip-l1 { background: #f5f3ff; color: #6d28d9; border-color: #ddd6fe; }
-    .chip-gray { background: #f1f5f9; color: #475569; border-color: #cbd5e1; }
-    .chip-green { background: #ecfdf5; color: #047857; border-color: #6ee7b7; }
-    .chip-blue { background: #e0f2fe; color: #0369a1; border-color: #bae6fd; }
-    .chip-amber { background: #fffbeb; color: #b45309; border-color: #fde68a; }
-    .chip-red { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+    .chip-green { background: #f0fdf4; color: #15803d; border-color: #bbf7d0; }
+    .chip-gray { background: #f8fafc; color: #94a3b8; border-color: #e2e8f0; font-style: italic; }
+    
+    .status-draft { background: #f1f5f9; color: #8a8894; border-color: #cbd5e1; }
+    .status-fresh { background: #eff6ff; color: #2563eb; border-color: #bfdbfe; }
+    .status-rework-l1 { background: #fffbeb; color: #b45309; border-color: #fde68a; }
+    .status-rework-l2 { background: #ffedd5; color: #c2410c; border-color: #fed7aa; }
+    .status-pending-l1 { background: #f5f3ff; color: #7c3aed; border-color: #ddd6fe; }
+    .status-pending-l2 { background: #e0e7ff; color: #4f46e5; border-color: #c7d2fe; }
+    .status-quar { background: #fef2f2; color: #e11d48; border-color: #fecdd3; }
+    .status-quar-l1 { background: #fff1f2; color: #9f1239; border-color: #fda4af; }
+    .status-approved { background: #ecfdf5; color: #047857; border-color: #6ee7b7; }
     
     .taskId { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; color: #4f46e5; font-weight: 600; font-size: 11.5px; background: #f8fafc; padding: 6px 10px; border-radius: 6px; border: 1px solid #e2e8f0; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.2s; word-break: break-all; user-select: all; }
     .taskId:hover { background: #e0e7ff; border-color: #c7d2fe; }
@@ -1335,10 +1517,6 @@
         <option value="All">All Task Statuses</option>
         ${[...uniqueStatuses].sort().map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join('')}
       </select>
-      <select id="filter-l2" class="filter-select" onchange="filterTable()">
-        <option value="All">All L2 Statuses</option>
-        ${[...uniqueL2].sort().map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join('')}
-      </select>
     </div>
     
     <div class="report-card">
@@ -1351,7 +1529,7 @@
             <th>Domain</th>
             <th>Task Status</th>
             <th>L1 Reviewer</th>
-            <th>L2 Review Status</th>
+            <th>L2 Reviewer</th>
           </tr>
         </thead>
         <tbody>
@@ -1366,7 +1544,6 @@
       var fTrainer = document.getElementById('filter-trainer').value;
       var fL1 = document.getElementById('filter-l1').value;
       var fStatus = document.getElementById('filter-status').value;
-      var fL2 = document.getElementById('filter-l2').value;
       
       var rows = document.querySelectorAll('tbody tr.main-row');
       var visibleCount = 0;
@@ -1375,11 +1552,10 @@
         var matchT = (fTrainer === 'All' || row.getAttribute('data-trainer') === fTrainer);
         var matchL1 = (fL1 === 'All' || row.getAttribute('data-l1') === fL1);
         var matchS = (fStatus === 'All' || row.getAttribute('data-status') === fStatus);
-        var matchL2 = (fL2 === 'All' || row.getAttribute('data-l2') === fL2);
         
         var histRow = document.getElementById('hist-' + row.getAttribute('data-taskid'));
         
-        if (matchT && matchL1 && matchS && matchL2) {
+        if (matchT && matchL1 && matchS) {
           row.style.display = '';
           visibleCount++;
         } else {
@@ -1432,17 +1608,8 @@
 
     function downloadPendingHTML() {
       const targetTasks = (window.currentFilteredTasks || globalData).filter(t => {
-        const s = (t.state || '').toLowerCase();
-        const isL2App = s.includes('approved');
-        const isL1App = s.includes('l2') || s.includes('l1-approved');
-        const isRework = s.includes('rework');
-        const isQuar = s.includes('quarantine');
-        const isDraft = s.includes('pool') || s.includes('draft') || s === '' || s === 'unassigned' || s === '—';
-        
-        const isPendingL1 = !isL2App && !isL1App && !isRework && !isQuar && !isDraft;
-        const isPreL1Quarantine = isQuar && !hasClearedL1(t);
-        
-        return isPendingL1 || isPreL1Quarantine;
+        const ds = getDetailedStatus(t);
+        return ds === 'Fresh Submission' || ds === 'Pending L1' || ds === 'Rework (L1)' || ds === 'Quarantined';
       });
 
       if (targetTasks.length === 0) {
@@ -1458,7 +1625,7 @@
       
       const uniqueTrainers = [...new Set(targetTasks.map(t => t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned' ? t.annotator : 'Unassigned'))].sort();
       const uniqueReviewers = new Set();
-      const uniqueStatuses = ['Fresh Submission', 'Rework', 'Quarantined'];
+      const uniqueStatuses = ['Fresh Submission', 'Pending L1', 'Rework (L1)', 'Quarantined'];
 
       let html = `<!DOCTYPE html>
 <html lang="en">
@@ -1481,9 +1648,11 @@
     td { padding: 14px 16px; font-size: 14px; border-bottom: 1px solid #e2e8f0; color: #1e293b; vertical-align: top;}
     tr:hover td { background: #f1f5f9; }
     
-    .status-badge { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700; background: #e0e7ff; color: #3730a3; border: 1px solid #c7d2fe; }
-    .status-quar { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
-    .status-rework { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+    .status-badge { display: inline-flex; justify-content: center; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; border: 1px solid currentColor; white-space: nowrap; min-width: 110px;}
+    .status-fresh { background: #eff6ff; color: #2563eb; border-color: #bfdbfe; }
+    .status-rework-l1 { background: #fffbeb; color: #b45309; border-color: #fde68a; }
+    .status-pending-l1 { background: #f5f3ff; color: #7c3aed; border-color: #ddd6fe; }
+    .status-quar { background: #fef2f2; color: #e11d48; border-color: #fecdd3; }
     
     .taskId { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; color: #4f46e5; font-weight: 600; font-size: 11.5px; background: #f8fafc; padding: 6px 10px; border-radius: 6px; border: 1px solid #e2e8f0; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.2s; word-break: break-all; user-select: all; }
     .taskId:hover { background: #e0e7ff; border-color: #c7d2fe; }
@@ -1529,7 +1698,7 @@
         ${uniqueTrainers.map(tr => `<option value="${esc(tr)}">${esc(tr)}</option>`).join('')}
       </select>
       <select id="filter-reviewer" class="filter-select" onchange="filterTable()">
-        <option value="All">All Reviewers</option>
+        <option value="All">All L1 Reviewers</option>
         <!-- Injected Below -->
       </select>
       <select id="filter-status" class="filter-select" onchange="filterTable()">
@@ -1545,7 +1714,7 @@
             <th>Sr. No.</th>
             <th>Trainer Name</th>
             <th style="width: 280px;">Task ID</th>
-            <th>Previous Reviewer</th>
+            <th>L1 Reviewer</th>
             <th>Submission Status</th>
             <th style="min-width: 350px;">Complete Status History</th>
           </tr>
@@ -1556,30 +1725,10 @@
       targetTasks.forEach((t, index) => {
         const trainer = t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned' ? t.annotator : 'Unassigned';
         const taskId = t.id || '—';
+        const revs = getReviewers(t);
+        const detailedStatus = getDetailedStatus(t);
         
-        let reviewer = 'None';
-        if (t.history) {
-          const revEvents = t.history.filter(h => 
-            h.actor_name && h.actor_name !== 'System' && h.actor_name !== t.annotator && h.actor_name !== '—' && !l2ReviewersSet.has(h.actor_name)
-          );
-          if (revEvents.length > 0) reviewer = revEvents[revEvents.length - 1].actor_name;
-        }
-        if (reviewer === 'None' && t.reviewer && t.reviewer !== '—' && t.reviewer !== 'Unassigned' && !l2ReviewersSet.has(t.reviewer)) {
-          reviewer = t.reviewer;
-        }
-        
-        uniqueReviewers.add(reviewer);
-        
-        let status = 'Fresh Submission';
-        let badgeClass = '';
-        const s = (t.state || '').toLowerCase();
-        let reworks = 0;
-        
-        if (t.history) {
-          t.history.forEach(h => {
-            if (h.label && h.label.toLowerCase().includes('rework')) reworks++;
-          });
-        }
+        uniqueReviewers.add(revs.l1);
         
         let timelineHTML = '<div style="color:#94a3b8; font-style:italic; font-size: 13px;">No history available</div>';
         
@@ -1588,12 +1737,12 @@
             let roleLabel = 'SYSTEM';
             let roleClass = 'system';
             
-            if (h.actor_name === t.reviewer) {
-              roleLabel = 'REVIEWER';
-              roleClass = 'reviewer';
+            if (l2ReviewersSet.has(h.actor_name) || h.actor_name === revs.l2) {
+              roleLabel = 'L2 REVIEWER'; roleClass = 'reviewer';
+            } else if (h.actor_name === revs.l1 || (h.actor_name === t.reviewer && h.actor_name !== t.annotator)) {
+              roleLabel = 'L1 REVIEWER'; roleClass = 'reviewer';
             } else if (h.actor_name === t.annotator) {
-              roleLabel = 'TRAINER';
-              roleClass = 'trainer';
+              roleLabel = 'TRAINER'; roleClass = 'trainer';
             }
             
             let displayLabel = esc(h.label);
@@ -1608,16 +1757,12 @@
             if (lLower.includes('approved') || lLower.includes('cleared')) {
                 if (dLower.includes('review_l2') || lLower.includes('claim pool') || lLower.includes('l1')) {
                     displayLabel = 'L1 Approved (Advanced to L2)';
-                    extraDotClass = 'status-l1-app';
-                    iconHtml = iconL1;
+                    extraDotClass = 'status-l1-app'; iconHtml = iconL1;
                 } else if (lLower === 'approved' || h.kind === 'approved' || dLower.includes('final') || lLower.includes('l2')) {
                     displayLabel = 'L2 Final Approved';
-                    extraDotClass = 'status-l2-app';
-                    iconHtml = iconL2;
+                    extraDotClass = 'status-l2-app'; iconHtml = iconL2;
                 } else {
-                    displayLabel = 'Approved';
-                    extraDotClass = 'status-l2-app';
-                    iconHtml = iconL1;
+                    displayLabel = 'Approved'; extraDotClass = 'status-l2-app'; iconHtml = iconL1;
                 }
             } else if (lLower.includes('rework')) {
                 extraDotClass = 'status-rework';
@@ -1628,7 +1773,6 @@
             const detailHTML = h.detail && h.detail.trim() !== '' && h.detail !== h.label && h.detail !== 'null' && !['review_l1', 'review_l2'].includes(h.detail)
               ? `<div class="tl-detail">${esc(h.detail)}</div>` : '';
 
-            // Using formatting identical to the modal UI
             return `
               <div class="timeline-item">
                 <div class="timeline-dot ${roleClass} ${extraDotClass}"></div>
@@ -1646,16 +1790,14 @@
         
         let finalTimelineHtml = `<div class="timeline-container"><div class="timeline-box"><div class="timeline">${timelineHTML}</div></div></div>`;
 
-        if (s.includes('quarantine')) {
-          status = 'Quarantined';
-          badgeClass = 'status-quar';
-        } else if (reworks > 0) {
-          status = 'Rework';
-          badgeClass = 'status-rework';
-        }
+        let badgeClass = '';
+        if (detailedStatus === 'Quarantined') badgeClass = 'status-quar';
+        else if (detailedStatus === 'Rework (L1)') badgeClass = 'status-rework-l1';
+        else if (detailedStatus === 'Pending L1') badgeClass = 'status-pending-l1';
+        else badgeClass = 'status-fresh';
 
         tableRowsHtml += `
-          <tr data-trainer="${esc(trainer)}" data-reviewer="${esc(reviewer)}" data-status="${esc(status)}">
+          <tr data-trainer="${esc(trainer)}" data-reviewer="${esc(revs.l1)}" data-status="${esc(detailedStatus)}">
             <td style="color:#64748b; font-weight:600;" class="row-index">${index + 1}</td>
             <td style="font-weight: 600;">${esc(trainer)}</td>
             <td>
@@ -1664,15 +1806,14 @@
                 <svg class="copy-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
               </div>
             </td>
-            <td>${esc(reviewer)}</td>
-            <td><span class="status-badge ${badgeClass}">${status}</span></td>
+            <td>${esc(revs.l1)}</td>
+            <td><span class="status-badge ${badgeClass}">${detailedStatus}</span></td>
             <td>${finalTimelineHtml}</td>
           </tr>`;
       });
       
       html += tableRowsHtml;
       
-      // Inject unique reviewers back into the select string
       const reviewerOptions = [...uniqueReviewers].sort().map(r => `<option value="${esc(r)}">${esc(r)}</option>`).join('');
       html = html.replace('<!-- Injected Below -->', reviewerOptions);
       
