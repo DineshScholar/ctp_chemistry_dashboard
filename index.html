@@ -1124,10 +1124,30 @@
     .copy-icon { width: 14px; height: 14px; opacity: 0.5; flex-shrink: 0; }
     .taskId:hover .copy-icon { opacity: 1; color: #4338ca; }
     
-    .comments-box { max-height: 120px; overflow-y: auto; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px; font-size: 12px; }
-    .comment-item { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid #e2e8f0; }
-    .comment-item:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
-    .comment-date { color: #64748b; font-size: 10px; font-weight: 600;}
+    /* Injected Timeline CSS */
+    .timeline-container { margin-top: 4px; }
+    .timeline-box { border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; background: #ffffff; max-height: 250px; overflow-y: auto; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02); }
+    .timeline { border-left: 2px solid #e2e8f0; margin-left: 10px; padding-left: 20px; position: relative; }
+    .timeline-item { position: relative; margin-bottom: 20px; }
+    .timeline-item:last-child { margin-bottom: 0; }
+    @keyframes pulse-green { 0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); } 100% { box-shadow: 0 0 0 0 transparent; } }
+    @keyframes pulse-blue { 0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(59, 130, 246, 0); } 100% { box-shadow: 0 0 0 0 transparent; } }
+    @keyframes pulse-amber { 0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(245, 158, 11, 0); } 100% { box-shadow: 0 0 0 0 transparent; } }
+    @keyframes pulse-red { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 transparent; } }
+    .timeline-dot { position: absolute; left: -27px; top: 4px; width: 12px; height: 12px; border-radius: 50%; background: #ffffff; border: 3px solid #4f46e5; transition: all 0.3s ease; }
+    .timeline-dot.status-l2-app { border-color: #059669 !important; background: #d1fae5 !important; animation: pulse-green 2s infinite; }
+    .timeline-dot.status-l1-app { border-color: #2563eb !important; background: #dbeafe !important; animation: pulse-blue 2s infinite; }
+    .timeline-dot.status-rework { border-color: #d97706 !important; background: #fef3c7 !important; animation: pulse-amber 2s infinite; }
+    .timeline-dot.status-quar { border-color: #e11d48 !important; background: #ffe4e6 !important; animation: pulse-red 2s infinite; }
+    .tl-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 4px; gap: 12px; }
+    .tl-role { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+    .tl-role.reviewer { color: #4f46e5; }
+    .tl-role.trainer { color: #2563eb; }
+    .tl-role.system { color: #64748b; }
+    .tl-date { font-size: 11px; color: #64748b; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+    .tl-action { font-size: 13px; font-weight: 600; color: #0f172a; margin-bottom: 4px; display: flex; align-items: center; }
+    .tl-name { font-size: 12px; color: #64748b; }
+    .tl-detail { margin-top: 8px; font-size: 13px; color: #334155; background: #f8fafc; padding: 12px; border-radius: 6px; border: 1px solid #e2e8f0; white-space: pre-wrap; line-height: 1.5; }
   </style>
 </head>
 <body>
@@ -1161,7 +1181,7 @@
             <th style="width: 280px;">Task ID</th>
             <th>Previous Reviewer</th>
             <th>Submission Status</th>
-            <th style="min-width: 300px;">Reviewer Comments History</th>
+            <th style="min-width: 350px;">Complete Status History</th>
           </tr>
         </thead>
         <tbody>`;
@@ -1189,21 +1209,76 @@
         const s = (t.state || '').toLowerCase();
         let reworks = 0;
         
-        let commentsHtml = '<span style="color:#94a3b8; font-style:italic;">No historical comments recorded</span>';
-        
         if (t.history) {
           t.history.forEach(h => {
             if (h.label && h.label.toLowerCase().includes('rework')) reworks++;
           });
-          
-          const validComments = t.history.filter(h => h.detail && h.detail.trim() !== '' && h.detail !== h.label && h.detail !== 'null' && !['review_l1', 'review_l2'].includes(h.detail));
-          if (validComments.length > 0) {
-            commentsHtml = `<div class="comments-box">` + validComments.map(h => {
-              const date = new Date(h.occurred_at).toLocaleDateString();
-              return `<div class="comment-item"><strong>${esc(h.actor_name)}</strong> <span class="comment-date">(${date})</span><br><span style="color:#334155;">${esc(h.detail).replace(/\\n/g, '<br>')}</span></div>`;
-            }).join('') + `</div>`;
-          }
         }
+        
+        let timelineHTML = '<div style="color:#94a3b8; font-style:italic; font-size: 13px;">No history available</div>';
+        
+        if (t.history && t.history.length > 0) {
+          timelineHTML = t.history.slice().reverse().map(h => {
+            let roleLabel = 'SYSTEM';
+            let roleClass = 'system';
+            
+            if (h.actor_name === t.reviewer) {
+              roleLabel = 'REVIEWER';
+              roleClass = 'reviewer';
+            } else if (h.actor_name === t.annotator) {
+              roleLabel = 'TRAINER';
+              roleClass = 'trainer';
+            }
+            
+            let displayLabel = esc(h.label);
+            let extraDotClass = '';
+            let iconHtml = '';
+            const lLower = (h.label || '').toLowerCase();
+            const dLower = (h.detail || '').toLowerCase();
+
+            const iconL1 = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px; vertical-align:text-bottom; color: #2563eb;"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>`;
+            const iconL2 = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px; vertical-align:text-bottom; color: #059669;"><path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z"></path><path d="m9 12 2 2 4-4"></path></svg>`;
+
+            if (lLower.includes('approved') || lLower.includes('cleared')) {
+                if (dLower.includes('review_l2') || lLower.includes('claim pool') || lLower.includes('l1')) {
+                    displayLabel = 'L1 Approved (Advanced to L2)';
+                    extraDotClass = 'status-l1-app';
+                    iconHtml = iconL1;
+                } else if (lLower === 'approved' || h.kind === 'approved' || dLower.includes('final') || lLower.includes('l2')) {
+                    displayLabel = 'L2 Final Approved';
+                    extraDotClass = 'status-l2-app';
+                    iconHtml = iconL2;
+                } else {
+                    displayLabel = 'Approved';
+                    extraDotClass = 'status-l2-app';
+                    iconHtml = iconL1;
+                }
+            } else if (lLower.includes('rework')) {
+                extraDotClass = 'status-rework';
+            } else if (lLower.includes('quarantine')) {
+                extraDotClass = 'status-quar';
+            }
+
+            const detailHTML = h.detail && h.detail.trim() !== '' && h.detail !== h.label && h.detail !== 'null' && !['review_l1', 'review_l2'].includes(h.detail)
+              ? `<div class="tl-detail">${esc(h.detail)}</div>` : '';
+
+            // Using formatting identical to the modal UI
+            return `
+              <div class="timeline-item">
+                <div class="timeline-dot ${roleClass} ${extraDotClass}"></div>
+                <div class="tl-header">
+                  <span class="tl-role ${roleClass}">${roleLabel}</span>
+                  <span class="tl-date">${formatDateShort(h.occurred_at)}, ${new Date(h.occurred_at).getFullYear()}, ${formatTimeShort(h.occurred_at)}</span>
+                </div>
+                <div class="tl-action" style="${extraDotClass ? 'font-weight: 800;' : ''}">${iconHtml}${displayLabel}</div>
+                <div class="tl-name">${esc(h.actor_name || 'System')}</div>
+                ${detailHTML}
+              </div>
+            `;
+          }).join('');
+        }
+        
+        let finalTimelineHtml = `<div class="timeline-container"><div class="timeline-box"><div class="timeline">${timelineHTML}</div></div></div>`;
 
         if (s.includes('quarantine')) {
           status = 'Quarantined';
@@ -1225,7 +1300,7 @@
             </td>
             <td>${esc(reviewer)}</td>
             <td><span class="status-badge ${badgeClass}">${status}</span></td>
-            <td>${commentsHtml}</td>
+            <td>${finalTimelineHtml}</td>
           </tr>`;
       });
       
