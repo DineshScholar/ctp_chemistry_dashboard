@@ -480,6 +480,7 @@
     let trainerToPod = {};
     let userToEmail = {};
     let l2ReviewersSet = new Set();
+    let knownPeople = new Set();
 
     function getReviewCycles(task) {
       if (task.review_cycles !== undefined) return task.review_cycles;
@@ -505,6 +506,7 @@
         trainerToPod = window.__OFFLINE_PAYLOAD__.trainerToPod || {};
         userToEmail = window.__OFFLINE_PAYLOAD__.userToEmail || {};
         l2ReviewersSet = new Set(window.__OFFLINE_PAYLOAD__.l2Reviewers || []);
+        knownPeople = new Set(window.__OFFLINE_PAYLOAD__.knownPeople || []);
         populateFilters();
         renderTable();
         return;
@@ -522,23 +524,30 @@
         if (rosterJson.pods) {
           rosterJson.pods.forEach(pod => {
             pod.trainers.forEach(t => {
-                trainerToPod[t.name] = pod.name;
-                if (t.email) userToEmail[t.name] = t.email;
+                const key = t.name.trim().toLowerCase();
+                trainerToPod[key] = pod.name;
+                if (t.email) userToEmail[key] = t.email;
+                knownPeople.add(key);
             });
           });
         }
         
         if (rosterJson.l2_reviewers) {
           rosterJson.l2_reviewers.forEach(r => {
-             l2ReviewersSet.add(r.name);
-             if (r.email) userToEmail[r.name] = r.email;
+             const key = r.name.trim().toLowerCase();
+             l2ReviewersSet.add(key);
+             if (r.email) userToEmail[key] = r.email;
+             knownPeople.add(key);
           });
         }
 
-        globalData = (json.tasks || []).map(t => ({
-          ...t,
-          pod: trainerToPod[t.annotator] || 'Unassigned Pod'
-        }));
+        globalData = (json.tasks || []).map(t => {
+          const annKey = t.annotator ? t.annotator.trim().toLowerCase() : '';
+          return {
+            ...t,
+            pod: trainerToPod[annKey] || 'UNIDENTIFIED'
+          };
+        });
       } catch (err) {
         console.warn("Using fallback data or failed to fetch fully.", err);
       }
@@ -552,21 +561,38 @@
       const pods = new Set();
 
       globalData.forEach(t => {
-        if (t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned') trainers.add(t.annotator);
-        if (t.reviewer && t.reviewer !== '—' && t.reviewer !== 'Unassigned') reviewers.add(t.reviewer);
+        if (t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned') {
+          if (knownPeople.has(t.annotator.trim().toLowerCase())) trainers.add(t.annotator);
+        }
+        if (t.reviewer && t.reviewer !== '—' && t.reviewer !== 'Unassigned') {
+          if (knownPeople.has(t.reviewer.trim().toLowerCase())) reviewers.add(t.reviewer);
+        }
         if (t.pod) pods.add(t.pod);
       });
 
-      const fillOptions = (id, set) => {
+      const fillOptions = (id, set, hasUnidentified = false) => {
         const select = document.getElementById(id);
         Array.from(set).sort().forEach(item => {
-          select.insertAdjacentHTML('beforeend', `<option value="${item}">${item}</option>`);
+          if (item !== 'UNIDENTIFIED') {
+            select.insertAdjacentHTML('beforeend', `<option value="${item}">${item}</option>`);
+          }
         });
+        if (hasUnidentified) {
+          select.insertAdjacentHTML('beforeend', `<option value="UNIDENTIFIED">Not In Chemistry (Unidentified)</option>`);
+        }
       };
 
-      fillOptions('filter-trainer', trainers);
-      fillOptions('filter-reviewer', reviewers);
-      fillOptions('filter-pod', pods);
+      fillOptions('filter-trainer', trainers, true);
+      fillOptions('filter-reviewer', reviewers, true);
+      
+      const podSelect = document.getElementById('filter-pod');
+      const podsArray = Array.from(pods).filter(p => p !== 'UNIDENTIFIED').sort();
+      podsArray.forEach(p => {
+        podSelect.insertAdjacentHTML('beforeend', `<option value="${p}">${p}</option>`);
+      });
+      if (pods.has('UNIDENTIFIED')) {
+        podSelect.insertAdjacentHTML('beforeend', `<option value="UNIDENTIFIED">UNIDENTIFIED</option>`);
+      }
     }
 
     function toggleCustomDate() {
@@ -740,7 +766,7 @@
 
       const script = document.createElement('script');
       script.id = 'offline-payload-script';
-      script.textContent = `window.__OFFLINE_PAYLOAD__ = ${JSON.stringify({ tasks: globalData, trainerToPod: trainerToPod, userToEmail: userToEmail, l2Reviewers: Array.from(l2ReviewersSet) })};`;
+      script.textContent = `window.__OFFLINE_PAYLOAD__ = ${JSON.stringify({ tasks: globalData, trainerToPod: trainerToPod, userToEmail: userToEmail, l2Reviewers: Array.from(l2ReviewersSet), knownPeople: Array.from(knownPeople) })};`;
       doc.querySelector('head').prepend(script);
 
       const htmlString = "<!DOCTYPE html>\n" + doc.outerHTML;
@@ -780,8 +806,13 @@
           }
         }
         
-        const matchTrainer = qTrainer === 'All' || t.annotator === qTrainer;
-        const matchReviewer = qReviewer === 'All' || t.reviewer === qReviewer;
+        const annKey = t.annotator ? t.annotator.trim().toLowerCase() : '';
+        const revKey = t.reviewer ? t.reviewer.trim().toLowerCase() : '';
+
+        const matchTrainer = qTrainer === 'All' || 
+                             (qTrainer === 'UNIDENTIFIED' ? !knownPeople.has(annKey) : t.annotator === qTrainer);
+        const matchReviewer = qReviewer === 'All' || 
+                              (qReviewer === 'UNIDENTIFIED' ? !knownPeople.has(revKey) : t.reviewer === qReviewer);
         const matchPod = qPod === 'All' || t.pod === qPod;
         
         let matchMilestone = true;
@@ -812,7 +843,8 @@
           }).join('');
         }
 
-        const trEmail = userToEmail[t.annotator] || (t.annotator !== 'Unassigned' ? t.annotator.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '');
+        const annotatorKey = t.annotator ? t.annotator.trim().toLowerCase() : '';
+        const trEmail = userToEmail[annotatorKey] || (t.annotator !== 'Unassigned' ? t.annotator.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '');
         const displayState = (!t.state || t.state === '') ? 'Pool / Draft' : t.state;
         const cycleCount = getReviewCycles(t);
 
@@ -856,11 +888,14 @@
       const task = globalData.find(t => t.id === id);
       if (!task) return;
 
+      const trKey = task.annotator ? task.annotator.trim().toLowerCase() : '';
+      const revKey = task.reviewer ? task.reviewer.trim().toLowerCase() : '';
+
       document.getElementById('modal-task-id').textContent = task.id;
       document.getElementById('modal-trainer-name').textContent = task.annotator;
-      document.getElementById('modal-trainer-email').textContent = userToEmail[task.annotator] || (task.annotator !== 'Unassigned' ? task.annotator.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '—');
+      document.getElementById('modal-trainer-email').textContent = userToEmail[trKey] || (task.annotator !== 'Unassigned' ? task.annotator.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '—');
       document.getElementById('modal-reviewer-name').textContent = task.reviewer;
-      document.getElementById('modal-reviewer-email').textContent = userToEmail[task.reviewer] || (task.reviewer !== '—' ? task.reviewer.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '—');
+      document.getElementById('modal-reviewer-email').textContent = userToEmail[revKey] || (task.reviewer !== '—' ? task.reviewer.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '—');
       document.getElementById('modal-domain').textContent = task.domain;
       document.getElementById('modal-date').textContent = task.submitted_at ? formatDateShort(task.submitted_at) + ', ' + new Date(task.submitted_at).getFullYear() : '—';
       
