@@ -545,55 +545,6 @@
       return task.history.some(h => h.label === 'Approved' || h.kind === 'approved' || h.state === 'Approved' || (h.label && h.label.toLowerCase().includes('l2 approved')));
     }
 
-    function getReviewers(task) {
-       let l1Rev = 'NA';
-       let l2Rev = 'NA';
-       let l1Cleared = false;
-       const annotatorLower = (task.annotator || '').toLowerCase();
-
-       if (task.history) {
-         for (let h of task.history) {
-            const actor = h.actor_name;
-            if (actor && actor !== 'System' && actor !== '—' && actor !== 'None' && actor.toLowerCase() !== annotatorLower) {
-               const kLower = (h.kind || '').toLowerCase();
-               const lLower = (h.label || '').toLowerCase();
-               const dLower = (h.detail || '').toLowerCase();
-
-               const isReviewAction = kLower.startsWith('review_') || lLower.includes('review') || kLower === 'approved' || lLower === 'approved' || lLower.includes('cleared for claim pool') || lLower.includes('advanced to l2');
-
-               if (isReviewAction) {
-                   if (!l1Cleared) {
-                       l1Rev = actor;
-                       // Check if this specific action clears L1
-                       if ((kLower === 'review_cleared' && dLower.includes('review_l2')) ||
-                           lLower.includes('cleared for claim pool') ||
-                           lLower.includes('l1 approved') ||
-                           lLower.includes('advanced to l2')) {
-                           l1Cleared = true;
-                       }
-                   } else {
-                       // Any review action after L1 is cleared is credited to L2
-                       l2Rev = actor;
-                   }
-               }
-            }
-         }
-       }
-
-       // Fallback logic
-       if (task.reviewer && task.reviewer !== '—' && task.reviewer !== 'Unassigned') {
-           if (l1Cleared) {
-               if (l2Rev === 'NA' && task.reviewer.toLowerCase() !== l1Rev.toLowerCase()) {
-                   l2Rev = task.reviewer;
-               }
-           } else {
-               if (l1Rev === 'NA') l1Rev = task.reviewer;
-           }
-       }
-
-       return { l1: l1Rev, l2: l2Rev };
-    }
-
     function getCombinedStatus(task) {
       const s = (task.state || '').toLowerCase();
       const clearedL1 = hasClearedL1(task);
@@ -1134,8 +1085,52 @@
       targetTasks.forEach((t, index) => {
         const trainer = t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned' ? t.annotator : 'Unassigned';
         const taskId = t.id || '—';
-        const revs = getReviewers(t);
-        let reviewer = revs.l1 !== 'NA' ? revs.l1 : 'None';
+        
+        // Define the exact getReviewers logic inline for the copy function
+        let l1Rev = 'NA';
+        let l2Rev = 'NA';
+        let l2StartTime = null;
+        const annotatorLower = (t.annotator || '').toLowerCase();
+
+        if (t.history) {
+          for (let h of t.history) {
+             const actor = h.actor_name;
+             const kLower = (h.kind || '').toLowerCase();
+             const dLower = (h.detail || '').toLowerCase();
+             const occurredAt = new Date(h.occurred_at).getTime();
+
+             if (kLower === 'review_assigned') {
+                 if (dLower === 'review_l1') l1Rev = actor;
+                 else if (dLower === 'review_l2') {
+                     l2Rev = actor;
+                     l2StartTime = occurredAt;
+                 }
+             } else if (kLower === 'review_cleared' && dLower.includes('review_l2')) {
+                 if (!l2StartTime || occurredAt > l2StartTime) {
+                     l2StartTime = occurredAt + 1; 
+                 }
+             }
+
+             if (actor && actor !== 'System' && actor !== '—' && actor !== 'None' && actor.toLowerCase() !== annotatorLower) {
+                if (kLower === 'review_approved' || kLower === 'review_rework' || kLower === 'review_requested' || (kLower === 'returned_to_pool' && actor !== l1Rev)) {
+                    if (l2StartTime && occurredAt >= l2StartTime) {
+                        if (l2Rev === 'NA') l2Rev = actor;
+                    } else {
+                        if (l1Rev === 'NA') l1Rev = actor;
+                    }
+                }
+             }
+          }
+        }
+        if (t.reviewer && t.reviewer !== '—' && t.reviewer !== 'Unassigned') {
+            if (hasClearedL1(t)) {
+                if (l2Rev === 'NA' && t.reviewer !== l1Rev) l2Rev = t.reviewer;
+            } else {
+                if (l1Rev === 'NA') l1Rev = t.reviewer;
+            }
+        }
+        
+        let reviewer = l1Rev !== 'NA' ? l1Rev : 'None';
         let status = getCombinedStatus(t);
 
         html += `<tr><td>${index + 1}</td><td>${trainer}</td><td>${taskId}</td><td>${reviewer}</td><td>${status}</td></tr>`;
@@ -1202,6 +1197,54 @@
       }
 
       targetTasks.sort((a, b) => new Date(b.submitted_at || 0) - new Date(a.submitted_at || 0));
+
+      function getReviewers(task) {
+         let l1Rev = 'NA';
+         let l2Rev = 'NA';
+         let l2StartTime = null;
+         const annotatorLower = (task.annotator || '').toLowerCase();
+
+         if (task.history) {
+           for (let h of task.history) {
+              const actor = h.actor_name;
+              const kLower = (h.kind || '').toLowerCase();
+              const dLower = (h.detail || '').toLowerCase();
+              const occurredAt = new Date(h.occurred_at).getTime();
+
+              if (kLower === 'review_assigned') {
+                  if (dLower === 'review_l1') l1Rev = actor;
+                  else if (dLower === 'review_l2') {
+                      l2Rev = actor;
+                      l2StartTime = occurredAt;
+                  }
+              } else if (kLower === 'review_cleared' && dLower.includes('review_l2')) {
+                  if (!l2StartTime || occurredAt > l2StartTime) {
+                      l2StartTime = occurredAt + 1; 
+                  }
+              }
+
+              if (actor && actor !== 'System' && actor !== '—' && actor !== 'None' && actor.toLowerCase() !== annotatorLower) {
+                 if (kLower === 'review_approved' || kLower === 'review_rework' || kLower === 'review_requested' || (kLower === 'returned_to_pool' && actor !== l1Rev)) {
+                     if (l2StartTime && occurredAt >= l2StartTime) {
+                         if (l2Rev === 'NA') l2Rev = actor;
+                     } else {
+                         if (l1Rev === 'NA') l1Rev = actor;
+                     }
+                 }
+              }
+           }
+         }
+
+         if (task.reviewer && task.reviewer !== '—' && task.reviewer !== 'Unassigned') {
+             if (hasClearedL1(task)) {
+                 if (l2Rev === 'NA' && task.reviewer !== l1Rev) l2Rev = task.reviewer;
+             } else {
+                 if (l1Rev === 'NA') l1Rev = task.reviewer;
+             }
+         }
+
+         return { l1: l1Rev, l2: l2Rev };
+      }
 
       const uniqueTrainers = new Set();
       const uniqueL1 = new Set();
@@ -1590,8 +1633,51 @@
         const trainer = t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned' ? t.annotator : 'Unassigned';
         const taskId = t.id || '—';
         
-        const revs = getReviewers(t);
-        const reviewer = revs.l1 !== 'NA' ? revs.l1 : 'None';
+        // Define the exact getReviewers logic inline for the copy function
+        let l1Rev = 'NA';
+        let l2Rev = 'NA';
+        let l2StartTime = null;
+        const annotatorLower = (t.annotator || '').toLowerCase();
+
+        if (t.history) {
+          for (let h of t.history) {
+             const actor = h.actor_name;
+             const kLower = (h.kind || '').toLowerCase();
+             const dLower = (h.detail || '').toLowerCase();
+             const occurredAt = new Date(h.occurred_at).getTime();
+
+             if (kLower === 'review_assigned') {
+                 if (dLower === 'review_l1') l1Rev = actor;
+                 else if (dLower === 'review_l2') {
+                     l2Rev = actor;
+                     l2StartTime = occurredAt;
+                 }
+             } else if (kLower === 'review_cleared' && dLower.includes('review_l2')) {
+                 if (!l2StartTime || occurredAt > l2StartTime) {
+                     l2StartTime = occurredAt + 1; 
+                 }
+             }
+
+             if (actor && actor !== 'System' && actor !== '—' && actor !== 'None' && actor.toLowerCase() !== annotatorLower) {
+                if (kLower === 'review_approved' || kLower === 'review_rework' || kLower === 'review_requested' || (kLower === 'returned_to_pool' && actor !== l1Rev)) {
+                    if (l2StartTime && occurredAt >= l2StartTime) {
+                        if (l2Rev === 'NA') l2Rev = actor;
+                    } else {
+                        if (l1Rev === 'NA') l1Rev = actor;
+                    }
+                }
+             }
+          }
+        }
+        if (t.reviewer && t.reviewer !== '—' && t.reviewer !== 'Unassigned') {
+            if (hasClearedL1(t)) {
+                if (l2Rev === 'NA' && t.reviewer !== l1Rev) l2Rev = t.reviewer;
+            } else {
+                if (l1Rev === 'NA') l1Rev = t.reviewer;
+            }
+        }
+        
+        const reviewer = l1Rev !== 'NA' ? l1Rev : 'None';
         const combinedStatus = getCombinedStatus(t);
         
         uniqueReviewers.add(reviewer);
