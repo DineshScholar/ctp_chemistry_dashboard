@@ -339,7 +339,6 @@
     let trainerToPod = {}; 
     let chartInstances = {};
     let chartSeriesMap = {}; 
-    let knownPeople = new Set();
     
     // Global Tooltip Store: chartId -> seriesIndex -> dataIndex -> array of FULL task IDs
     const tooltipStore = {};
@@ -364,34 +363,16 @@
         
         globalPods = rosterData.pods || [];
         globalPods.forEach(pod => {
-          pod.trainers.forEach(t => {
-            const key = t.name.trim().toLowerCase();
-            trainerToPod[key] = pod.name;
-            knownPeople.add(key);
-          });
+          pod.trainers.forEach(t => trainerToPod[t.name] = pod.name);
         });
-        
-        if (rosterData.l2_reviewers) {
-          rosterData.l2_reviewers.forEach(r => knownPeople.add(r.name.trim().toLowerCase()));
-        }
 
-        globalTasks = (taskData.tasks || []).map(t => {
-          const annKey = t.annotator ? t.annotator.trim().toLowerCase() : '';
-          
-          let podName = 'Unassigned Pod'; 
-          if (t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned') {
-             // Real name found. Default to 'UNIDENTIFIED' unless they exist in the roster pod mappings
-             podName = trainerToPod[annKey] || 'UNIDENTIFIED';
-          }
-          
-          return {
-            ...t, 
-            shortId: t.id ? t.id.split('-')[0] : 'Unknown', // Stored for display, but full t.id is retained
-            pod: podName,
-            normState: normalizeState(t.state),
-            dateStr: t.submitted_at ? t.submitted_at.split('T')[0] : null
-          };
-        }).filter(t => t.dateStr);
+        globalTasks = (taskData.tasks || []).map(t => ({ 
+          ...t, 
+          shortId: t.id ? t.id.split('-')[0] : 'Unknown', // Stored for display, but full t.id is retained
+          pod: trainerToPod[t.annotator] || 'Unassigned Pod',
+          normState: normalizeState(t.state),
+          dateStr: t.submitted_at ? t.submitted_at.split('T')[0] : null
+        })).filter(t => t.dateStr);
 
         renderOverviewCharts();
       } catch (err) {
@@ -662,10 +643,7 @@
       globalPods.forEach(p => { 
         podStats[p.name] = { name: p.name, lead: p.lead || 'Unknown', total: 0, l1Accepted: 0, rework: 0, l2Approved: 0, trainers: p.trainers.length }; 
       });
-      
-      // Auto-initialize these so they aggregate appropriately when unknown people have data
       podStats['Unassigned Pod'] = { name: 'Unassigned Pod', lead: 'N/A', total: 0, l1Accepted: 0, rework: 0, l2Approved: 0, trainers: 0 };
-      podStats['UNIDENTIFIED'] = { name: 'UNIDENTIFIED', lead: 'N/A', total: 0, l1Accepted: 0, rework: 0, l2Approved: 0, trainers: 0 };
 
       globalTasks.forEach(t => {
         if (!podStats[t.pod]) return;
@@ -860,7 +838,7 @@
       chartInstances[cIdStack].render();
     }
 
-    // --- TAB 5: L2 REVIEW (FINAL APPROVALS) ---
+    // --- TAB 5: L2 REVIEW (Final Tagging) ---
     function renderL2Charts() {
       const dates = generateDateRange(globalTasks);
       

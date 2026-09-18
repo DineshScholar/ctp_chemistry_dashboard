@@ -480,7 +480,6 @@
     let trainerToPod = {};
     let userToEmail = {};
     let l2ReviewersSet = new Set();
-    let knownPeople = new Set();
 
     function getReviewCycles(task) {
       if (task.review_cycles !== undefined) return task.review_cycles;
@@ -506,7 +505,6 @@
         trainerToPod = window.__OFFLINE_PAYLOAD__.trainerToPod || {};
         userToEmail = window.__OFFLINE_PAYLOAD__.userToEmail || {};
         l2ReviewersSet = new Set(window.__OFFLINE_PAYLOAD__.l2Reviewers || []);
-        knownPeople = new Set(window.__OFFLINE_PAYLOAD__.knownPeople || []);
         populateFilters();
         renderTable();
         return;
@@ -524,37 +522,23 @@
         if (rosterJson.pods) {
           rosterJson.pods.forEach(pod => {
             pod.trainers.forEach(t => {
-                const key = t.name.trim().toLowerCase();
-                trainerToPod[key] = pod.name;
-                if (t.email) userToEmail[key] = t.email;
-                knownPeople.add(key);
+                trainerToPod[t.name] = pod.name;
+                if (t.email) userToEmail[t.name] = t.email;
             });
           });
         }
         
         if (rosterJson.l2_reviewers) {
           rosterJson.l2_reviewers.forEach(r => {
-             const key = r.name.trim().toLowerCase();
-             l2ReviewersSet.add(key);
-             if (r.email) userToEmail[key] = r.email;
-             knownPeople.add(key);
+             l2ReviewersSet.add(r.name);
+             if (r.email) userToEmail[r.name] = r.email;
           });
         }
 
-        globalData = (json.tasks || []).map(t => {
-          const annKey = t.annotator ? t.annotator.trim().toLowerCase() : '';
-          
-          let podName = 'Unassigned Pod'; 
-          if (t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned') {
-             // Valid name exists. Assign based on roster, otherwise fallback to auto-synced UNIDENTIFIED.
-             podName = trainerToPod[annKey] || 'UNIDENTIFIED';
-          }
-          
-          return {
-            ...t,
-            pod: podName
-          };
-        });
+        globalData = (json.tasks || []).map(t => ({
+          ...t,
+          pod: trainerToPod[t.annotator] || 'Unassigned Pod'
+        }));
       } catch (err) {
         console.warn("Using fallback data or failed to fetch fully.", err);
       }
@@ -568,38 +552,21 @@
       const pods = new Set();
 
       globalData.forEach(t => {
-        const annKey = t.annotator ? t.annotator.trim().toLowerCase() : '';
-        const revKey = t.reviewer ? t.reviewer.trim().toLowerCase() : '';
-
-        if (t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned') {
-          if (knownPeople.has(annKey)) trainers.add(t.annotator);
-        }
-        if (t.reviewer && t.reviewer !== '—' && t.reviewer !== 'Unassigned') {
-          if (knownPeople.has(revKey)) reviewers.add(t.reviewer);
-        }
+        if (t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned') trainers.add(t.annotator);
+        if (t.reviewer && t.reviewer !== '—' && t.reviewer !== 'Unassigned') reviewers.add(t.reviewer);
         if (t.pod) pods.add(t.pod);
       });
 
-      const fillOptions = (id, set, unidentifiedLabel) => {
+      const fillOptions = (id, set) => {
         const select = document.getElementById(id);
         Array.from(set).sort().forEach(item => {
-          if (item !== 'UNIDENTIFIED' && item !== 'Unassigned Pod') {
-            select.insertAdjacentHTML('beforeend', `<option value="${item}">${item}</option>`);
-          }
+          select.insertAdjacentHTML('beforeend', `<option value="${item}">${item}</option>`);
         });
-        
-        // Dynamically add the fallbacks/filters to the bottom of the list
-        if (id === 'filter-pod') {
-          if (pods.has('Unassigned Pod')) select.insertAdjacentHTML('beforeend', `<option value="Unassigned Pod">Unassigned Pod</option>`);
-          if (pods.has('UNIDENTIFIED')) select.insertAdjacentHTML('beforeend', `<option value="UNIDENTIFIED">UNIDENTIFIED</option>`);
-        } else if (unidentifiedLabel) {
-          select.insertAdjacentHTML('beforeend', `<option value="UNIDENTIFIED">${unidentifiedLabel}</option>`);
-        }
       };
 
-      fillOptions('filter-trainer', trainers, 'Not In Chemistry (Unidentified)');
-      fillOptions('filter-reviewer', reviewers, 'Not In Chemistry (Unidentified)');
-      fillOptions('filter-pod', pods, null);
+      fillOptions('filter-trainer', trainers);
+      fillOptions('filter-reviewer', reviewers);
+      fillOptions('filter-pod', pods);
     }
 
     function toggleCustomDate() {
@@ -773,7 +740,7 @@
 
       const script = document.createElement('script');
       script.id = 'offline-payload-script';
-      script.textContent = `window.__OFFLINE_PAYLOAD__ = ${JSON.stringify({ tasks: globalData, trainerToPod: trainerToPod, userToEmail: userToEmail, l2Reviewers: Array.from(l2ReviewersSet), knownPeople: Array.from(knownPeople) })};`;
+      script.textContent = `window.__OFFLINE_PAYLOAD__ = ${JSON.stringify({ tasks: globalData, trainerToPod: trainerToPod, userToEmail: userToEmail, l2Reviewers: Array.from(l2ReviewersSet) })};`;
       doc.querySelector('head').prepend(script);
 
       const htmlString = "<!DOCTYPE html>\n" + doc.outerHTML;
@@ -813,18 +780,8 @@
           }
         }
         
-        const annKey = t.annotator ? t.annotator.trim().toLowerCase() : '';
-        const revKey = t.reviewer ? t.reviewer.trim().toLowerCase() : '';
-
-        const isRealAnnotator = t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned';
-        const isRealReviewer = t.reviewer && t.reviewer !== '—' && t.reviewer !== 'Unassigned';
-
-        const matchTrainer = qTrainer === 'All' || 
-                             (qTrainer === 'UNIDENTIFIED' ? (isRealAnnotator && !knownPeople.has(annKey)) : t.annotator === qTrainer);
-                             
-        const matchReviewer = qReviewer === 'All' || 
-                              (qReviewer === 'UNIDENTIFIED' ? (isRealReviewer && !knownPeople.has(revKey)) : t.reviewer === qReviewer);
-                              
+        const matchTrainer = qTrainer === 'All' || t.annotator === qTrainer;
+        const matchReviewer = qReviewer === 'All' || t.reviewer === qReviewer;
         const matchPod = qPod === 'All' || t.pod === qPod;
         
         let matchMilestone = true;
@@ -855,8 +812,7 @@
           }).join('');
         }
 
-        const annotatorKey = t.annotator ? t.annotator.trim().toLowerCase() : '';
-        const trEmail = userToEmail[annotatorKey] || (t.annotator !== 'Unassigned' ? t.annotator.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '');
+        const trEmail = userToEmail[t.annotator] || (t.annotator !== 'Unassigned' ? t.annotator.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '');
         const displayState = (!t.state || t.state === '') ? 'Pool / Draft' : t.state;
         const cycleCount = getReviewCycles(t);
 
@@ -900,14 +856,11 @@
       const task = globalData.find(t => t.id === id);
       if (!task) return;
 
-      const trKey = task.annotator ? task.annotator.trim().toLowerCase() : '';
-      const revKey = task.reviewer ? task.reviewer.trim().toLowerCase() : '';
-
       document.getElementById('modal-task-id').textContent = task.id;
       document.getElementById('modal-trainer-name').textContent = task.annotator;
-      document.getElementById('modal-trainer-email').textContent = userToEmail[trKey] || (task.annotator !== 'Unassigned' ? task.annotator.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '—');
+      document.getElementById('modal-trainer-email').textContent = userToEmail[task.annotator] || (task.annotator !== 'Unassigned' ? task.annotator.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '—');
       document.getElementById('modal-reviewer-name').textContent = task.reviewer;
-      document.getElementById('modal-reviewer-email').textContent = userToEmail[revKey] || (task.reviewer !== '—' ? task.reviewer.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '—');
+      document.getElementById('modal-reviewer-email').textContent = userToEmail[task.reviewer] || (task.reviewer !== '—' ? task.reviewer.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '—');
       document.getElementById('modal-domain').textContent = task.domain;
       document.getElementById('modal-date').textContent = task.submitted_at ? formatDateShort(task.submitted_at) + ', ' + new Date(task.submitted_at).getFullYear() : '—';
       
