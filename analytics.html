@@ -31,8 +31,9 @@
     /* Layout */
     .dashboard { padding: 32px; max-width: 1440px; margin: 0 auto; }
     
-    /* Tabs */
-    .sub-tabs { display: flex; gap: 12px; margin-bottom: 24px; border-bottom: 1px solid var(--border); padding-bottom: 16px; flex-wrap: wrap;}
+    /* Tabs & Controls */
+    .dashboard-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; border-bottom: 1px solid var(--border); padding-bottom: 16px; flex-wrap: wrap; gap: 16px; }
+    .sub-tabs { display: flex; gap: 12px; flex-wrap: wrap; }
     .sub-tabs button {
       background: transparent; border: 1px solid transparent; padding: 8px 16px;
       border-radius: 6px; font-weight: 600; color: var(--text-sub); cursor: pointer;
@@ -40,6 +41,10 @@
     }
     .sub-tabs button.active { background: var(--primary-light); color: var(--primary); border-color: #d8b4fe; }
     .sub-tabs button:hover:not(.active) { background: #f1f5f9; color: var(--text-main); }
+
+    .time-filter-select { padding: 8px 16px; border: 1px solid #cbd5e1; border-radius: 8px; font-weight: 700; color: var(--text-main); outline: none; cursor: pointer; font-size: 13px; background-color: #fff; transition: border-color 0.2s; }
+    .time-filter-select:hover { border-color: var(--primary); }
+    .time-filter-select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
 
     .tab-content { display: none; animation: fadeIn 0.3s ease; }
     .tab-content.active { display: block; }
@@ -99,8 +104,14 @@
     .progress-bar-fill { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
     
     /* Custom Tooltip Container & Interactive Elements */
-    .apexcharts-tooltip { box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1) !important; border: 1px solid #e2e0e7 !important; border-radius: 6px !important; }
-    .apexcharts-series path, .apexcharts-marker { cursor: pointer; }
+    .apexcharts-tooltip { 
+      background: transparent !important; 
+      border: none !important; 
+      box-shadow: none !important; 
+      transition: none !important;
+    }
+    .apexcharts-tooltip-title { display: none !important; }
+    .apexcharts-series path, .apexcharts-marker, .apexcharts-bar-area { cursor: pointer; }
     
     /* Toast Notification */
     .toast {
@@ -152,13 +163,24 @@
   </nav>
 
   <div class="dashboard">
-    <div class="sub-tabs">
-      <button class="active" onclick="switchTab('overview')">Overview</button>
-      <button onclick="switchTab('pods')">Pod Performance</button>
-      <button onclick="switchTab('trainers')">Trainers</button>
-      <button onclick="switchTab('reviewers')">Quality Oversight (Reviewers)</button>
-      <button onclick="switchTab('l2-review')">Final Tagging (L2 Accepted)</button>
-      <button onclick="switchTab('slack')">Slack</button>
+    <div class="dashboard-header">
+      <div class="sub-tabs">
+        <button class="active" onclick="switchTab('overview')">Overview</button>
+        <button onclick="switchTab('pods')">Pod Performance</button>
+        <button onclick="switchTab('trainers')">Trainers</button>
+        <button onclick="switchTab('reviewers')">Quality Oversight (Reviewers)</button>
+        <button onclick="switchTab('l2-review')">Final Tagging (L2 Accepted)</button>
+        <button onclick="switchTab('slack')">Slack</button>
+      </div>
+      
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <span style="font-size: 12px; font-weight: 700; color: var(--text-sub); text-transform: uppercase;">View:</span>
+        <select id="time-aggregation" class="time-filter-select" onchange="handleTimeAggregationChange()">
+          <option value="daily">Daily</option>
+          <option value="weekly">Weekly</option>
+          <option value="monthly">Monthly</option>
+        </select>
+      </div>
     </div>
 
     <!-- TAB 1: OVERVIEW -->
@@ -166,7 +188,7 @@
       <div class="chart-card">
         <div class="chart-header">
           <div class="chart-header-text">
-            <h2>TASK THROUGHPUT TIMELINE (DAILY)</h2>
+            <h2>TASK THROUGHPUT TIMELINE</h2>
             <p>Comparing total tasks submitted vs explicitly actioned reviews. Click points to copy Task IDs.</p>
           </div>
         </div>
@@ -340,6 +362,7 @@
     let trainerToPod = {}; 
     let chartInstances = {};
     let chartSeriesMap = {}; 
+    let currentTimeframe = 'daily';
     
     // Global Tooltip Store: chartId -> seriesIndex -> dataIndex -> array of FULL task IDs
     const tooltipStore = {};
@@ -423,6 +446,39 @@
       return 'Submitted';
     }
 
+    // --- Time Aggregation Logic ---
+    function formatToTimeframe(dateStr, timeframe) {
+      if (!dateStr) return null;
+      const d = new Date(dateStr);
+      if (isNaN(d)) return null;
+
+      if (timeframe === 'monthly') {
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      } else if (timeframe === 'weekly') {
+        const day = d.getDay();
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Get Monday
+        const monday = new Date(d.setDate(diff));
+        return `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')} (Wk)`;
+      }
+      return dateStr; 
+    }
+
+    function generateTimeframeBuckets(tasks, timeframe) {
+      if (tasks.length === 0) return [];
+      const formattedDates = tasks.map(t => formatToTimeframe(t.dateStr, timeframe)).filter(Boolean);
+      return [...new Set(formattedDates)].sort((a, b) => new Date(a.split(' ')[0]) - new Date(b.split(' ')[0]));
+    }
+
+    function handleTimeAggregationChange() {
+      currentTimeframe = document.getElementById('time-aggregation').value;
+      const activeTabBtn = document.querySelector('.sub-tabs button.active');
+      if (activeTabBtn) {
+        const onclickAttr = activeTabBtn.getAttribute('onclick');
+        const tabIdMatch = onclickAttr.match(/'([^']+)'/);
+        if (tabIdMatch) switchTab(tabIdMatch[1]);
+      }
+    }
+
     // --- Toast & Click-to-Copy Engine ---
     let toastTimeout;
     function showToast(msg) {
@@ -450,7 +506,6 @@
     function buildTooltipHtml(chartId, seriesIndex, dataPointIndex, w) {
       let val = 0;
       const dataObj = w.globals.initialSeries[seriesIndex].data[dataPointIndex];
-      // Handle both standard array and Object `{x,y}` data structures
       if (dataObj !== null && typeof dataObj === 'object' && 'y' in dataObj) {
         val = dataObj.y;
       } else {
@@ -459,24 +514,17 @@
       if (!val) return '';
       
       const fullIds = tooltipStore[chartId]?.[seriesIndex]?.[dataPointIndex] || [];
-      const tListShort = fullIds.map(id => id.split('-')[0]); 
-      
-      const tStr = tListShort.length > 0 
-        ? tListShort.slice(0, 8).join(', ') + (tListShort.length > 8 ? ` <br/><span style="color:#f59e0b;">(+${tListShort.length - 8} more tasks)</span>` : '') 
-        : 'None';
-      
       const seriesName = w.globals.seriesNames[seriesIndex];
       const catName = w.globals.labels[dataPointIndex] || w.globals.categoryLabels[dataPointIndex] || (dataObj && dataObj.x ? dataObj.x : '');
-      const displayTitle = catName ? `${catName} &rarr; ${seriesName}` : seriesName;
 
       return `
-        <div style="padding: 12px; font-size: 13px; background: #fff; line-height: 1.4;">
-            <div style="font-weight: 800; color: #1f1d24; margin-bottom: 6px; border-bottom: 1px solid #f1f5f9; padding-bottom: 4px;">${displayTitle}</div>
-            <div style="color: #64748b; margin-bottom: 8px;">Volume: <span style="color: #1f1d24; font-weight: 800; font-size: 14px;">${val}</span></div>
-            <div style="font-family: ui-monospace, monospace; font-size: 11px; color: #6b21a8; max-width: 250px; white-space: normal;">
-              <strong>Task IDs:</strong><br/>${tStr}
+        <div style="padding: 12px; font-family: 'Inter', sans-serif; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05); min-width: 160px;">
+            <div style="font-weight: 800; color: #64748b; margin-bottom: 6px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #f1f5f9; padding-bottom: 4px;">${catName}</div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 16px;">
+                <span style="font-size: 13px; font-weight: 600; color: #1e293b;">${seriesName}</span>
+                <span style="font-size: 18px; font-weight: 800; color: #6b21a8;">${val}</span>
             </div>
-            ${fullIds.length > 0 ? `<div style="margin-top: 10px; font-size: 10px; color: #10b981; font-weight: 800; text-transform: uppercase; background: #ecfdf5; padding: 4px 6px; border-radius: 4px; text-align: center;">👆 Click bar/point to copy all ${fullIds.length} Full IDs</div>` : ''}
+            ${fullIds.length > 0 ? `<div style="font-size: 10px; color: #047857; font-weight: 700; background: #ecfdf5; padding: 6px; border-radius: 4px; text-align: center; border: 1px solid #a7f3d0;">👆 Click bar/point to copy ${fullIds.length} ID(s)</div>` : ''}
         </div>`;
     }
 
@@ -505,31 +553,17 @@
       if (chartInstances[id]) { chartInstances[id].destroy(); delete chartInstances[id]; }
     }
 
-    function generateDateRange(tasks) {
-      if (tasks.length === 0) return [];
-      const dates = tasks.map(t => new Date(t.dateStr));
-      const minDate = new Date(Math.min(...dates));
-      const maxDate = new Date(Math.max(...dates));
-      const dateArray = [];
-      let currentDate = minDate;
-      while (currentDate <= maxDate) {
-        dateArray.push(currentDate.toISOString().split('T')[0]);
-        currentDate.setDate(currentDate.getDate() + 1);
-      }
-      return dateArray;
-    }
-
     // --- TAB 1: OVERVIEW ---
     function renderOverviewCharts() {
-      const dates = generateDateRange(globalTasks);
+      const dateBuckets = generateTimeframeBuckets(globalTasks, currentTimeframe);
       
       const cIdArea = 'overview-area-chart';
       tooltipStore[cIdArea] = [[], [], []];
       
       const sData = { sub: [], l1: [], rew: [] };
       
-      dates.forEach((d, i) => {
-        const dTasks = globalTasks.filter(t => t.dateStr === d);
+      dateBuckets.forEach((bucket, i) => {
+        const dTasks = globalTasks.filter(t => formatToTimeframe(t.dateStr, currentTimeframe) === bucket);
         const subTasks = dTasks;
         const l1Tasks = dTasks.filter(t => ['L2 Review', 'Approved'].includes(t.normState));
         const rewTasks = dTasks.filter(t => t.normState === 'Rework');
@@ -553,9 +587,9 @@
         chart: { type: 'area', height: 380, toolbar: { show: false }, fontFamily: 'Inter, sans-serif', events: getInteractiveChartEvents(cIdArea) },
         colors: ['#6b21a8', '#3b82f6', '#f59e0b'],
         dataLabels: { enabled: false }, stroke: { curve: 'smooth', width: 2 },
-        markers: { size: 3, hover: { size: 6 } }, 
+        markers: { size: 4, hover: { size: 6 } }, 
         fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0.05, stops: [0, 90, 100] } },
-        xaxis: { categories: dates, type: 'category', tickAmount: 10, labels: { style: { colors: '#64748b' } } },
+        xaxis: { categories: dateBuckets, type: 'category', tickAmount: 10, labels: { style: { colors: '#64748b' } } },
         yaxis: { labels: { style: { colors: '#64748b' } } },
         legend: { position: 'top', horizontalAlign: 'right' },
         grid: { borderColor: '#f1f5f9', strokeDashArray: 4 },
@@ -564,6 +598,7 @@
       chartInstances[cIdArea] = new ApexCharts(document.querySelector(`#${cIdArea}`), areaOptions);
       chartInstances[cIdArea].render();
 
+      // Pod comparison chart isn't time-based, it's total volume aggregated
       const cIdBar = 'overview-bar-chart';
       tooltipStore[cIdBar] = [[], [], []];
       const podNames = [...new Set(globalTasks.map(t => t.pod))].sort();
@@ -605,9 +640,9 @@
       chartInstances[cIdBar].render();
     }
 
-    // --- SHARED LINE CHART LOGIC WITH CUSTOM LEGEND & FULL ID STORE ---
+    // --- SHARED LINE CHART LOGIC WITH CUSTOM LEGEND ---
     function renderLineChartWithCustomLegend(chartId, legendTitleId, legendChipsId, roleField) {
-      const dates = generateDateRange(globalTasks);
+      const dateBuckets = generateTimeframeBuckets(globalTasks, currentTimeframe);
       let entities = (roleField === 'pod') ? [...new Set(globalTasks.map(t => t.pod))].sort() 
                      : [...new Set(globalTasks.map(t => t[roleField]).filter(p => p && p !== '—' && p !== 'Unassigned'))].sort();
       
@@ -616,9 +651,9 @@
 
       const seriesData = entities.map((e, sIdx) => {
         tooltipStore[chartId][sIdx] = [];
-        const data = dates.map((d, dIdx) => {
-          const tasks = globalTasks.filter(t => t[roleField] === e && t.dateStr === d);
-          tooltipStore[chartId][sIdx][dIdx] = tasks.map(t => t.id); // Full IDs
+        const data = dateBuckets.map((bucket, dIdx) => {
+          const tasks = globalTasks.filter(t => t[roleField] === e && formatToTimeframe(t.dateStr, currentTimeframe) === bucket);
+          tooltipStore[chartId][sIdx][dIdx] = tasks.map(t => t.id);
           return tasks.length;
         });
         return { name: e, data };
@@ -631,7 +666,7 @@
         colors: MULTI_COLORS,
         stroke: { curve: 'smooth', width: 2 },
         markers: { size: 4, hover: { size: 6 } }, 
-        xaxis: { categories: dates, type: 'category', tickAmount: 10, labels: { style: { colors: '#64748b' } } },
+        xaxis: { categories: dateBuckets, type: 'category', tickAmount: 10, labels: { style: { colors: '#64748b' } } },
         yaxis: { labels: { style: { colors: '#64748b' } } },
         legend: { show: false }, 
         grid: { borderColor: '#f1f5f9', strokeDashArray: 4 },
@@ -769,7 +804,7 @@
         chart: { type: 'bar', height: 420, stacked: true, toolbar: { show: false }, fontFamily: 'Inter, sans-serif', events: getInteractiveChartEvents(cIdStack) },
         colors: statuses.map(s => STATUS_COLORS[s]),
         plotOptions: { bar: { horizontal: false, borderRadius: 2 } },
-        xaxis: { labels: { style: { colors: '#64748b' } } }, // Removed categories to rely on X mappings
+        xaxis: { labels: { style: { colors: '#64748b' } } },
         yaxis: { labels: { style: { colors: '#64748b' } } },
         legend: { position: 'top', horizontalAlign: 'right' },
         tooltip: { custom: function(opt) { return buildTooltipHtml(cIdStack, opt.seriesIndex, opt.dataPointIndex, opt.w); } }
@@ -786,9 +821,7 @@
     }
 
     function renderTrainerCharts() {
-      if (!chartInstances['trainer-line-chart']) {
-        renderLineChartWithCustomLegend('trainer-line-chart', 'trainer-legend-title', 'trainer-legend-chips', 'annotator');
-      }
+      renderLineChartWithCustomLegend('trainer-line-chart', 'trainer-legend-title', 'trainer-legend-chips', 'annotator');
 
       const trainerStats = {};
       globalTasks.forEach(t => {
@@ -841,7 +874,7 @@
     }
 
     function renderReviewerCharts() {
-      const dates = generateDateRange(globalTasks);
+      const dateBuckets = generateTimeframeBuckets(globalTasks, currentTimeframe);
       
       // Calculate TRUE distinct reviewer final actions directly from history
       const revStats = {};
@@ -849,7 +882,6 @@
       globalTasks.forEach(t => {
         if (!t.history) return;
         
-        // Find the LAST action applied by EACH distinct reviewer for this single task
         const reviewerLastAction = {};
         const reviewerLastDate = {};
         
@@ -864,27 +896,24 @@
           else if (lLower.includes('rework')) actionType = 'Rework Assigned';
           else if (lLower.includes('quarantine')) actionType = 'Quarantined';
           
-          // Overwrites naturally as we loop through chronological history -> leaving the final determination
           if (actionType) {
             reviewerLastAction[actor] = actionType;
             reviewerLastDate[actor] = h.occurred_at ? h.occurred_at.split('T')[0] : t.dateStr;
           }
         });
         
-        // Apply only the final action per task to the global reviewer statistics
         Object.keys(reviewerLastAction).forEach(actor => {
           const finalAction = reviewerLastAction[actor];
-          const actionDate = reviewerLastDate[actor];
+          const actionDateBucket = formatToTimeframe(reviewerLastDate[actor], currentTimeframe);
           
           if (!revStats[actor]) {
             revStats[actor] = { total: 0, byStatus: { 'Accepted': [], 'Rework Assigned': [], 'Quarantined': [] }, dates: {} };
           }
-          
-          if (!revStats[actor].dates[actionDate]) revStats[actor].dates[actionDate] = [];
+          if (!revStats[actor].dates[actionDateBucket]) revStats[actor].dates[actionDateBucket] = [];
           
           revStats[actor].total++;
           revStats[actor].byStatus[finalAction].push(t.id);
-          revStats[actor].dates[actionDate].push(t.id);
+          revStats[actor].dates[actionDateBucket].push(t.id);
         });
       });
 
@@ -897,8 +926,8 @@
 
       const seriesData = reviewers.map((rev, sIdx) => {
         tooltipStore[cIdLine][sIdx] = [];
-        const data = dates.map((d, dIdx) => {
-          const tasks = revStats[rev].dates[d] || [];
+        const data = dateBuckets.map((bucket, dIdx) => {
+          const tasks = revStats[rev].dates[bucket] || [];
           tooltipStore[cIdLine][sIdx][dIdx] = tasks;
           return tasks.length;
         });
@@ -912,7 +941,7 @@
         colors: MULTI_COLORS,
         stroke: { curve: 'smooth', width: 2 },
         markers: { size: 4, hover: { size: 6 } }, 
-        xaxis: { categories: dates, type: 'category', tickAmount: 10, labels: { style: { colors: '#64748b' } } },
+        xaxis: { categories: dateBuckets, type: 'category', tickAmount: 10, labels: { style: { colors: '#64748b' } } },
         yaxis: { labels: { style: { colors: '#64748b' } } },
         legend: { show: false }, 
         grid: { borderColor: '#f1f5f9', strokeDashArray: 4 },
@@ -934,7 +963,7 @@
       });
       chipContainer.innerHTML = chipHtml;
 
-      // Stacked Bar Chart Setup (Fixed Name Rendering)
+      // Stacked Bar Chart Setup
       const cIdStack = 'reviewer-stacked-chart';
       tooltipStore[cIdStack] = [];
       
@@ -949,7 +978,6 @@
         const data = topReviewers.map((rev, rIdx) => {
           const tasks = revStats[rev].byStatus[status] || [];
           tooltipStore[cIdStack][sIdx][rIdx] = tasks;
-          // Format changed to {x,y} to strictly bind string categories to the left margin
           return { x: rev, y: tasks.length };
         });
         return { name: status, data };
@@ -976,13 +1004,13 @@
 
     // --- TAB 5: L2 REVIEW (FINAL APPROVALS) ---
     function renderL2Charts() {
-      const dates = generateDateRange(globalTasks);
+      const dateBuckets = generateTimeframeBuckets(globalTasks, currentTimeframe);
       
       const cIdTL = 'l2-timeline-chart';
       tooltipStore[cIdTL] = [[]];
       
-      const approvedData = dates.map((d, dIdx) => {
-        const tasks = globalTasks.filter(t => t.normState === 'Approved' && t.dateStr === d);
+      const approvedData = dateBuckets.map((bucket, dIdx) => {
+        const tasks = globalTasks.filter(t => t.normState === 'Approved' && formatToTimeframe(t.dateStr, currentTimeframe) === bucket);
         tooltipStore[cIdTL][0][dIdx] = tasks.map(t => t.id);
         return tasks.length;
       });
@@ -995,7 +1023,7 @@
         dataLabels: { enabled: false }, stroke: { curve: 'smooth', width: 2 },
         markers: { size: 4, hover: { size: 6 } }, 
         fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0.05, stops: [0, 90, 100] } },
-        xaxis: { categories: dates, type: 'category', tickAmount: 10, labels: { style: { colors: '#64748b' } } },
+        xaxis: { categories: dateBuckets, type: 'category', tickAmount: 10, labels: { style: { colors: '#64748b' } } },
         yaxis: { labels: { style: { colors: '#64748b' } } },
         grid: { borderColor: '#f1f5f9', strokeDashArray: 4 },
         tooltip: { custom: function(opt) { return buildTooltipHtml(cIdTL, opt.seriesIndex, opt.dataPointIndex, opt.w); } }
@@ -1051,7 +1079,6 @@
     function renderSlackTab() {
       const slackData = {}; 
       
-      // Filter out tasks that are finalized (Approved). Collect pending for the hierarchy.
       globalTasks.forEach(t => {
         if (t.normState === 'Approved') return; 
         if (!t.annotator || t.annotator === '—' || t.annotator === 'Unassigned') return;
