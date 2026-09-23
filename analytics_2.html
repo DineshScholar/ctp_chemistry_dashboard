@@ -45,6 +45,7 @@
     .chart-meta { font-size: 12px; color: #94a3b8; font-weight: 500; margin-top: 4px; display: block; }
     
     .canvas-container { position: relative; width: 100%; transition: height 0.3s ease; }
+    .line-container { position: relative; width: 100%; height: 450px; display: none; } 
 
     #period-grid-container {
       display: none; 
@@ -89,7 +90,7 @@
       <div class="filter-group">
         <span class="filter-label">Time Aggregation</span>
         <select id="filter-agg" class="filter-select" onchange="triggerReRender()">
-          <option value="daily" selected>Daily Blocks</option>
+          <option value="daily" selected>Daily Trend</option>
           <option value="weekly">Weekly Blocks</option>
           <option value="monthly">Monthly Blocks</option>
         </select>
@@ -156,15 +157,16 @@
         <div class="chart-header">
           <div>
             <h2 id="period-chart-title">Period Analysis</h2>
-            <span class="chart-meta" id="period-chart-meta">Dynamically adapts to Daily, Weekly, or Monthly grids</span>
+            <span class="chart-meta" id="period-chart-meta">Dynamically adapts to Daily, Weekly, or Monthly views</span>
           </div>
           <select id="chart-view-mode" class="filter-select" style="width:auto; padding: 8px 16px; background: var(--primary-light); color: var(--primary);" onchange="triggerPeriodRender()">
-            <option value="status_default">Status: Primary View (Donut)</option>
-            <option value="status_bar" selected>Status: Stacked / Bar View</option>
+            <option value="status_default" selected>Status: Primary View (Line / Donut)</option>
+            <option value="status_bar">Status: Stacked / Bar View</option>
             <option value="rework_bar">Rework Cycles: Friction Analysis (Bar View)</option>
           </select>
         </div>
         
+        <div class="line-container" id="line-chart-container"></div>
         <div id="period-grid-container"></div>
       </div>
     </div>
@@ -180,6 +182,7 @@
     let filteredTasks = [];
     
     let sankeyChart = null;
+    let lineChart = null;
     let gridCharts = []; 
 
     const STATUS_COLORS = {
@@ -473,12 +476,74 @@
     function triggerPeriodRender() {
         const timeframe = document.getElementById('filter-agg').value;
         const viewMode = document.getElementById('chart-view-mode').value;
-        renderPeriodGrid(timeframe, viewMode);
+
+        if (timeframe === 'daily') {
+            renderDailyChart(viewMode);
+        } else {
+            renderPeriodGrid(timeframe, viewMode);
+        }
     }
 
-    // --- Chart 2: Daily/Weekly/Monthly Grid (Donut / Bar) ---
+    // --- Chart 1: Daily Area Line & Bar Charts ---
+    function renderDailyChart(mode) {
+      document.getElementById('period-chart-title').innerText = mode === 'rework_bar' ? "Daily Rework Cycle Friction" : "Daily Status Trends";
+      document.getElementById('period-grid-container').style.display = 'none';
+      
+      const lineContainer = document.getElementById('line-chart-container');
+      lineContainer.style.display = 'block';
+
+      if (lineChart) lineChart.dispose();
+      lineChart = echarts.init(lineContainer);
+
+      const buckets = getUniqueBuckets(filteredTasks);
+      
+      if (buckets.length === 0) {
+        lineContainer.innerHTML = '<div style="color: #64748b; padding: 40px; text-align: center;">No data available.</div>';
+        return;
+      }
+
+      let seriesData = [];
+      let isStackedBar = mode === 'status_bar' || mode === 'rework_bar';
+      
+      if (mode === 'rework_bar') {
+          const categories = Object.keys(REWORK_COLORS);
+          seriesData = categories.map(cat => ({
+              name: cat, type: 'bar', stack: 'total',
+              itemStyle: { color: REWORK_COLORS[cat] },
+              data: buckets.map(b => filteredTasks.filter(t => t.bucket === b && t.reworkCategory === cat).length)
+          })).filter(s => s.data.some(v => v > 0));
+      } else {
+          const statuses = Object.keys(STATUS_COLORS);
+          seriesData = statuses.map(status => ({
+              name: status, 
+              type: isStackedBar ? 'bar' : 'line', 
+              stack: isStackedBar ? 'total' : null,
+              smooth: !isStackedBar,
+              symbol: !isStackedBar ? 'circle' : 'none',
+              symbolSize: 6,
+              areaStyle: !isStackedBar ? { opacity: 0.15 } : null,
+              lineStyle: !isStackedBar ? { width: 3 } : null,
+              itemStyle: { color: STATUS_COLORS[status] },
+              emphasis: { focus: 'series' },
+              data: buckets.map(b => filteredTasks.filter(t => t.bucket === b && t.combinedStatus === status).length)
+          })).filter(s => s.data.some(v => v > 0));
+      }
+
+      const option = {
+          tooltip: { trigger: 'axis', axisPointer: { type: isStackedBar ? 'shadow' : 'cross', label: { backgroundColor: '#6b21a8' } }, textStyle: { fontFamily: 'Inter' } },
+          legend: { data: seriesData.map(s => s.name), bottom: 0, textStyle: { fontFamily: 'Inter', fontSize: 12, color: '#475569' } },
+          grid: { left: '3%', right: '4%', bottom: '15%', top: '5%', containLabel: true },
+          xAxis: [{ type: 'category', boundaryGap: isStackedBar, data: buckets, axisLabel: { fontFamily: 'Inter', color: '#64748b' }, axisLine: { lineStyle: { color: '#e2e8f0' } } }],
+          yAxis: [{ type: 'value', axisLabel: { fontFamily: 'Inter', color: '#64748b' }, splitLine: { lineStyle: { color: '#f1f5f9', type: 'dashed' } } }],
+          series: seriesData
+      };
+      lineChart.setOption(option);
+    }
+
+    // --- Chart 2: Weekly/Monthly Grid (Donut / Bar) ---
     function renderPeriodGrid(timeframe, mode) {
       document.getElementById('period-chart-title').innerText = mode === 'rework_bar' ? `${timeframe.charAt(0).toUpperCase() + timeframe.slice(1)} Rework Cycles` : `${timeframe.charAt(0).toUpperCase() + timeframe.slice(1)} Status Distribution`;
+      document.getElementById('line-chart-container').style.display = 'none';
 
       const container = document.getElementById('period-grid-container');
       container.style.display = 'grid';
@@ -650,6 +715,7 @@
 
     window.addEventListener('resize', () => {
       if (sankeyChart) sankeyChart.resize();
+      if (lineChart && document.getElementById('filter-agg').value === 'daily') lineChart.resize();
       if (gridCharts.length > 0) gridCharts.forEach(chart => chart.resize());
     });
 
