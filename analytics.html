@@ -22,99 +22,100 @@
     * { box-sizing: border-box; }
     body { font-family: 'Inter', system-ui, sans-serif; background-color: var(--bg-page); color: var(--text-main); margin: 0; padding: 0; }
     
+    /* Navigation */
     nav { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 0 32px; display: flex; gap: 30px; }
     nav a { text-decoration: none; color: var(--text-sub); font-weight: 600; font-size: 14px; padding: 20px 0; border-bottom: 2px solid transparent; transition: color 0.2s; }
     nav a.active { color: var(--primary); border-bottom-color: var(--primary); }
     nav a:hover:not(.active) { color: var(--text-main); }
 
+    /* Layout & Controls */
     .dashboard { padding: 32px; max-width: 1440px; margin: 0 auto; }
-    
     .dashboard-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; border-bottom: 1px solid var(--border); padding-bottom: 16px; flex-wrap: wrap; gap: 16px; }
     .sub-tabs { display: flex; gap: 12px; flex-wrap: wrap; }
-    .sub-tabs button {
-      background: transparent; border: 1px solid transparent; padding: 8px 16px;
-      border-radius: 6px; font-weight: 600; color: var(--text-sub); cursor: pointer;
-      transition: all 0.2s ease; font-size: 14px;
-    }
+    .sub-tabs button { background: transparent; border: 1px solid transparent; padding: 8px 16px; border-radius: 6px; font-weight: 600; color: var(--text-sub); cursor: pointer; transition: all 0.2s ease; font-size: 14px; }
     .sub-tabs button.active { background: var(--primary-light); color: var(--primary); border-color: #d8b4fe; }
     .sub-tabs button:hover:not(.active) { background: #f1f5f9; color: var(--text-main); }
 
-    .time-filter-select { padding: 8px 16px; border: 1px solid #cbd5e1; border-radius: 8px; font-weight: 700; color: var(--text-main); outline: none; cursor: pointer; font-size: 13px; background-color: #fff; transition: border-color 0.2s; }
-    .time-filter-select:hover { border-color: var(--primary); }
-    .time-filter-select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
+    .filters-group { display: flex; align-items: center; gap: 12px; background: white; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+    .filter-label { font-size: 11px; font-weight: 800; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.05em; }
+    .filter-select { padding: 6px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-weight: 600; color: var(--text-main); outline: none; cursor: pointer; font-size: 13px; background-color: #f8fafc; transition: border-color 0.2s; }
+    .filter-select:hover { border-color: var(--primary); }
+    .filter-select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); background: #fff;}
 
     .tab-content { display: none; animation: fadeIn 0.3s ease; }
     .tab-content.active { display: block; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
 
-    .chart-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 24px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); margin-bottom: 24px; transition: height 0.3s ease; }
+    /* Layout Grids */
+    .grid-2-col { display: grid; grid-template-columns: 2fr 1fr; gap: 24px; margin-bottom: 24px; }
+    .grid-1-col { display: grid; grid-template-columns: 1fr; gap: 24px; margin-bottom: 24px; }
+
+    /* Chart Cards */
+    .chart-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 24px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); display: flex; flex-direction: column; }
     .chart-header { margin-bottom: 16px; display: flex; justify-content: space-between; align-items: flex-start; }
     .chart-header-text h2 { margin: 0 0 6px 0; font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-main); display: flex; align-items: center; gap: 8px; }
     .chart-header-text p { margin: 0; font-size: 12px; color: var(--text-sub); }
-    
-    .chart-controls { display: flex; gap: 8px; align-items: center; }
-    .chart-type-toggle { display: inline-flex; background: #f1f5f9; border-radius: 6px; padding: 3px; }
-    .chart-type-toggle button { background: transparent; border: none; padding: 6px 12px; border-radius: 4px; font-size: 11px; font-weight: 700; color: #64748b; cursor: pointer; transition: all 0.2s; }
-    .chart-type-toggle button.active { background: white; color: var(--primary); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .canvas-container { position: relative; width: 100%; min-height: 380px; flex-grow: 1; }
 
-    .canvas-container { position: relative; width: 100%; min-height: 380px; }
-
-    .btn-action { background: var(--primary-light); color: var(--primary); border: 1px solid #d8b4fe; padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; transition: 0.2s; }
+    /* Action Buttons & Helpers */
+    .btn-action { background: var(--primary-light); color: var(--primary); border: 1px solid #d8b4fe; padding: 6px 14px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; transition: 0.2s; white-space: nowrap; }
     .btn-action:hover { background: #e9d5ff; }
+    .helper-text { font-size: 11px; color: var(--secondary); font-weight: 700; background: var(--success-light); padding: 4px 8px; border-radius: 4px; display: inline-block; margin-top: 8px; border: 1px solid #a7f3d0;}
 
+    /* Interactive Custom Legend Panels */
     .custom-legend-panel { margin-top: 20px; border-top: 1px solid #f1f5f9; padding-top: 16px; }
     .legend-panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
     .legend-title { font-size: 11px; font-weight: 800; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.05em; }
     .legend-actions button { background: none; border: none; font-size: 11px; font-weight: 700; color: var(--primary); cursor: pointer; padding: 0 4px; }
     .legend-actions button:hover { text-decoration: underline; }
-    .legend-chips { display: flex; flex-wrap: wrap; gap: 10px; }
-    
-    .legend-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--border); border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s; user-select: none; background: #fff; }
+    .legend-chips { display: flex; flex-wrap: wrap; gap: 8px; max-height: 120px; overflow-y: auto; padding-right: 8px; }
+    .legend-chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border: 1px solid var(--border); border-radius: 20px; font-size: 11px; font-weight: 600; cursor: pointer; transition: all 0.2s; user-select: none; background: #fff; }
     .legend-chip:hover { background: #f8fafc; border-color: #cbd5e1; }
     .legend-chip.inactive { opacity: 0.4; background: #f1f5f9; text-decoration: line-through; }
-    .legend-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
 
+    /* Pod Cards UI */
     .pod-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 24px; margin-bottom: 24px; }
     .pod-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); display: flex; flex-direction: column; }
     .pod-card-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid #f1f5f9; padding-bottom: 16px; margin-bottom: 16px; }
     .pod-title { font-size: 16px; font-weight: 800; color: var(--primary); display: flex; align-items: center; gap: 6px; }
     .pod-meta { font-size: 12px; color: var(--text-sub); margin-top: 6px; display: flex; flex-direction: column; gap: 2px;}
-    .pod-lead { font-weight: 600; color: var(--text-main); }
-    
     .metric-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
     .metric-box { border: 1px solid #f1f5f9; border-radius: 8px; padding: 10px; background: #faf9fb; }
     .metric-label { font-size: 10px; font-weight: 800; text-transform: uppercase; color: var(--text-sub); margin-bottom: 4px; letter-spacing: 0.05em; }
     .metric-value { font-size: 20px; font-weight: 800; }
-    
-    .val-total { color: var(--text-main); }
-    .val-l1 { color: var(--info); }
-    .val-rework { color: var(--warning); }
-    .val-l2 { color: var(--secondary); }
-
     .progress-group { display: flex; flex-direction: column; gap: 12px; margin-top: auto; }
     .progress-item { font-size: 11px; font-weight: 600; color: var(--text-sub); }
     .progress-header { display: flex; justify-content: space-between; margin-bottom: 4px; }
     .progress-bar-bg { width: 100%; height: 6px; background: #f1f5f9; border-radius: 4px; overflow: hidden; }
     .progress-bar-fill { height: 100%; border-radius: 4px; transition: width 0.5s ease; }
-    
-    .apexcharts-tooltip { background: transparent !important; border: none !important; box-shadow: none !important; transition: none !important; }
+
+    /* Custom Tooltips */
+    .apexcharts-tooltip { background: transparent !important; border: none !important; box-shadow: none !important; transition: none !important; overflow: visible !important;}
     .apexcharts-tooltip-title { display: none !important; }
     .apexcharts-series path, .apexcharts-marker, .apexcharts-bar-area { cursor: pointer; }
     
+    .custom-tt { background: #ffffff; border: 1px solid #cbd5e1; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05); padding: 12px; min-width: 180px; font-family: 'Inter', sans-serif; z-index: 99; position: relative;}
+    .custom-tt-header { font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #f1f5f9; padding-bottom: 6px; margin-bottom: 8px; }
+    .custom-tt-body { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 16px; }
+    .custom-tt-series { font-size: 13px; font-weight: 600; color: #1e293b; display: flex; align-items: center; gap: 6px;}
+    .custom-tt-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+    .custom-tt-val { font-size: 18px; font-weight: 800; color: #0f172a; }
+    .custom-tt-footer { font-size: 10px; color: #047857; font-weight: 700; background: #ecfdf5; padding: 6px; border-radius: 4px; text-align: center; border: 1px solid #a7f3d0; cursor: pointer;}
+    
+    /* Toast */
     .toast { position: fixed; bottom: 40px; left: 50%; transform: translateX(-50%) translateY(100px); background: #1f1d24; color: #fff; padding: 12px 24px; border-radius: 8px; font-size: 14px; font-weight: 600; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.2); opacity: 0; transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55); z-index: 9999; display: flex; align-items: center; gap: 10px; }
     .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
 
+    /* Slack */
     .slack-container { max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; padding: 10px; }
     .slack-box { background: var(--bg-card); border: 2px solid var(--border); border-radius: 12px; padding: 20px; transition: border-color 0.2s; cursor: pointer; }
     .slack-box:hover { border-color: var(--primary); }
     .slack-box-label { font-size: 11px; font-weight: 800; color: var(--text-sub); text-transform: uppercase; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
-    
     .slack-rev-box { border: 2px dashed #cbd5e1; border-radius: 10px; padding: 16px; margin-bottom: 16px; background: #f8fafc; cursor: pointer; transition: border-color 0.2s;}
     .slack-rev-box:hover { border-color: var(--info); }
-    
     .slack-train-box { border: 2px solid #e2e8f0; border-radius: 8px; padding: 16px; margin-top: 12px; background: #ffffff; cursor: pointer; transition: border-color 0.2s; }
     .slack-train-box:hover { border-color: var(--secondary); }
-    
     .slack-text { font-family: ui-monospace, monospace; font-size: 13px; color: var(--text-main); line-height: 1.5; margin: 0; }
     .no-select { user-select: none; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; }
   </style>
@@ -134,196 +135,181 @@
         <button onclick="switchTab('pods')">Pod Performance</button>
         <button onclick="switchTab('trainers')">Trainers</button>
         <button onclick="switchTab('reviewers')">Quality Oversight (Reviewers)</button>
-        <button onclick="switchTab('l2-review')">Final Tagging (L2 Accepted)</button>
+        <button onclick="switchTab('l2-review')">Final Tagging (L2)</button>
         <button onclick="switchTab('slack')">Slack Integration</button>
       </div>
       
-      <div style="display: flex; align-items: center; gap: 12px;">
-        <span style="font-size: 12px; font-weight: 700; color: var(--text-sub); text-transform: uppercase;">Time Aggregation:</span>
-        <select id="time-aggregation" class="time-filter-select" onchange="handleTimeAggregationChange()">
-          <option value="daily" selected>Daily View</option>
-          <option value="weekly">Weekly View</option>
-          <option value="monthly">Monthly View</option>
+      <div class="filters-group">
+        <span class="filter-label">Date Range:</span>
+        <select id="filter-daterange" class="filter-select" onchange="triggerReRender()">
+          <option value="7">Last 7 Days</option>
+          <option value="30" selected>Last 30 Days</option>
+          <option value="90">Last 90 Days</option>
+          <option value="all">All Time</option>
+        </select>
+        
+        <span class="filter-label" style="border-left: 1px solid #e2e8f0; padding-left: 12px;">Grouping:</span>
+        <select id="time-aggregation" class="filter-select" onchange="triggerReRender()">
+          <option value="daily" selected>Daily</option>
+          <option value="weekly">Weekly</option>
+          <option value="monthly">Monthly</option>
         </select>
       </div>
     </div>
 
     <!-- TAB 1: OVERVIEW -->
     <div id="tab-overview" class="tab-content active">
-      <div class="chart-card">
-        <div class="chart-header">
-          <div class="chart-header-text">
-            <h2>TASK THROUGHPUT TIMELINE</h2>
-            <p>Comparing total tasks submitted vs cleared. Data bucketed by selected Time Aggregation. Click plots to copy Task IDs.</p>
-          </div>
-          <div class="chart-controls">
-            <div class="chart-type-toggle">
-              <button class="active" onclick="setChartType('overview-area-chart', 'area', this)">Line View</button>
-              <button onclick="setChartType('overview-area-chart', 'bar', this)">Bar View</button>
+      <div class="grid-2-col">
+        <div class="chart-card">
+          <div class="chart-header">
+            <div class="chart-header-text">
+              <h2>TEAM SUBMISSION COHORTS OVER TIME</h2>
+              <p>Tracks tasks submitted in the selected period, categorized by their *current* ledger status.</p>
+              <span class="helper-text">💡 Click any segment to copy underlying Task IDs.</span>
             </div>
           </div>
+          <div class="canvas-container" id="overview-area-chart"></div>
         </div>
-        <div class="canvas-container" id="overview-area-chart"></div>
-      </div>
 
-      <div class="chart-card">
-        <div class="chart-header">
-          <div class="chart-header-text">
-            <h2>POD SIDE-BY-SIDE COMPARISON (ALL-TIME VOLUME)</h2>
-            <p>Direct volume breakdown across pods for all loaded history. Click bars to copy full Task IDs.</p>
+        <div class="chart-card">
+          <div class="chart-header">
+            <div class="chart-header-text">
+              <h2>CURRENT STATE DISTRIBUTION</h2>
+              <p>Overall makeup of tasks submitted in this period.</p>
+            </div>
           </div>
+          <div class="canvas-container" id="overview-donut-chart" style="min-height: 300px;"></div>
         </div>
-        <div class="canvas-container" id="overview-bar-chart"></div>
       </div>
     </div>
 
     <!-- TAB 2: PODS -->
     <div id="tab-pods" class="tab-content">
-      <div class="chart-card">
-        <div class="chart-header">
-          <div class="chart-header-text">
-            <h2>POD SUBMISSION VOLUME OVER TIME</h2>
-            <p>1 Line/Column = 1 Pod's Task Volume in the given period. Click plots to copy IDs.</p>
-          </div>
-          <div class="chart-controls">
-            <div class="chart-type-toggle">
-              <button class="active" onclick="setChartType('pod-line-chart', 'line', this)">Line View</button>
-              <button onclick="setChartType('pod-line-chart', 'bar', this)">Bar View</button>
+      <div class="grid-1-col">
+        <div class="chart-card">
+          <div class="chart-header">
+            <div class="chart-header-text">
+              <h2>POD SUBMISSION VOLUME TIMELINE</h2>
+              <p>Total tasks submitted by each pod over time. Use legends to isolate pods.</p>
+              <span class="helper-text">💡 Click data points to copy Task IDs.</span>
             </div>
+          </div>
+          <div class="canvas-container" id="pod-line-chart"></div>
+          <div class="custom-legend-panel">
+            <div class="legend-panel-header">
+              <span class="legend-title" id="pod-legend-title">TOGGLE POD LINES:</span>
+              <div class="legend-actions">
+                <button onclick="toggleAllSeries('pod-line-chart', true)">Select All</button> |
+                <button onclick="toggleAllSeries('pod-line-chart', false)">Deselect All</button>
+              </div>
+            </div>
+            <div class="legend-chips" id="pod-legend-chips"></div>
           </div>
         </div>
-        <div class="canvas-container" id="pod-line-chart"></div>
-        <div class="custom-legend-panel">
-          <div class="legend-panel-header">
-            <span class="legend-title" id="pod-legend-title">TOGGLE POD LINES:</span>
-            <div class="legend-actions">
-              <button onclick="toggleAllSeries('pod-line-chart', true)">Select All</button> |
-              <button onclick="toggleAllSeries('pod-line-chart', false)">Deselect All</button>
+      </div>
+
+      <div class="grid-2-col">
+        <div class="chart-card" style="grid-column: span 2;">
+          <div class="chart-header">
+            <div class="chart-header-text">
+              <h2>POD LEDGER STATUS BREAKDOWN</h2>
+              <p>100% Stacked Bar visualizing the proportional quality/progress of each Pod's submitted tasks.</p>
             </div>
           </div>
-          <div class="legend-chips" id="pod-legend-chips"></div>
+          <div class="canvas-container" id="pod-stacked-chart" style="min-height: 350px;"></div>
         </div>
       </div>
 
       <div class="pod-grid" id="pod-cards-container"></div>
-      
-      <div class="chart-card">
-        <div class="chart-header">
-          <div class="chart-header-text">
-            <h2>POD TASK STATUS BREAKDOWN</h2>
-            <p>Current ledger state distribution of all tasks assigned to pods. Categorized strictly by Ledger logic. Click bars to copy Task IDs.</p>
-          </div>
-        </div>
-        <div class="canvas-container" id="pod-stacked-chart"></div>
-      </div>
     </div>
 
     <!-- TAB 3: TRAINERS -->
     <div id="tab-trainers" class="tab-content">
-      <div class="chart-card">
-        <div class="chart-header">
-          <div class="chart-header-text">
-            <h2>ALL TRAINERS OUTPUT OVER TIME</h2>
-            <p>1 Line/Column = 1 Trainer's Task Submission Volume. Click plots to copy IDs.</p>
+      <div class="grid-1-col">
+        <div class="chart-card">
+          <div class="chart-header">
+            <div class="chart-header-text">
+              <h2>TOP TRAINERS BY SUBMISSION STATUS</h2>
+              <p>Pipeline distribution for top producing trainers in the selected timeframe.</p>
+              <span class="helper-text">💡 Click bars to copy specific Task IDs.</span>
+            </div>
+            <button id="trainer-toggle-btn" class="btn-action" onclick="toggleTrainerLimit()">Show All Trainers</button>
           </div>
-          <div class="chart-controls">
-            <div class="chart-type-toggle">
-              <button class="active" onclick="setChartType('trainer-line-chart', 'line', this)">Line View</button>
-              <button onclick="setChartType('trainer-line-chart', 'bar', this)">Bar View</button>
+          <div class="canvas-container" id="trainer-stacked-chart" style="min-height: 400px;"></div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-header">
+            <div class="chart-header-text">
+              <h2>TRAINER OUTPUT TIMELINE</h2>
+              <p>Submission velocity for active trainers. Note: Heavy data view, utilize toggles to isolate.</p>
             </div>
           </div>
-        </div>
-        <div class="canvas-container" id="trainer-line-chart"></div>
-        <div class="custom-legend-panel">
-          <div class="legend-panel-header">
-            <span class="legend-title" id="trainer-legend-title">TOGGLE TRAINER LINES:</span>
-            <div class="legend-actions">
-              <button onclick="toggleAllSeries('trainer-line-chart', true)">Select All</button> |
-              <button onclick="toggleAllSeries('trainer-line-chart', false)">Deselect All</button>
+          <div class="canvas-container" id="trainer-line-chart" style="min-height: 350px;"></div>
+          <div class="custom-legend-panel">
+            <div class="legend-panel-header">
+              <span class="legend-title" id="trainer-legend-title">TOGGLE TRAINER LINES:</span>
+              <div class="legend-actions">
+                <button onclick="toggleAllSeries('trainer-line-chart', true)">Select All</button> |
+                <button onclick="toggleAllSeries('trainer-line-chart', false)">Deselect All</button>
+              </div>
             </div>
+            <div class="legend-chips" id="trainer-legend-chips"></div>
           </div>
-          <div class="legend-chips" id="trainer-legend-chips"></div>
         </div>
-      </div>
-      
-      <div class="chart-card">
-        <div class="chart-header">
-          <div class="chart-header-text">
-            <h2>TRAINER VOLUME BY CURRENT LEDGER STATUS</h2>
-            <p>Overall submission pipeline categorized exactly as seen in the main Task Ledger. Click bars to copy Task IDs.</p>
-          </div>
-          <button id="trainer-toggle-btn" class="btn-action" onclick="toggleTrainerLimit()">Show All Trainers</button>
-        </div>
-        <div class="canvas-container" id="trainer-stacked-chart"></div>
       </div>
     </div>
 
-    <!-- TAB 4: REVIEWERS -->
+    <!-- TAB 4: REVIEWERS (Accurate Action Dates) -->
     <div id="tab-reviewers" class="tab-content">
-      <div class="chart-card">
-        <div class="chart-header">
-          <div class="chart-header-text">
-            <h2>REVIEWER WORKLOAD OVER TIME</h2>
-            <p>Total volume of tasks processed per explicit time period by specific Reviewers. Validates direct history attribution.</p>
-          </div>
-          <div class="chart-controls">
-            <div class="chart-type-toggle">
-              <button class="active" onclick="setChartType('reviewer-line-chart', 'line', this)">Line View</button>
-              <button onclick="setChartType('reviewer-line-chart', 'bar', this)">Bar View</button>
+      <div class="grid-1-col">
+        <div class="chart-card">
+          <div class="chart-header">
+            <div class="chart-header-text">
+              <h2>REVIEWER DAILY/WEEKLY WORKLOAD TIMELINE (ACTUAL ACTION DATES)</h2>
+              <p>Unlike submissions, this graph maps exactly *when* a reviewer logged an action (Accept/Rework/Quarantine) in the system. Essential for tracking audit velocity.</p>
+              <span class="helper-text">💡 Click points to copy the Task IDs they actioned on that specific date.</span>
             </div>
           </div>
-        </div>
-        <div class="canvas-container" id="reviewer-line-chart"></div>
-        <div class="custom-legend-panel">
-          <div class="legend-panel-header">
-            <span class="legend-title" id="reviewer-legend-title">TOGGLE REVIEWER LINES:</span>
-            <div class="legend-actions">
-              <button onclick="toggleAllSeries('reviewer-line-chart', true)">Select All</button> |
-              <button onclick="toggleAllSeries('reviewer-line-chart', false)">Deselect All</button>
+          <div class="canvas-container" id="reviewer-line-chart"></div>
+          <div class="custom-legend-panel">
+            <div class="legend-panel-header">
+              <span class="legend-title" id="reviewer-legend-title">TOGGLE REVIEWER LINES:</span>
+              <div class="legend-actions">
+                <button onclick="toggleAllSeries('reviewer-line-chart', true)">Select All</button> |
+                <button onclick="toggleAllSeries('reviewer-line-chart', false)">Deselect All</button>
+              </div>
             </div>
+            <div class="legend-chips" id="reviewer-legend-chips"></div>
           </div>
-          <div class="legend-chips" id="reviewer-legend-chips"></div>
         </div>
-      </div>
-      
-      <div class="chart-card">
-        <div class="chart-header">
-          <div class="chart-header-text">
-            <h2>REVIEWER IMPACT BY FINAL LEDGER STATUS</h2>
-            <p>Maps every task a reviewer actively graded (L1 or L2) into its final current standing in the Ledger. Evaluates true completion vs ongoing reworks.</p>
+        
+        <div class="chart-card">
+          <div class="chart-header">
+            <div class="chart-header-text">
+              <h2>REVIEWER AUDIT DECISIONS (TOTALS IN PERIOD)</h2>
+              <p>The total breakdown of decisions made by reviewers within the filtered timeframe.</p>
+            </div>
+            <button id="reviewer-toggle-btn" class="btn-action" onclick="toggleReviewerLimit()">Show All Reviewers</button>
           </div>
-          <button id="reviewer-toggle-btn" class="btn-action" onclick="toggleReviewerLimit()">Show All Reviewers</button>
+          <div class="canvas-container" id="reviewer-stacked-chart" style="min-height: 400px;"></div>
         </div>
-        <div class="canvas-container" id="reviewer-stacked-chart"></div>
       </div>
     </div>
     
-    <!-- TAB 5: L2 REVIEW -->
+    <!-- TAB 5: L2 REVIEW (Accurate Action Dates) -->
     <div id="tab-l2-review" class="tab-content">
-      <div class="chart-card">
-        <div class="chart-header">
-          <div class="chart-header-text">
-            <h2>L2 FINAL APPROVALS TIMELINE</h2>
-            <p>Volume of tasks reaching the ultimate 'Final Approved (L2)' milestone across the selected time aggregation.</p>
-          </div>
-          <div class="chart-controls">
-            <div class="chart-type-toggle">
-              <button class="active" onclick="setChartType('l2-timeline-chart', 'area', this)">Area View</button>
-              <button onclick="setChartType('l2-timeline-chart', 'bar', this)">Bar View</button>
+      <div class="grid-2-col">
+        <div class="chart-card" style="grid-column: span 2;">
+          <div class="chart-header">
+            <div class="chart-header-text">
+              <h2>L2 FINAL APPROVALS VELOCITY (ACTUAL ACTION DATES)</h2>
+              <p>Timeline of exactly when tasks achieved their ultimate 'Approved' state. Maps to final billing/completion targets.</p>
+              <span class="helper-text">💡 Click area points to copy successfully cleared Task IDs.</span>
             </div>
           </div>
+          <div class="canvas-container" id="l2-timeline-chart"></div>
         </div>
-        <div class="canvas-container" id="l2-timeline-chart"></div>
-      </div>
-      
-      <div class="chart-card">
-        <div class="chart-header">
-          <div class="chart-header-text">
-            <h2>POD L2 ACCEPTANCE TOTALS</h2>
-            <p>Final approved task volume categorized strictly by assigned Pod.</p>
-          </div>
-        </div>
-        <div class="canvas-container" id="l2-pod-bar-chart"></div>
       </div>
     </div>
 
@@ -333,7 +319,7 @@
         <div class="chart-header">
           <div class="chart-header-text">
             <h2>SLACK MESSAGE GENERATOR (PENDING TASKS)</h2>
-            <p>Double-click any box (Pod, Reviewer, or Trainer) to instantly select its formatted content. Selected text maintains perfect whitespace and spacing when pasted natively into Slack.</p>
+            <p>Double-click any box to instantly copy formatted Slack messages for tasks awaiting action.</p>
           </div>
         </div>
         <div class="slack-container" id="slack-render-area"></div>
@@ -347,18 +333,24 @@
     const TASK_URL = 'https://turing-api.dineshkashyaparya.workers.dev';
     const ROSTER_URL = 'https://turing-api.dineshkashyaparya.workers.dev/roster';
     
-    let globalTasks = []; 
+    // Core Data stores
+    let rawTasks = []; 
     let globalPods = [];
     let trainerToPod = {}; 
+    
+    // Processed Data stores (Updated on filter change)
+    let filteredTasks = []; 
+    let filteredReviewerActions = []; // { taskId, actor, action, dateObj, bucket }
+    
+    // Chart State
     let chartInstances = {};
     let chartSeriesMap = {}; 
-    let currentTimeframe = 'daily';
-    
     const tooltipStore = {};
     let showAllTrainers = false;
     let showAllReviewers = false;
+    let currentTab = 'overview';
 
-    // Strict alignment with Ledger calculations
+    // UI Configuration
     const STATUS_COLORS = {
       'Final Approved (L2)': '#10b981',
       'L1-Accepted (Pending L2)': '#3b82f6',
@@ -368,10 +360,15 @@
       'Rework (L2)': '#f59e0b',
       'Quarantined (L1-Accepted)': '#9f1239',
       'Quarantined': '#ef4444',
-      'Draft / Unsubmitted': '#9ca3af'
+      'Draft / Unsubmitted': '#9ca3af',
+      'Accepted': '#10b981',        // For Reviewer Action Mapping
+      'Rework Assigned': '#f59e0b', // For Reviewer Action Mapping
+      'System Cleared': '#9ca3af'   // For Reviewer Action Mapping
     };
+    
     const MULTI_COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16', '#f97316', '#14b8a6', '#64748b', '#d946ef', '#0ea5e9'];
 
+    // --- Helpers: Task Processing ---
     function resolveAnnotator(rawName, members, mappings) {
       if (!rawName || rawName === '—' || rawName === 'Unassigned') return rawName;
       if (mappings && mappings[rawName]) return mappings[rawName];
@@ -383,7 +380,6 @@
       return rawName;
     }
 
-    // Copied perfectly from index.html logic
     function hasClearedL1(task) {
       if (['Approved', 'L2 review'].includes(task.state)) return true;
       if (!task.history) return false;
@@ -418,49 +414,24 @@
       return 'Pending L1';
     }
 
-    function getReviewers(task) {
-        let l1Rev = 'NA'; let l2Rev = 'NA'; let l2StartTime = null;
-        const annotatorLower = (task.annotator || '').toLowerCase();
-
-        if (task.history) {
-            for (let h of task.history) {
-                const actor = h.actor_name; const kLower = (h.kind || '').toLowerCase();
-                const dLower = (h.detail || '').toLowerCase(); const lLower = (h.label || '').toLowerCase();
-                const occurredAt = new Date(h.occurred_at).getTime();
-
-                if (kLower === 'review_assigned') {
-                    if (dLower === 'review_l1') l1Rev = actor;
-                    else if (dLower === 'review_l2') { l2Rev = actor; l2StartTime = occurredAt; }
-                }
-                if (kLower === 'review_cleared' || lLower.includes('cleared for claim pool') || lLower.includes('advanced to l2')) {
-                    if (!l2StartTime || occurredAt > l2StartTime) l2StartTime = occurredAt + 1;
-                }
-            }
-
-            for (let h of task.history) {
-                const actor = h.actor_name; const kLower = (h.kind || '').toLowerCase();
-                const lLower = (h.label || '').toLowerCase(); const occurredAt = new Date(h.occurred_at).getTime();
-
-                if (actor && actor !== 'System' && actor !== '—' && actor !== 'None' && actor.toLowerCase() !== annotatorLower) {
-                    if (kLower === 'review_cleared' || lLower.includes('cleared for claim pool')) continue; 
-                    if (kLower === 'review_approved' || kLower === 'review_rework' || kLower === 'review_requested' || 
-                        lLower === 'review approved' || lLower === 'rework requested') {
-                        if (l2StartTime && occurredAt >= l2StartTime) { if (l2Rev === 'NA') l2Rev = actor; } 
-                        else { if (l1Rev === 'NA') l1Rev = actor; }
-                    }
-                }
-            }
+    // --- Time Aggregation Logic ---
+    function getBucket(dateObj, timeframe) {
+        if (!dateObj || isNaN(dateObj.getTime())) return null;
+        if (timeframe === 'monthly') {
+            return dateObj.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }); // "Sep 2026"
         }
-
-        if (task.reviewer && task.reviewer !== '—' && task.reviewer !== 'Unassigned') {
-            const taskRevLower = task.reviewer.trim().toLowerCase();
-            const l1RevLower = l1Rev.trim().toLowerCase();
-            if (hasClearedL1(task)) { if (l2Rev === 'NA' && taskRevLower !== l1RevLower) l2Rev = task.reviewer; } 
-            else { if (l1Rev === 'NA') l1Rev = task.reviewer; }
+        if (timeframe === 'weekly') {
+            const d = new Date(dateObj);
+            const day = d.getDay();
+            const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Get Monday
+            const monday = new Date(d.setDate(diff));
+            return monday.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) + ' (Wk)'; // "Sep 14 (Wk)"
         }
-        return { l1: l1Rev, l2: l2Rev };
+        // Daily
+        return dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); // "Sep 22"
     }
 
+    // --- Initialization & Data Pipeline ---
     async function init() {
       try {
         const [taskRes, rosterRes] = await Promise.all([fetch(TASK_URL), fetch(ROSTER_URL)]);
@@ -478,11 +449,11 @@
 
         if (rosterData.l2_reviewers) rosterData.l2_reviewers.forEach(r => allRosterMembers.push(r));
 
-        globalTasks = (taskData.tasks || []).map(t => {
+        rawTasks = (taskData.tasks || []).map(t => {
           let resolvedAnnotator = resolveAnnotator(t.annotator, allRosterMembers, globalMappings);
           let resolvedReviewer = resolveAnnotator(t.reviewer, allRosterMembers, globalMappings);
           let combinedStatus = getCombinedStatus(t);
-          let revs = getReviewers(t);
+          let dateObj = t.submitted_at ? new Date(t.submitted_at) : null;
           
           return { 
             ...t, 
@@ -490,69 +461,82 @@
             reviewer: resolvedReviewer,
             pod: trainerToPod[resolvedAnnotator] || 'Unassigned Pod',
             combinedStatus: combinedStatus,
-            l1Rev: revs.l1,
-            l2Rev: revs.l2,
-            dateStr: t.submitted_at ? t.submitted_at.split('T')[0] : null
+            dateObj: dateObj
           };
-        }).filter(t => t.dateStr);
+        }).filter(t => t.dateObj && !isNaN(t.dateObj.getTime()));
 
-        renderOverviewCharts();
+        triggerReRender();
       } catch (err) { console.error("Initialization Error", err); }
     }
 
-    function formatToTimeframe(dateStr, timeframe) {
-      if (!dateStr) return null;
-      const d = new Date(dateStr);
-      if (isNaN(d)) return null;
-
-      if (timeframe === 'monthly') return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')} (Month)`;
-      if (timeframe === 'weekly') {
-        const day = d.getDay();
-        const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-        const monday = new Date(d.setDate(diff));
-        return `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')} (Wk)`;
+    function triggerReRender() {
+      const daysFilter = document.getElementById('filter-daterange').value;
+      const timeframe = document.getElementById('time-aggregation').value;
+      
+      const now = new Date();
+      let cutoffDate = new Date(0); // All time default
+      
+      if (daysFilter !== 'all') {
+        cutoffDate = new Date(now.getTime() - (parseInt(daysFilter) * 24 * 60 * 60 * 1000));
       }
-      return dateStr; 
+
+      // 1. Process Core Task Submissions Array
+      filteredTasks = rawTasks.filter(t => t.dateObj >= cutoffDate).map(t => ({
+        ...t,
+        bucket: getBucket(t.dateObj, timeframe)
+      }));
+
+      // 2. Process EXACT Reviewer Actions Array (Crucial Fix)
+      filteredReviewerActions = [];
+      rawTasks.forEach(t => {
+        if(!t.history) return;
+        t.history.forEach(h => {
+          const actor = h.actor_name;
+          const kLower = (h.kind || '').toLowerCase();
+          const lLower = (h.label || '').toLowerCase();
+          const occurredAt = new Date(h.occurred_at);
+
+          // Only valid actions within date range
+          if(occurredAt >= cutoffDate && actor && actor !== 'System' && actor !== '—' && actor !== t.annotator) {
+            let actionType = null;
+            
+            // Map exact final state logic 
+            if (lLower === 'approved' || kLower === 'approved' || (h.detail||'').toLowerCase().includes('final')) actionType = 'Final Approved (L2)';
+            else if (lLower.includes('approved') || lLower.includes('cleared')) actionType = 'Accepted';
+            else if (lLower.includes('rework') || kLower.includes('rework')) actionType = 'Rework Assigned';
+            else if (lLower.includes('quarantine') || kLower.includes('quarantine')) actionType = 'Quarantined';
+
+            if(actionType) {
+              filteredReviewerActions.push({
+                taskId: t.id,
+                actor: actor,
+                action: actionType,
+                dateObj: occurredAt,
+                bucket: getBucket(occurredAt, timeframe)
+              });
+            }
+          }
+        });
+      });
+
+      switchTab(currentTab); // Re-render the active tab
     }
 
-    function generateTimeframeBuckets(tasks, timeframe) {
-      if (tasks.length === 0) return [];
-      const formattedDates = tasks.map(t => formatToTimeframe(t.dateStr, timeframe)).filter(Boolean);
-      return [...new Set(formattedDates)].sort((a, b) => new Date(a.split(' ')[0]) - new Date(b.split(' ')[0]));
-    }
-
-    function handleTimeAggregationChange() {
-      currentTimeframe = document.getElementById('time-aggregation').value;
-      const activeTabBtn = document.querySelector('.sub-tabs button.active');
-      if (activeTabBtn) {
-        const onclickAttr = activeTabBtn.getAttribute('onclick');
-        const tabIdMatch = onclickAttr.match(/'([^']+)'/);
-        if (tabIdMatch) switchTab(tabIdMatch[1]);
-      }
-    }
-
-    function setChartType(chartId, type, btnEl) {
-      if (!chartInstances[chartId]) return;
-      chartInstances[chartId].updateOptions({ chart: { type: type } });
-      const container = btnEl.parentElement;
-      container.querySelectorAll('button').forEach(b => b.classList.remove('active'));
-      btnEl.classList.add('active');
-    }
-
+    // --- Interactive Tooltips & Actions ---
     let toastTimeout;
     function showToast(msg) {
       const toast = document.getElementById('toast');
       toast.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg> ${msg}`;
       toast.classList.add('show');
       clearTimeout(toastTimeout);
-      toastTimeout = setTimeout(() => toast.classList.remove('show'), 3500);
+      toastTimeout = setTimeout(() => toast.classList.remove('show'), 3000);
     }
 
     window.copyFromChart = function(chartId, seriesIndex, dataPointIndex) {
       if (seriesIndex === undefined || dataPointIndex === undefined || dataPointIndex < 0) return;
       const fullIds = tooltipStore[chartId]?.[seriesIndex]?.[dataPointIndex] || [];
       if (fullIds.length === 0) return;
-      navigator.clipboard.writeText(fullIds.join('\n')).then(() => showToast(`Copied ${fullIds.length} Full Task ID(s) to clipboard!`));
+      navigator.clipboard.writeText(fullIds.join('\n')).then(() => showToast(`Copied ${fullIds.length} Task ID(s) to clipboard!`));
     };
 
     function buildTooltipHtml(chartId, seriesIndex, dataPointIndex, w) {
@@ -565,15 +549,16 @@
       const fullIds = tooltipStore[chartId]?.[seriesIndex]?.[dataPointIndex] || [];
       const seriesName = w.globals.seriesNames[seriesIndex];
       const catName = w.globals.labels[dataPointIndex] || w.globals.categoryLabels[dataPointIndex] || (dataObj && dataObj.x ? dataObj.x : '');
+      const color = w.globals.colors[seriesIndex];
 
       return `
-        <div style="padding: 12px; font-family: 'Inter', sans-serif; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05); min-width: 160px;">
-            <div style="font-weight: 800; color: #64748b; margin-bottom: 6px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 1px solid #f1f5f9; padding-bottom: 4px;">${catName}</div>
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; gap: 16px;">
-                <span style="font-size: 13px; font-weight: 600; color: #1e293b;">${seriesName}</span>
-                <span style="font-size: 18px; font-weight: 800; color: #6b21a8;">${val}</span>
+        <div class="custom-tt">
+            <div class="custom-tt-header">${catName}</div>
+            <div class="custom-tt-body">
+                <span class="custom-tt-series"><span class="custom-tt-dot" style="background:${color}"></span>${seriesName}</span>
+                <span class="custom-tt-val" style="color:${color}">${val}</span>
             </div>
-            ${fullIds.length > 0 ? `<div style="font-size: 10px; color: #047857; font-weight: 700; background: #ecfdf5; padding: 6px; border-radius: 4px; text-align: center; border: 1px solid #a7f3d0;">👆 Click bar/point to copy ${fullIds.length} ID(s)</div>` : ''}
+            ${fullIds.length > 0 ? `<div class="custom-tt-footer">👆 Click point/bar to copy ${fullIds.length} ID(s)</div>` : ''}
         </div>`;
     }
 
@@ -585,6 +570,7 @@
     }
 
     function switchTab(tabId) {
+      currentTab = tabId;
       document.querySelectorAll('.sub-tabs button').forEach(b => b.classList.remove('active'));
       document.querySelector(`button[onclick="switchTab('${tabId}')"]`).classList.add('active');
       document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
@@ -600,52 +586,49 @@
 
     function destroyChart(id) { if (chartInstances[id]) { chartInstances[id].destroy(); delete chartInstances[id]; } }
 
-    function resetChartToggle(chartId) {
-      const toggleGroup = document.querySelector(`[onclick="setChartType('${chartId}', 'area', this)"]`)?.parentElement 
-                       || document.querySelector(`[onclick="setChartType('${chartId}', 'line', this)"]`)?.parentElement;
-      if (toggleGroup) {
-        toggleGroup.querySelectorAll('button').forEach(b => b.classList.remove('active'));
-        toggleGroup.children[0].classList.add('active');
-      }
+    function getUniqueBuckets(dataArray, bucketField = 'bucket') {
+       return [...new Set(dataArray.map(item => item[bucketField]).filter(Boolean))].sort((a,b) => new Date(a.split(' ')[0]) - new Date(b.split(' ')[0]));
     }
 
     // --- TAB 1: OVERVIEW ---
     function renderOverviewCharts() {
-      const dateBuckets = generateTimeframeBuckets(globalTasks, currentTimeframe);
+      const buckets = getUniqueBuckets(filteredTasks);
       const cIdArea = 'overview-area-chart';
-      resetChartToggle(cIdArea);
-      tooltipStore[cIdArea] = [[], [], []];
+      tooltipStore[cIdArea] = [[], [], [], []];
       
-      const sData = { sub: [], l1: [], rew: [] };
+      const sData = { approved: [], l1: [], rew: [], pending: [] };
       
-      dateBuckets.forEach((bucket, i) => {
-        const dTasks = globalTasks.filter(t => formatToTimeframe(t.dateStr, currentTimeframe) === bucket);
-        const subTasks = dTasks;
-        const l1Tasks = dTasks.filter(t => ['Final Approved (L2)', 'L1-Accepted (Pending L2)', 'Quarantined (L1-Accepted)'].includes(t.combinedStatus));
-        const rewTasks = dTasks.filter(t => ['Rework (L1)', 'Rework (L2)'].includes(t.combinedStatus));
+      buckets.forEach((bucket, i) => {
+        const dTasks = filteredTasks.filter(t => t.bucket === bucket);
+        const approved = dTasks.filter(t => t.combinedStatus === 'Final Approved (L2)');
+        const l1 = dTasks.filter(t => ['L1-Accepted (Pending L2)', 'Quarantined (L1-Accepted)'].includes(t.combinedStatus));
+        const rew = dTasks.filter(t => t.combinedStatus.includes('Rework'));
+        const pending = dTasks.filter(t => ['Pending L1', 'Fresh Submission', 'Draft / Unsubmitted', 'Quarantined'].includes(t.combinedStatus));
 
-        sData.sub.push(subTasks.length);
-        sData.l1.push(l1Tasks.length);
-        sData.rew.push(rewTasks.length);
+        sData.approved.push(approved.length);
+        sData.l1.push(l1.length);
+        sData.rew.push(rew.length);
+        sData.pending.push(pending.length);
 
-        tooltipStore[cIdArea][0][i] = subTasks.map(t => t.id);
-        tooltipStore[cIdArea][1][i] = l1Tasks.map(t => t.id);
-        tooltipStore[cIdArea][2][i] = rewTasks.map(t => t.id);
+        tooltipStore[cIdArea][0][i] = approved.map(t => t.id);
+        tooltipStore[cIdArea][1][i] = l1.map(t => t.id);
+        tooltipStore[cIdArea][2][i] = rew.map(t => t.id);
+        tooltipStore[cIdArea][3][i] = pending.map(t => t.id);
       });
 
       destroyChart(cIdArea);
       const areaOptions = {
         series: [
-          { name: 'Total Tasks Submitted', data: sData.sub },
-          { name: 'Total L1 Cleared', data: sData.l1 },
-          { name: 'Total Reworks Assigned', data: sData.rew }
+          { name: 'Final Approved (L2)', data: sData.approved },
+          { name: 'L1-Accepted (Pending L2)', data: sData.l1 },
+          { name: 'Currently In Rework', data: sData.rew },
+          { name: 'Pending Initial Review', data: sData.pending }
         ],
-        chart: { type: 'area', height: 380, toolbar: { show: false }, fontFamily: 'Inter, sans-serif', events: getInteractiveChartEvents(cIdArea) },
-        colors: ['#6b21a8', '#3b82f6', '#f59e0b'],
-        dataLabels: { enabled: false }, stroke: { curve: 'smooth', width: 2 },
-        markers: { size: 4, hover: { size: 6 } }, 
-        fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0.05, stops: [0, 90, 100] } },
-        xaxis: { categories: dateBuckets, type: 'category', tickAmount: 10, labels: { style: { colors: '#64748b' } } },
+        chart: { type: 'bar', stacked: true, height: 380, toolbar: { show: false }, fontFamily: 'Inter, sans-serif', events: getInteractiveChartEvents(cIdArea) },
+        colors: [STATUS_COLORS['Final Approved (L2)'], STATUS_COLORS['L1-Accepted (Pending L2)'], STATUS_COLORS['Rework (L1)'], STATUS_COLORS['Pending L1']],
+        plotOptions: { bar: { horizontal: false, borderRadius: 2 } },
+        dataLabels: { enabled: false },
+        xaxis: { categories: buckets, labels: { style: { colors: '#64748b' } } },
         yaxis: { labels: { style: { colors: '#64748b' } } },
         legend: { position: 'top', horizontalAlign: 'right' },
         grid: { borderColor: '#f1f5f9', strokeDashArray: 4 },
@@ -654,121 +637,105 @@
       chartInstances[cIdArea] = new ApexCharts(document.querySelector(`#${cIdArea}`), areaOptions);
       chartInstances[cIdArea].render();
 
-      const cIdBar = 'overview-bar-chart';
-      tooltipStore[cIdBar] = [[], [], []];
-      const podNames = [...new Set(globalTasks.map(t => t.pod))].sort();
+      // Donut Chart
+      const cIdDonut = 'overview-donut-chart';
+      const statusCounts = {};
+      filteredTasks.forEach(t => { statusCounts[t.combinedStatus] = (statusCounts[t.combinedStatus] || 0) + 1; });
       
-      const bData = { sub: [], l1: [], rew: [] };
-      podNames.forEach((p, i) => {
-        const pTasks = globalTasks.filter(t => t.pod === p);
-        const subTasks = pTasks;
-        const l1Tasks = pTasks.filter(t => ['Final Approved (L2)', 'L1-Accepted (Pending L2)', 'Quarantined (L1-Accepted)'].includes(t.combinedStatus));
-        const rewTasks = pTasks.filter(t => ['Rework (L1)', 'Rework (L2)'].includes(t.combinedStatus));
+      const donutLabels = Object.keys(statusCounts).sort((a,b) => statusCounts[b] - statusCounts[a]);
+      const donutSeries = donutLabels.map(l => statusCounts[l]);
+      const donutColors = donutLabels.map(l => STATUS_COLORS[l] || '#cbd5e1');
 
-        bData.sub.push(subTasks.length);
-        bData.l1.push(l1Tasks.length);
-        bData.rew.push(rewTasks.length);
-
-        tooltipStore[cIdBar][0][i] = subTasks.map(t => t.id);
-        tooltipStore[cIdBar][1][i] = l1Tasks.map(t => t.id);
-        tooltipStore[cIdBar][2][i] = rewTasks.map(t => t.id);
-      });
-
-      destroyChart(cIdBar);
-      const barOptions = {
-        series: [
-          { name: 'Total Submitted', data: bData.sub },
-          { name: 'Total L1 Cleared', data: bData.l1 },
-          { name: 'Total Reworks Assigned', data: bData.rew }
-        ],
-        chart: { type: 'bar', height: 380, toolbar: { show: false }, fontFamily: 'Inter, sans-serif', events: getInteractiveChartEvents(cIdBar) },
-        colors: ['#6b21a8', '#3b82f6', '#f59e0b'],
-        plotOptions: { bar: { horizontal: false, columnWidth: '55%', borderRadius: 4 } },
+      destroyChart(cIdDonut);
+      const donutOptions = {
+        series: donutSeries,
+        chart: { type: 'donut', height: 320, fontFamily: 'Inter, sans-serif' },
+        labels: donutLabels,
+        colors: donutColors,
+        plotOptions: { pie: { donut: { size: '70%', labels: { show: true, total: { show: true, label: 'Total Tasks', color: '#64748b', formatter: function (w) { return w.globals.seriesTotals.reduce((a, b) => a + b, 0) } } } } } },
         dataLabels: { enabled: false },
-        xaxis: { categories: podNames, labels: { style: { colors: '#64748b', fontSize: '12px' } } },
-        yaxis: { labels: { style: { colors: '#64748b' } } },
-        legend: { position: 'top', horizontalAlign: 'right' },
-        grid: { borderColor: '#f1f5f9', strokeDashArray: 4 },
-        tooltip: { custom: function(opt) { return buildTooltipHtml(cIdBar, opt.seriesIndex, opt.dataPointIndex, opt.w); } }
+        legend: { position: 'bottom' },
+        stroke: { show: false },
+        tooltip: { theme: 'light', y: { formatter: function(val) { return val + " tasks" } } }
       };
-      chartInstances[cIdBar] = new ApexCharts(document.querySelector(`#${cIdBar}`), barOptions);
-      chartInstances[cIdBar].render();
-    }
-
-    // --- SHARED LINE CHART LOGIC ---
-    function renderLineChartWithCustomLegend(chartId, legendTitleId, legendChipsId, roleField) {
-      const dateBuckets = generateTimeframeBuckets(globalTasks, currentTimeframe);
-      resetChartToggle(chartId);
-      let entities = (roleField === 'pod') ? [...new Set(globalTasks.map(t => t.pod))].sort() 
-                     : [...new Set(globalTasks.map(t => t[roleField]).filter(p => p && p !== '—' && p !== 'Unassigned'))].sort();
-      
-      document.getElementById(legendTitleId).textContent = `TOGGLE LINES (${entities.length}):`;
-      tooltipStore[chartId] = [];
-
-      const seriesData = entities.map((e, sIdx) => {
-        tooltipStore[chartId][sIdx] = [];
-        const data = dateBuckets.map((bucket, dIdx) => {
-          const tasks = globalTasks.filter(t => t[roleField] === e && formatToTimeframe(t.dateStr, currentTimeframe) === bucket);
-          tooltipStore[chartId][sIdx][dIdx] = tasks.map(t => t.id);
-          return tasks.length;
-        });
-        return { name: e, data };
-      });
-
-      destroyChart(chartId);
-      const lineOptions = {
-        series: seriesData,
-        chart: { type: 'line', height: 400, toolbar: { show: false }, fontFamily: 'Inter, sans-serif', events: getInteractiveChartEvents(chartId) },
-        colors: MULTI_COLORS,
-        stroke: { curve: 'smooth', width: 2 },
-        markers: { size: 4, hover: { size: 6 } }, 
-        xaxis: { categories: dateBuckets, type: 'category', tickAmount: 10, labels: { style: { colors: '#64748b' } } },
-        yaxis: { labels: { style: { colors: '#64748b' } } },
-        legend: { show: false }, 
-        grid: { borderColor: '#f1f5f9', strokeDashArray: 4 },
-        tooltip: { custom: function(opt) { return buildTooltipHtml(chartId, opt.seriesIndex, opt.dataPointIndex, opt.w); } }
-      };
-      
-      chartInstances[chartId] = new ApexCharts(document.querySelector(`#${chartId}`), lineOptions);
-      chartInstances[chartId].render();
-      chartSeriesMap[chartId] = entities;
-
-      const chipContainer = document.getElementById(legendChipsId);
-      let chipHtml = '';
-      entities.forEach((e, index) => {
-        const color = MULTI_COLORS[index % MULTI_COLORS.length];
-        chipHtml += `<div class="legend-chip" id="chip-${chartId}-${index}" onclick="toggleSingleSeries('${chartId}', '${e}', ${index})"><span class="legend-dot" style="background-color: ${color};"></span>${e}</div>`;
-      });
-      chipContainer.innerHTML = chipHtml;
-    }
-
-    function toggleSingleSeries(chartId, seriesName, index) {
-      chartInstances[chartId].toggleSeries(seriesName);
-      document.getElementById(`chip-${chartId}-${index}`).classList.toggle('inactive');
-    }
-
-    window.toggleAllSeries = function(chartId, show) {
-      const entities = chartSeriesMap[chartId];
-      if (!entities) return;
-      entities.forEach((e, index) => {
-        const chip = document.getElementById(`chip-${chartId}-${index}`);
-        const isCurrentlyHidden = chip.classList.contains('inactive');
-        if (show && isCurrentlyHidden) { chartInstances[chartId].showSeries(e); chip.classList.remove('inactive'); } 
-        else if (!show && !isCurrentlyHidden) { chartInstances[chartId].hideSeries(e); chip.classList.add('inactive'); }
-      });
+      chartInstances[cIdDonut] = new ApexCharts(document.querySelector(`#${cIdDonut}`), donutOptions);
+      chartInstances[cIdDonut].render();
     }
 
     // --- TAB 2: PODS ---
     function renderPodCharts() {
-      renderLineChartWithCustomLegend('pod-line-chart', 'pod-legend-title', 'pod-legend-chips', 'pod');
+      const buckets = getUniqueBuckets(filteredTasks);
+      const cIdLine = 'pod-line-chart';
+      
+      const pods = [...new Set(filteredTasks.map(t => t.pod))].sort();
+      document.getElementById('pod-legend-title').textContent = `TOGGLE LINES (${pods.length}):`;
+      tooltipStore[cIdLine] = [];
 
+      const seriesData = pods.map((p, sIdx) => {
+        tooltipStore[cIdLine][sIdx] = [];
+        const data = buckets.map((bucket, dIdx) => {
+          const tasks = filteredTasks.filter(t => t.pod === p && t.bucket === bucket);
+          tooltipStore[cIdLine][sIdx][dIdx] = tasks.map(t => t.id);
+          return tasks.length;
+        });
+        return { name: p, data };
+      });
+
+      destroyChart(cIdLine);
+      const lineOptions = {
+        series: seriesData,
+        chart: { type: 'line', height: 350, toolbar: { show: false }, fontFamily: 'Inter, sans-serif', events: getInteractiveChartEvents(cIdLine) },
+        colors: MULTI_COLORS,
+        stroke: { curve: 'smooth', width: 2 },
+        markers: { size: 4, hover: { size: 6 } }, 
+        xaxis: { categories: buckets, tickAmount: 10, labels: { style: { colors: '#64748b' } } },
+        yaxis: { labels: { style: { colors: '#64748b' } } },
+        legend: { show: false }, 
+        grid: { borderColor: '#f1f5f9', strokeDashArray: 4 },
+        tooltip: { custom: function(opt) { return buildTooltipHtml(cIdLine, opt.seriesIndex, opt.dataPointIndex, opt.w); } }
+      };
+      chartInstances[cIdLine] = new ApexCharts(document.querySelector(`#${cIdLine}`), lineOptions);
+      chartInstances[cIdLine].render();
+      chartSeriesMap[cIdLine] = pods;
+
+      const chipContainer = document.getElementById('pod-legend-chips');
+      chipContainer.innerHTML = pods.map((e, index) => `<div class="legend-chip" id="chip-${cIdLine}-${index}" onclick="toggleSingleSeries('${cIdLine}', '${e}', ${index})"><span class="legend-dot" style="background-color: ${MULTI_COLORS[index % MULTI_COLORS.length]};"></span>${e}</div>`).join('');
+
+      // Pod Stacked Bar
+      const cIdStack = 'pod-stacked-chart';
+      tooltipStore[cIdStack] = [];
+      const statuses = Object.keys(STATUS_COLORS);
+      
+      const stackSeries = statuses.map((status, sIdx) => {
+        tooltipStore[cIdStack][sIdx] = [];
+        const data = pods.map((p, pIdx) => {
+          const tasks = filteredTasks.filter(t => t.pod === p && t.combinedStatus === status);
+          tooltipStore[cIdStack][sIdx][pIdx] = tasks.map(t => t.id);
+          return { x: p, y: tasks.length };
+        });
+        return { name: status, data };
+      });
+
+      destroyChart(cIdStack);
+      const stackOptions = {
+        series: stackSeries,
+        chart: { type: 'bar', height: 350, stacked: true, stackType: '100%', toolbar: { show: false }, fontFamily: 'Inter, sans-serif', events: getInteractiveChartEvents(cIdStack) },
+        colors: statuses.map(s => STATUS_COLORS[s]),
+        plotOptions: { bar: { horizontal: false, borderRadius: 0 } },
+        xaxis: { labels: { style: { colors: '#64748b' } } },
+        yaxis: { labels: { style: { colors: '#64748b' } } },
+        legend: { position: 'top', horizontalAlign: 'right' },
+        tooltip: { custom: function(opt) { return buildTooltipHtml(cIdStack, opt.seriesIndex, opt.dataPointIndex, opt.w); } }
+      };
+      chartInstances[cIdStack] = new ApexCharts(document.querySelector(`#${cIdStack}`), stackOptions);
+      chartInstances[cIdStack].render();
+
+      // Pod Cards
       const container = document.getElementById('pod-cards-container');
       const podStats = {};
-      
       globalPods.forEach(p => { podStats[p.name] = { name: p.name, lead: p.lead || 'Unknown', total: 0, l1Accepted: 0, rework: 0, l2Approved: 0, trainers: p.trainers.length }; });
-      podStats['Unassigned Pod'] = { name: 'Unassigned Pod', lead: 'N/A', total: 0, l1Accepted: 0, rework: 0, l2Approved: 0, trainers: 0 };
-
-      globalTasks.forEach(t => {
+      
+      filteredTasks.forEach(t => {
         if (!podStats[t.pod]) return;
         podStats[t.pod].total++;
         if (['Final Approved (L2)', 'L1-Accepted (Pending L2)', 'Quarantined (L1-Accepted)'].includes(t.combinedStatus)) podStats[t.pod].l1Accepted++;
@@ -776,12 +743,11 @@
         if (t.combinedStatus === 'Final Approved (L2)') podStats[t.pod].l2Approved++;
       });
 
-      let html = '';
-      Object.values(podStats).filter(p => p.total > 0 || p.trainers > 0).forEach(p => {
+      container.innerHTML = Object.values(podStats).filter(p => p.total > 0).map(p => {
         const l1Pct = p.total > 0 ? Math.round((p.l1Accepted / p.total) * 100) : 0;
         const rewPct = p.total > 0 ? Math.round((p.rework / p.total) * 100) : 0;
         const l2Pct = p.total > 0 ? Math.round((p.l2Approved / p.total) * 100) : 0;
-        html += `
+        return `
           <div class="pod-card">
             <div class="pod-card-header"><div><div class="pod-title"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>${p.name}</div><div class="pod-meta"><span class="pod-lead">Lead: ${p.lead}</span><span>${p.trainers} Assigned Trainers</span></div></div></div>
             <div class="metric-grid">
@@ -791,63 +757,32 @@
               <div class="metric-box"><div class="metric-label">Final Approved</div><div class="metric-value val-l2">${p.l2Approved}</div></div>
             </div>
             <div class="progress-group">
-              <div class="progress-item"><div class="progress-header"><span>L1 Approval Progress:</span> <span>${p.l1Accepted}/${p.total} (${l1Pct}%)</span></div><div class="progress-bar-bg"><div class="progress-bar-fill" style="background: var(--info); width: ${l1Pct}%"></div></div></div>
-              <div class="progress-item"><div class="progress-header"><span>Rework Rate:</span> <span>${p.rework}/${p.total} (${rewPct}%)</span></div><div class="progress-bar-bg"><div class="progress-bar-fill" style="background: var(--warning); width: ${rewPct}%"></div></div></div>
-              <div class="progress-item"><div class="progress-header"><span>L2 Approval Progress:</span> <span>${p.l2Approved}/${p.total} (${l2Pct}%)</span></div><div class="progress-bar-bg"><div class="progress-bar-fill" style="background: var(--secondary); width: ${l2Pct}%"></div></div></div>
+              <div class="progress-item"><div class="progress-header"><span>L1 Approval Rate:</span> <span>${l1Pct}%</span></div><div class="progress-bar-bg"><div class="progress-bar-fill" style="background: var(--info); width: ${l1Pct}%"></div></div></div>
+              <div class="progress-item"><div class="progress-header"><span>Rework Rate:</span> <span>${rewPct}%</span></div><div class="progress-bar-bg"><div class="progress-bar-fill" style="background: var(--warning); width: ${rewPct}%"></div></div></div>
             </div>
           </div>`;
-      });
-      container.innerHTML = html;
-
-      const cIdStack = 'pod-stacked-chart';
-      tooltipStore[cIdStack] = [];
-      const podNames = Object.keys(podStats).filter(p => podStats[p].total > 0).sort();
-      const statuses = Object.keys(STATUS_COLORS);
-      
-      const seriesData = statuses.map((status, sIdx) => {
-        tooltipStore[cIdStack][sIdx] = [];
-        const data = podNames.map((p, pIdx) => {
-          const tasks = globalTasks.filter(t => t.pod === p && t.combinedStatus === status);
-          tooltipStore[cIdStack][sIdx][pIdx] = tasks.map(t => t.id);
-          return { x: p, y: tasks.length };
-        });
-        return { name: status, data };
-      });
-
-      destroyChart(cIdStack);
-      const stackOptions = {
-        series: seriesData,
-        chart: { type: 'bar', height: 420, stacked: true, toolbar: { show: false }, fontFamily: 'Inter, sans-serif', events: getInteractiveChartEvents(cIdStack) },
-        colors: statuses.map(s => STATUS_COLORS[s]),
-        plotOptions: { bar: { horizontal: false, borderRadius: 2 } },
-        xaxis: { labels: { style: { colors: '#64748b' } } },
-        yaxis: { labels: { style: { colors: '#64748b' } } },
-        legend: { position: 'top', horizontalAlign: 'right' },
-        tooltip: { custom: function(opt) { return buildTooltipHtml(cIdStack, opt.seriesIndex, opt.dataPointIndex, opt.w); } }
-      };
-      chartInstances[cIdStack] = new ApexCharts(document.querySelector(`#${cIdStack}`), stackOptions);
-      chartInstances[cIdStack].render();
+      }).join('');
     }
 
     // --- TAB 3: TRAINERS ---
-    function toggleTrainerLimit() {
+    window.toggleTrainerLimit = function() {
       showAllTrainers = !showAllTrainers;
       document.getElementById('trainer-toggle-btn').innerText = showAllTrainers ? 'Show Top 10 Only' : 'Show All Trainers';
       renderTrainerCharts();
     }
 
     function renderTrainerCharts() {
-      renderLineChartWithCustomLegend('trainer-line-chart', 'trainer-legend-title', 'trainer-legend-chips', 'annotator');
-
+      const buckets = getUniqueBuckets(filteredTasks);
+      
       const trainerStats = {};
-      globalTasks.forEach(t => {
+      filteredTasks.forEach(t => {
         if (!t.annotator || t.annotator === '—' || t.annotator === 'Unassigned') return;
         if (!trainerStats[t.annotator]) trainerStats[t.annotator] = { total: 0 };
         trainerStats[t.annotator].total++;
       });
       
-      let topTrainers = Object.entries(trainerStats).sort((a,b) => b[1].total - a[1].total).map(x => x[0]);
-      if (!showAllTrainers) topTrainers = topTrainers.slice(0, 10);
+      let sortedTrainers = Object.entries(trainerStats).sort((a,b) => b[1].total - a[1].total).map(x => x[0]);
+      let chartTrainers = showAllTrainers ? sortedTrainers : sortedTrainers.slice(0, 10);
       
       const cIdStack = 'trainer-stacked-chart';
       tooltipStore[cIdStack] = [];
@@ -855,8 +790,8 @@
       
       const stackSeries = statuses.map((status, sIdx) => {
         tooltipStore[cIdStack][sIdx] = [];
-        const data = topTrainers.map((tr, tIdx) => {
-          const tasks = globalTasks.filter(t => t.annotator === tr && t.combinedStatus === status);
+        const data = chartTrainers.map((tr, tIdx) => {
+          const tasks = filteredTasks.filter(t => t.annotator === tr && t.combinedStatus === status);
           tooltipStore[cIdStack][sIdx][tIdx] = tasks.map(t => t.id);
           return { x: tr, y: tasks.length };
         });
@@ -864,8 +799,7 @@
       });
 
       destroyChart(cIdStack);
-      const dynamicHeight = showAllTrainers ? (topTrainers.length * 28 + 100) : 480;
-      
+      const dynamicHeight = showAllTrainers ? (chartTrainers.length * 28 + 100) : 400;
       const barOptions = {
         series: stackSeries,
         chart: { type: 'bar', height: dynamicHeight, stacked: true, toolbar: { show: false }, fontFamily: 'Inter, sans-serif', events: getInteractiveChartEvents(cIdStack) },
@@ -876,13 +810,48 @@
         legend: { position: 'top', horizontalAlign: 'right' },
         tooltip: { custom: function(opt) { return buildTooltipHtml(cIdStack, opt.seriesIndex, opt.dataPointIndex, opt.w); } }
       };
-      
       document.querySelector(`#${cIdStack}`).style.height = `${dynamicHeight}px`;
       chartInstances[cIdStack] = new ApexCharts(document.querySelector(`#${cIdStack}`), barOptions);
       chartInstances[cIdStack].render();
+
+      // Trainer Line Chart (Top 10 max to prevent lag)
+      const top10 = sortedTrainers.slice(0, 10);
+      const cIdLine = 'trainer-line-chart';
+      document.getElementById('trainer-legend-title').textContent = `TOP 10 TRAINERS (${top10.length}):`;
+      tooltipStore[cIdLine] = [];
+
+      const lineSeries = top10.map((tr, sIdx) => {
+        tooltipStore[cIdLine][sIdx] = [];
+        const data = buckets.map((bucket, dIdx) => {
+          const tasks = filteredTasks.filter(t => t.annotator === tr && t.bucket === bucket);
+          tooltipStore[cIdLine][sIdx][dIdx] = tasks.map(t => t.id);
+          return tasks.length;
+        });
+        return { name: tr, data };
+      });
+
+      destroyChart(cIdLine);
+      const lineOptions = {
+        series: lineSeries,
+        chart: { type: 'line', height: 350, toolbar: { show: false }, fontFamily: 'Inter, sans-serif', events: getInteractiveChartEvents(cIdLine) },
+        colors: MULTI_COLORS,
+        stroke: { curve: 'smooth', width: 2 },
+        markers: { size: 4, hover: { size: 6 } }, 
+        xaxis: { categories: buckets, tickAmount: 10, labels: { style: { colors: '#64748b' } } },
+        yaxis: { labels: { style: { colors: '#64748b' } } },
+        legend: { show: false }, 
+        grid: { borderColor: '#f1f5f9', strokeDashArray: 4 },
+        tooltip: { custom: function(opt) { return buildTooltipHtml(cIdLine, opt.seriesIndex, opt.dataPointIndex, opt.w); } }
+      };
+      chartInstances[cIdLine] = new ApexCharts(document.querySelector(`#${cIdLine}`), lineOptions);
+      chartInstances[cIdLine].render();
+      chartSeriesMap[cIdLine] = top10;
+
+      const chipContainer = document.getElementById('trainer-legend-chips');
+      chipContainer.innerHTML = top10.map((e, index) => `<div class="legend-chip" id="chip-${cIdLine}-${index}" onclick="toggleSingleSeries('${cIdLine}', '${e}', ${index})"><span class="legend-dot" style="background-color: ${MULTI_COLORS[index % MULTI_COLORS.length]};"></span>${e}</div>`).join('');
     }
 
-    // --- TAB 4: REVIEWERS ---
+    // --- TAB 4: REVIEWERS (ACCURATE ACTION TRACKING) ---
     window.toggleReviewerLimit = function() {
       showAllReviewers = !showAllReviewers;
       document.getElementById('reviewer-toggle-btn').innerText = showAllReviewers ? 'Show Top 10 Only' : 'Show All Reviewers';
@@ -890,45 +859,29 @@
     }
 
     function renderReviewerCharts() {
-      const dateBuckets = generateTimeframeBuckets(globalTasks, currentTimeframe);
-      const cIdLine = 'reviewer-line-chart';
-      resetChartToggle(cIdLine);
+      const buckets = getUniqueBuckets(filteredReviewerActions);
       
       const revStats = {};
-      
-      // Accurately map tasks based on EXACT ledger attribution logic
-      globalTasks.forEach(t => {
-        if (t.l1Rev !== 'NA') {
-          if (!revStats[t.l1Rev]) revStats[t.l1Rev] = { dates: {}, statuses: {} };
-          const bucket = formatToTimeframe(t.dateStr, currentTimeframe);
-          if (!revStats[t.l1Rev].dates[bucket]) revStats[t.l1Rev].dates[bucket] = [];
-          if (!revStats[t.l1Rev].statuses[t.combinedStatus]) revStats[t.l1Rev].statuses[t.combinedStatus] = [];
-          
-          revStats[t.l1Rev].dates[bucket].push(t.id);
-          revStats[t.l1Rev].statuses[t.combinedStatus].push(t.id);
-        }
-        
-        if (t.l2Rev !== 'NA') {
-          if (!revStats[t.l2Rev]) revStats[t.l2Rev] = { dates: {}, statuses: {} };
-          const bucket = formatToTimeframe(t.dateStr, currentTimeframe);
-          if (!revStats[t.l2Rev].dates[bucket]) revStats[t.l2Rev].dates[bucket] = [];
-          if (!revStats[t.l2Rev].statuses[t.combinedStatus]) revStats[t.l2Rev].statuses[t.combinedStatus] = [];
-          
-          revStats[t.l2Rev].dates[bucket].push(t.id);
-          revStats[t.l2Rev].statuses[t.combinedStatus].push(t.id);
-        }
+      filteredReviewerActions.forEach(a => {
+        if (!revStats[a.actor]) revStats[a.actor] = { total: 0, statuses: {} };
+        if (!revStats[a.actor].statuses[a.action]) revStats[a.actor].statuses[a.action] = [];
+        revStats[a.actor].statuses[a.action].push(a.taskId);
+        revStats[a.actor].total++;
       });
 
-      const reviewers = Object.keys(revStats).sort();
-      document.getElementById('reviewer-legend-title').textContent = `TOGGLE LINES (${reviewers.length}):`;
+      const sortedReviewers = Object.keys(revStats).sort((a,b) => revStats[b].total - revStats[a].total);
+      
+      // 1. Line Chart
+      const cIdLine = 'reviewer-line-chart';
+      document.getElementById('reviewer-legend-title').textContent = `TOGGLE LINES (${sortedReviewers.length}):`;
       tooltipStore[cIdLine] = [];
 
-      const seriesData = reviewers.map((rev, sIdx) => {
+      const seriesData = sortedReviewers.map((rev, sIdx) => {
         tooltipStore[cIdLine][sIdx] = [];
-        const data = dateBuckets.map((bucket, dIdx) => {
-          const tasks = revStats[rev].dates[bucket] || [];
-          tooltipStore[cIdLine][sIdx][dIdx] = tasks;
-          return tasks.length;
+        const data = buckets.map((bucket, dIdx) => {
+          const actions = filteredReviewerActions.filter(a => a.actor === rev && a.bucket === bucket);
+          tooltipStore[cIdLine][sIdx][dIdx] = actions.map(a => a.taskId);
+          return actions.length;
         });
         return { name: rev, data };
       });
@@ -936,65 +889,52 @@
       destroyChart(cIdLine);
       const lineOptions = {
         series: seriesData,
-        chart: { type: 'line', height: 400, toolbar: { show: false }, fontFamily: 'Inter, sans-serif', events: getInteractiveChartEvents(cIdLine) },
+        chart: { type: 'area', height: 350, toolbar: { show: false }, fontFamily: 'Inter, sans-serif', events: getInteractiveChartEvents(cIdLine) },
         colors: MULTI_COLORS,
+        fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.3, opacityTo: 0.05, stops: [0, 90, 100] } },
         stroke: { curve: 'smooth', width: 2 },
         markers: { size: 4, hover: { size: 6 } }, 
-        xaxis: { categories: dateBuckets, type: 'category', tickAmount: 10, labels: { style: { colors: '#64748b' } } },
+        xaxis: { categories: buckets, tickAmount: 10, labels: { style: { colors: '#64748b' } } },
         yaxis: { labels: { style: { colors: '#64748b' } } },
         legend: { show: false }, 
         grid: { borderColor: '#f1f5f9', strokeDashArray: 4 },
         tooltip: { custom: function(opt) { return buildTooltipHtml(cIdLine, opt.seriesIndex, opt.dataPointIndex, opt.w); } }
       };
-      
       chartInstances[cIdLine] = new ApexCharts(document.querySelector(`#${cIdLine}`), lineOptions);
       chartInstances[cIdLine].render();
-      chartSeriesMap[cIdLine] = reviewers;
+      chartSeriesMap[cIdLine] = sortedReviewers;
 
       const chipContainer = document.getElementById('reviewer-legend-chips');
-      let chipHtml = '';
-      reviewers.forEach((e, index) => {
-        const color = MULTI_COLORS[index % MULTI_COLORS.length];
-        chipHtml += `<div class="legend-chip" id="chip-${cIdLine}-${index}" onclick="toggleSingleSeries('${cIdLine}', '${e}', ${index})"><span class="legend-dot" style="background-color: ${color};"></span>${e}</div>`;
-      });
-      chipContainer.innerHTML = chipHtml;
+      chipContainer.innerHTML = sortedReviewers.map((e, index) => `<div class="legend-chip" id="chip-${cIdLine}-${index}" onclick="toggleSingleSeries('${cIdLine}', '${e}', ${index})"><span class="legend-dot" style="background-color: ${MULTI_COLORS[index % MULTI_COLORS.length]};"></span>${e}</div>`).join('');
 
+      // 2. Stacked Bar
       const cIdStack = 'reviewer-stacked-chart';
       tooltipStore[cIdStack] = [];
+      const chartReviewers = showAllReviewers ? sortedReviewers : sortedReviewers.slice(0, 10);
+      const actionTypes = ['Final Approved (L2)', 'Accepted', 'Rework Assigned', 'Quarantined'];
       
-      let topReviewers = Object.entries(revStats).sort((a,b) => {
-        const aTotal = Object.values(a[1].statuses).reduce((acc, curr) => acc + curr.length, 0);
-        const bTotal = Object.values(b[1].statuses).reduce((acc, curr) => acc + curr.length, 0);
-        return bTotal - aTotal;
-      }).map(x => x[0]);
-      
-      if (!showAllReviewers) topReviewers = topReviewers.slice(0, 10);
-      const statuses = Object.keys(STATUS_COLORS);
-      
-      const stackSeries = statuses.map((status, sIdx) => {
+      const stackSeries = actionTypes.map((action, sIdx) => {
         tooltipStore[cIdStack][sIdx] = [];
-        const data = topReviewers.map((rev, rIdx) => {
-          const tasks = revStats[rev].statuses[status] || [];
+        const data = chartReviewers.map((rev, rIdx) => {
+          const tasks = revStats[rev].statuses[action] || [];
           tooltipStore[cIdStack][sIdx][rIdx] = tasks;
           return { x: rev, y: tasks.length };
         });
-        return { name: status, data };
+        return { name: action, data };
       });
 
       destroyChart(cIdStack);
-      const dynamicHeight = showAllReviewers ? (topReviewers.length * 28 + 100) : 480;
-      
+      const dynamicHeight = showAllReviewers ? (chartReviewers.length * 28 + 100) : 400;
       const barOptions = {
         series: stackSeries,
         chart: { type: 'bar', height: dynamicHeight, stacked: true, toolbar: { show: false }, fontFamily: 'Inter, sans-serif', events: getInteractiveChartEvents(cIdStack) },
-        colors: statuses.map(s => STATUS_COLORS[s]),
+        colors: actionTypes.map(a => STATUS_COLORS[a]),
         plotOptions: { bar: { horizontal: true, borderRadius: 2 } },
         xaxis: { labels: { style: { colors: '#64748b' } } },
         yaxis: { labels: { style: { colors: '#64748b', fontWeight: 600 } } },
         legend: { position: 'top', horizontalAlign: 'right' },
         tooltip: { custom: function(opt) { return buildTooltipHtml(cIdStack, opt.seriesIndex, opt.dataPointIndex, opt.w); } }
       };
-      
       document.querySelector(`#${cIdStack}`).style.height = `${dynamicHeight}px`;
       chartInstances[cIdStack] = new ApexCharts(document.querySelector(`#${cIdStack}`), barOptions);
       chartInstances[cIdStack].render();
@@ -1002,68 +942,37 @@
 
     // --- TAB 5: L2 REVIEW ---
     function renderL2Charts() {
-      const dateBuckets = generateTimeframeBuckets(globalTasks, currentTimeframe);
+      // Filter exactly for Final L2 actions
+      const l2Actions = filteredReviewerActions.filter(a => a.action === 'Final Approved (L2)');
+      const buckets = getUniqueBuckets(l2Actions);
+      
       const cIdTL = 'l2-timeline-chart';
-      resetChartToggle(cIdTL);
       tooltipStore[cIdTL] = [[]];
       
-      const approvedData = dateBuckets.map((bucket, dIdx) => {
-        const tasks = globalTasks.filter(t => t.combinedStatus === 'Final Approved (L2)' && formatToTimeframe(t.dateStr, currentTimeframe) === bucket);
-        tooltipStore[cIdTL][0][dIdx] = tasks.map(t => t.id);
+      const approvedData = buckets.map((bucket, dIdx) => {
+        const tasks = l2Actions.filter(a => a.bucket === bucket);
+        tooltipStore[cIdTL][0][dIdx] = tasks.map(a => a.taskId);
         return tasks.length;
       });
 
       destroyChart(cIdTL);
       const areaOptions = {
         series: [{ name: 'L2 Final Approvals', data: approvedData }],
-        chart: { type: 'area', height: 380, toolbar: { show: false }, fontFamily: 'Inter, sans-serif', events: getInteractiveChartEvents(cIdTL) },
-        colors: ['#10b981'], 
+        chart: { type: 'area', height: 350, toolbar: { show: false }, fontFamily: 'Inter, sans-serif', events: getInteractiveChartEvents(cIdTL) },
+        colors: [STATUS_COLORS['Final Approved (L2)']], 
         dataLabels: { enabled: false }, stroke: { curve: 'smooth', width: 2 },
         markers: { size: 4, hover: { size: 6 } }, 
         fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0.05, stops: [0, 90, 100] } },
-        xaxis: { categories: dateBuckets, type: 'category', tickAmount: 10, labels: { style: { colors: '#64748b' } } },
+        xaxis: { categories: buckets, tickAmount: 10, labels: { style: { colors: '#64748b' } } },
         yaxis: { labels: { style: { colors: '#64748b' } } },
         grid: { borderColor: '#f1f5f9', strokeDashArray: 4 },
         tooltip: { custom: function(opt) { return buildTooltipHtml(cIdTL, opt.seriesIndex, opt.dataPointIndex, opt.w); } }
       };
       chartInstances[cIdTL] = new ApexCharts(document.querySelector(`#${cIdTL}`), areaOptions);
       chartInstances[cIdTL].render();
-
-      const cIdPod = 'l2-pod-bar-chart';
-      tooltipStore[cIdPod] = [[]];
-      
-      const podStats = {};
-      globalTasks.forEach(t => {
-        if (t.combinedStatus === 'Final Approved (L2)') {
-          if (!podStats[t.pod]) podStats[t.pod] = [];
-          podStats[t.pod].push(t.id);
-        }
-      });
-      globalPods.forEach(p => { if (!podStats[p.name]) podStats[p.name] = []; });
-      
-      const podNames = Object.keys(podStats).sort();
-      const podData = podNames.map((p, pIdx) => {
-        tooltipStore[cIdPod][0][pIdx] = podStats[p];
-        return { x: p, y: podStats[p].length };
-      });
-      
-      destroyChart(cIdPod);
-      const barOptions = {
-        series: [{ name: 'Total Approved', data: podData }],
-        chart: { type: 'bar', height: 380, toolbar: { show: false }, fontFamily: 'Inter, sans-serif', events: getInteractiveChartEvents(cIdPod) },
-        colors: ['#10b981'],
-        plotOptions: { bar: { horizontal: false, columnWidth: '45%', borderRadius: 4 } },
-        dataLabels: { enabled: true, style: { colors: ['#fff'] } },
-        xaxis: { labels: { style: { colors: '#64748b', fontSize: '12px' } } },
-        yaxis: { labels: { style: { colors: '#64748b' } } },
-        grid: { borderColor: '#f1f5f9', strokeDashArray: 4 },
-        tooltip: { custom: function(opt) { return buildTooltipHtml(cIdPod, opt.seriesIndex, opt.dataPointIndex, opt.w); } }
-      };
-      chartInstances[cIdPod] = new ApexCharts(document.querySelector(`#${cIdPod}`), barOptions);
-      chartInstances[cIdPod].render();
     }
 
-    // --- TAB 6: SLACK INTEGRATION ---
+    // --- TAB 6: SLACK ---
     window.selectSlackNode = function(el, event) {
       event.stopPropagation();
       const selection = window.getSelection();
@@ -1077,7 +986,7 @@
     function renderSlackTab() {
       const slackData = {}; 
       
-      globalTasks.forEach(t => {
+      filteredTasks.forEach(t => {
         if (t.combinedStatus === 'Final Approved (L2)') return; 
         if (!t.annotator || t.annotator === '—' || t.annotator === 'Unassigned') return;
         if (!t.reviewer || t.reviewer === '—' || t.reviewer === 'Unassigned') return;
@@ -1097,7 +1006,7 @@
       const sortedPods = Object.keys(slackData).sort();
       
       if (sortedPods.length === 0) {
-        document.getElementById('slack-render-area').innerHTML = '<div style="padding: 40px; text-align: center; color: var(--text-sub);">No pending tasks found requiring Slack messaging.</div>';
+        document.getElementById('slack-render-area').innerHTML = '<div style="padding: 40px; text-align: center; color: var(--text-sub);">No pending tasks found requiring Slack messaging in the selected date range.</div>';
         return;
       }
 
@@ -1118,6 +1027,7 @@
       document.getElementById('slack-render-area').innerHTML = html;
     }
 
+    // Initialize Dashboard
     init();
   </script>
 </body>
