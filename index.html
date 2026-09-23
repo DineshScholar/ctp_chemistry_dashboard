@@ -409,6 +409,7 @@
         <select id="filter-state" class="filter-input" multiple onchange="renderTable()">
           <option value="All" selected>All Current Statuses</option>
           <option value="Draft">Draft / Pool</option>
+          <option value="Fresh Submission">Fresh Submission</option>
           <option value="L1 review">Awaiting L1 Review</option>
           <option value="L2 review">Awaiting L2 Review</option>
           <option value="Rework">Rework</option>
@@ -1036,6 +1037,8 @@
         const matchState = qStates.includes('All') || qStates.some(qState => {
           if (qState === 'Draft') {
             return (!t.state || t.state.toLowerCase().includes('draft') || t.state.toLowerCase().includes('pool'));
+          } else if (qState === 'Fresh Submission') {
+            return getCombinedStatus(t) === 'Fresh Submission';
           } else {
             return (t.state && t.state.toLowerCase().includes(qState.toLowerCase()));
           }
