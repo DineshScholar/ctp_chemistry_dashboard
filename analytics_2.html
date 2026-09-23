@@ -201,7 +201,8 @@
       '0 Reworks (First Pass)': '#10b981', 
       '1 Rework': '#f59e0b', 
       '2 Reworks': '#f97316', 
-      '3+ Reworks': '#ef4444' 
+      '3+ Reworks': '#ef4444',
+      'Pending / Unreviewed': '#cbd5e1'
     };
 
     const PALETTE = ['#2563eb', '#7c3aed', '#db2777', '#ea580c', '#ca8a04', '#16a34a', '#0d9488', '#0284c7', '#4f46e5', '#be185d'];
@@ -245,6 +246,8 @@
       const s = (task.state || '').toLowerCase();
       const clearedL1 = hasClearedL1(task);
       const clearedL2 = hasClearedL2(task);
+      
+      // Legacy mapping compatibility for statuses
       let reworks = 0;
       if (task.history) { task.history.forEach(h => { if (h.label && h.label.toLowerCase().includes('rework')) reworks++; }); }
       
@@ -365,9 +368,26 @@
                       if (time > maxTime) maxTime = time;
                   }
                   
-                  if (lLower.includes('rework') || kLower.includes('rework')) reworkCount++;
+                  // Strictly count explicit reviewer rework actions
+                  if (kLower === 'review_rework' || lLower === 'rework requested' || lLower === 'returned for rework') {
+                      reworkCount++;
+                  }
               });
               if (maxTime > 0) reviewedDateObj = new Date(maxTime);
+          }
+
+          if (reworkCount === 0 && combinedStatus.includes('Rework')) reworkCount = 1;
+
+          let reworkCat = '';
+          const isUnreviewed = ['Draft / Unsubmitted', 'Pending L1', 'Fresh Submission'].includes(combinedStatus);
+          
+          if (isUnreviewed && reworkCount === 0) {
+              reworkCat = 'Pending / Unreviewed';
+          } else {
+              if (reworkCount === 0) reworkCat = '0 Reworks (First Pass)';
+              else if (reworkCount === 1) reworkCat = '1 Rework';
+              else if (reworkCount === 2) reworkCat = '2 Reworks';
+              else reworkCat = '3+ Reworks';
           }
           
           return { 
@@ -379,8 +399,7 @@
             resolvedReviewer: resolvedReviewer,
             submittedDateObj: submittedDateObj,
             reviewedDateObj: reviewedDateObj,
-            reworkCount: reworkCount,
-            reworkCategory: reworkCount === 0 ? '0 Reworks (First Pass)' : (reworkCount === 1 ? '1 Rework' : (reworkCount === 2 ? '2 Reworks' : '3+ Reworks'))
+            reworkCategory: reworkCat
           };
         });
 
@@ -561,7 +580,6 @@
             const counts = {};
             bucketTasks.forEach(t => { counts[t.reworkCategory] = (counts[t.reworkCategory] || 0) + 1; });
             
-            // Map strictly to fixed order for reworks (0 to 3+)
             const orderedCats = Object.keys(REWORK_COLORS).reverse(); 
             chartData = orderedCats.map(cat => ({
                 name: cat, value: counts[cat] || 0, itemStyle: { color: REWORK_COLORS[cat] }
@@ -590,7 +608,6 @@
                 series: [{ type: 'bar', data: chartData, label: { show: true, position: 'right', fontFamily: 'Inter', fontWeight: 700, color: '#0f172a' }, itemStyle: { borderRadius: [0, 4, 4, 0] }, barMaxWidth: 25 }]
             };
         } else {
-            // Default Donut
             const counts = {};
             bucketTasks.forEach(t => { counts[t.combinedStatus] = (counts[t.combinedStatus] || 0) + 1; });
             chartData = Object.keys(counts).map(status => ({ name: status, value: counts[status], itemStyle: { color: STATUS_COLORS[status] || '#cbd5e1' } }));
