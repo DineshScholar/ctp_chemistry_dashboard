@@ -120,20 +120,24 @@
     .card-quar-l2 { border-top: 4px solid var(--combo-teal); background: #faf9fb; }
     .card-quar-l2 .summary-value { color: var(--combo-teal); }
 
-    /* Filters Section */
+    /* Filters Section Enhancements */
     .filters-container {
       background: var(--bg-card);
       border: 1px solid var(--border);
       border-radius: 12px;
       padding: 20px;
-      margin-bottom: 24px;
+      margin-bottom: 12px;
       display: flex;
       flex-wrap: wrap;
       gap: 16px;
       box-shadow: 0 2px 4px rgba(0,0,0,0.02);
       align-items: flex-start;
     }
-
+    
+    .filter-wrapper { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 180px; }
+    .filter-label { font-size: 11px; font-weight: 700; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.05em; display: flex; justify-content: space-between; align-items: baseline; }
+    .filter-hint { font-size: 10px; color: #94a3b8; font-weight: 500; text-transform: none; letter-spacing: normal;}
+    
     .filter-input {
       padding: 10px 14px;
       border: 1px solid var(--border);
@@ -141,25 +145,51 @@
       font-size: 13px;
       color: var(--text-main);
       outline: none;
-      min-width: 170px;
-      flex: 1;
+      width: 100%;
       cursor: pointer;
+      background: #fff;
+      transition: all 0.2s;
     }
-    .filter-input:focus { border-color: var(--primary); }
+    .filter-input:hover { border-color: #cbd5e1; }
+    .filter-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
     
-    /* Modified for Multiple Selects & Date Wrap */
-    select[multiple].filter-input { height: 85px; padding: 6px; }
-    select[multiple].filter-input option { padding: 4px; border-radius: 4px; }
+    select.filter-input {
+      background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%2364748b%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E');
+      background-repeat: no-repeat;
+      background-position: right 12px top 50%;
+      background-size: 10px auto;
+      appearance: none;
+      -webkit-appearance: none;
+      padding-right: 30px;
+    }
     
-    .filter-group { display: flex; flex-wrap: wrap; gap: 8px; flex: 1.5; min-width: 250px; }
-    #custom-date-range { display: none; gap: 8px; align-items: center; flex: 2; flex-wrap: wrap; }
+    select.filter-input:not([multiple]) { height: 42px; }
+    
+    select[multiple].filter-input { 
+      height: 120px; 
+      padding: 4px; 
+      background-image: none; 
+      overflow-y: auto; 
+    }
+    
+    select[multiple].filter-input option { 
+      padding: 6px 10px; 
+      margin-bottom: 2px; 
+      border-radius: 4px; 
+      transition: background 0.1s; 
+    }
+    select[multiple].filter-input option:checked { 
+      background: var(--primary-light); 
+      color: var(--primary); 
+      font-weight: 600; 
+    }
 
     /* Ledger Actions Bar */
     .table-actions {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 12px;
+      margin: 24px 0 12px 0;
       padding: 0 4px;
     }
     .table-actions h3 { margin: 0; font-size: 14px; font-weight: 700; color: var(--text-main); }
@@ -325,54 +355,90 @@
       <!-- Generated via JS to accurately reflect currently filtered data -->
     </div>
 
-    <!-- Filters -->
+    <!-- Filters Row 1 -->
     <div class="filters-container">
-      <input type="text" id="search-id" class="filter-input" placeholder="Search Task ID (e.g. 01a081d2...)" oninput="renderTable()" style="height: 40px; margin-top: 2px;">
+      <div class="filter-wrapper" style="flex: 2; min-width: 250px;">
+        <span class="filter-label">Search <span class="filter-hint">By Task ID</span></span>
+        <input type="text" id="search-id" class="filter-input" placeholder="Search Task ID (e.g. 01a081d2...)" oninput="renderTable()">
+      </div>
       
-      <div class="filter-group">
-        <select id="filter-date" class="filter-input" onchange="toggleCustomDate()" style="height: 40px; margin-top: 2px;">
+      <div class="filter-wrapper" style="flex: 1.5; min-width: 200px;">
+        <span class="filter-label">Timezone <span class="filter-hint">For Date Logic</span></span>
+        <select id="filter-timezone" class="filter-input" onchange="renderTable()">
+          <option value="Local" selected>Local (Browser)</option>
+          <option value="IST">IST (UTC+5:30)</option>
+          <option value="UTC">UTC (UTC+0:00)</option>
+          <option value="EST">EST (UTC-5:00)</option>
+          <option value="PST">PST (UTC-8:00)</option>
+        </select>
+      </div>
+
+      <div class="filter-wrapper" style="flex: 1.5; min-width: 200px;">
+        <span class="filter-label">Date Range <span class="filter-hint">Report Date</span></span>
+        <select id="filter-date" class="filter-input" onchange="toggleCustomDate()">
           <option value="All">All Time</option>
           <option value="Today">Today</option>
           <option value="7">Last 7 Days</option>
           <option value="30">Last 30 Days</option>
           <option value="Custom">Custom Range</option>
         </select>
-        <div id="custom-date-range">
-          <input type="datetime-local" id="date-start" class="filter-input" onchange="renderTable()" style="height: 40px;">
+      </div>
+      
+      <div class="filter-wrapper" id="custom-date-wrapper" style="display: none; flex: 2; min-width: 300px;">
+        <span class="filter-label">Custom Date <span class="filter-hint">Start & End</span></span>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <input type="date" id="date-start" class="filter-input" onchange="renderTable()" style="height: 42px;">
           <span style="color:var(--text-sub); font-size: 12px;">to</span>
-          <input type="datetime-local" id="date-end" class="filter-input" onchange="renderTable()" style="height: 40px;">
-          <span id="timezone-hint" style="color:var(--text-sub); font-size: 11px; font-weight: 600;">(IST)</span>
+          <input type="date" id="date-end" class="filter-input" onchange="renderTable()" style="height: 42px;">
         </div>
       </div>
+    </div>
 
-      <select id="filter-pod" class="filter-input" multiple onchange="renderTable()">
-        <option value="All">All Pods</option>
-        <option value="All_No_Unassigned">All Pods - Unassigned Pod</option>
-      </select>
+    <!-- Filters Row 2 (Multi-Selects) -->
+    <div class="filters-container">
+      <div class="filter-wrapper">
+        <span class="filter-label">Pod <span class="filter-hint">Cmd/Ctrl + Click</span></span>
+        <select id="filter-pod" class="filter-input" multiple onchange="renderTable()">
+          <option value="All" selected>All Pods</option>
+          <option value="All_No_Unassigned">All Pods - Unassigned Pod</option>
+        </select>
+      </div>
 
-      <select id="filter-state" class="filter-input" multiple onchange="renderTable()">
-        <option value="All">All Current Statuses</option>
-        <option value="Draft">Draft / Pool</option>
-        <option value="L1 review">Awaiting L1 Review</option>
-        <option value="L2 review">Awaiting L2 Review</option>
-        <option value="Rework">Rework</option>
-        <option value="Quarantined">Quarantined</option>
-        <option value="Approved">Approved</option>
-      </select>
+      <div class="filter-wrapper">
+        <span class="filter-label">Status <span class="filter-hint">Cmd/Ctrl + Click</span></span>
+        <select id="filter-state" class="filter-input" multiple onchange="renderTable()">
+          <option value="All" selected>All Current Statuses</option>
+          <option value="Draft">Draft / Pool</option>
+          <option value="L1 review">Awaiting L1 Review</option>
+          <option value="L2 review">Awaiting L2 Review</option>
+          <option value="Rework">Rework</option>
+          <option value="Quarantined">Quarantined</option>
+          <option value="Approved">Approved</option>
+        </select>
+      </div>
 
-      <select id="filter-milestone" class="filter-input" multiple onchange="renderTable()">
-        <option value="All">All Progress Milestones</option>
-        <option value="L1">Cleared L1 (Inc. L2/Quarantine)</option>
-        <option value="L2">Cleared L2 (Approved)</option>
-      </select>
+      <div class="filter-wrapper">
+        <span class="filter-label">Milestone <span class="filter-hint">Cmd/Ctrl + Click</span></span>
+        <select id="filter-milestone" class="filter-input" multiple onchange="renderTable()">
+          <option value="All" selected>All Progress Milestones</option>
+          <option value="L1">Cleared L1 (Inc. L2/Quarantine)</option>
+          <option value="L2">Cleared L2 (Approved)</option>
+        </select>
+      </div>
 
-      <select id="filter-trainer" class="filter-input" multiple onchange="renderTable()">
-        <option value="All">All Trainers</option>
-      </select>
+      <div class="filter-wrapper">
+        <span class="filter-label">Trainer <span class="filter-hint">Cmd/Ctrl + Click</span></span>
+        <select id="filter-trainer" class="filter-input" multiple onchange="renderTable()">
+          <option value="All" selected>All Trainers</option>
+        </select>
+      </div>
 
-      <select id="filter-reviewer" class="filter-input" multiple onchange="renderTable()">
-        <option value="All">All Reviewers</option>
-      </select>
+      <div class="filter-wrapper">
+        <span class="filter-label">Reviewer <span class="filter-hint">Cmd/Ctrl + Click</span></span>
+        <select id="filter-reviewer" class="filter-input" multiple onchange="renderTable()">
+          <option value="All" selected>All Reviewers</option>
+        </select>
+      </div>
     </div>
 
     <!-- Table Action Bar -->
@@ -751,7 +817,7 @@
       const fillOptions = (id, set) => {
         const select = document.getElementById(id);
         Array.from(set).sort().forEach(item => {
-          select.insertAdjacentHTML('beforeend', `<option value="${item}">${item}</option>`);
+          select.insertAdjacentHTML('beforeend', `<option value="${esc(item)}">${esc(item)}</option>`);
         });
       };
 
@@ -762,31 +828,48 @@
 
     function toggleCustomDate() {
       const val = document.getElementById('filter-date').value;
-      document.getElementById('custom-date-range').style.display = val === 'Custom' ? 'flex' : 'none';
+      document.getElementById('custom-date-wrapper').style.display = val === 'Custom' ? 'flex' : 'none';
       renderTable();
+    }
+
+    function getTzString(tz) {
+      if (tz === 'IST') return 'Asia/Kolkata';
+      if (tz === 'PST') return 'America/Los_Angeles';
+      if (tz === 'EST') return 'America/New_York';
+      if (tz === 'UTC') return 'UTC';
+      return Intl.DateTimeFormat().resolvedOptions().timeZone;
+    }
+
+    function getDateStringInTz(dateObj, tzStr) {
+       return new Intl.DateTimeFormat('en-CA', { timeZone: tzStr, year: 'numeric', month: '2-digit', day: '2-digit' }).format(dateObj);
     }
 
     function checkDateMatch(dateStr, filterVal) {
       if (!dateStr || filterVal === 'All') return true;
-      const taskDate = new Date(dateStr);
-      const now = new Date();
-      now.setHours(23, 59, 59, 999);
 
-      if (filterVal === 'Today') return taskDate.toDateString() === new Date().toDateString();
+      const tzSelect = document.getElementById('filter-timezone');
+      const tzStr = getTzString(tzSelect ? tzSelect.value : 'Local');
+
+      const taskDateObj = new Date(dateStr);
+      const taskDateStr = getDateStringInTz(taskDateObj, tzStr);
+      
+      const now = new Date();
+      const todayStr = getDateStringInTz(now, tzStr);
+
+      if (filterVal === 'Today') {
+        return taskDateStr === todayStr;
+      }
       if (filterVal === '7' || filterVal === '30') {
-        const past = new Date();
-        past.setDate(now.getDate() - parseInt(filterVal));
-        return taskDate >= past && taskDate <= now;
+        const past = new Date(now.getTime() - parseInt(filterVal) * 24 * 60 * 60 * 1000);
+        const pastStr = getDateStringInTz(past, tzStr);
+        return taskDateStr >= pastStr && taskDateStr <= todayStr;
       }
       if (filterVal === 'Custom') {
         const s = document.getElementById('date-start').value;
         const e = document.getElementById('date-end').value;
         let match = true;
-        if (s) match = match && taskDate >= new Date(s);
-        if (e) {
-          const eDate = new Date(e);
-          match = match && taskDate <= eDate;
-        }
+        if (s) match = match && taskDateStr >= s;
+        if (e) match = match && taskDateStr <= e;
         return match;
       }
       return true;
@@ -960,6 +1043,7 @@
         
         const matchTrainer = qTrainers.includes('All') || qTrainers.includes(t.annotator);
         const matchReviewer = qReviewers.includes('All') || qReviewers.includes(t.reviewer);
+        
         const matchPod = qPods.includes('All') || qPods.some(qPod => {
            if (qPod === 'All_No_Unassigned') return t.pod !== 'Unassigned Pod';
            return t.pod === qPod;
@@ -1362,9 +1446,17 @@
     .header { text-align: center; margin-bottom: 24px; }
     .header h1 { margin: 0 0 10px 0; color: #6b21a8; font-size: 24px; font-weight: 800; }
     .header p { color: #64748b; margin: 0; font-size: 14px; }
-    .filters-bar { display: flex; gap: 16px; justify-content: center; margin-bottom: 24px; background: white; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 2px 4px rgba(0,0,0,0.02); flex-wrap: wrap; }
-    .filter-select { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #0f172a; outline: none; min-width: 180px;}
+    
+    .filters-bar { display: flex; gap: 16px; justify-content: center; margin-bottom: 24px; background: white; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 2px 4px rgba(0,0,0,0.02); flex-wrap: wrap; align-items: flex-start; }
+    .filter-wrapper { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 200px; }
+    .filter-label { font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.05em; display: flex; justify-content: space-between; }
+    .filter-hint { font-size: 10px; color: #94a3b8; font-weight: 400; text-transform: none; letter-spacing: normal;}
+    .filter-select { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #0f172a; outline: none; width: 100%; transition: all 0.2s;}
     .filter-select:focus { border-color: #6b21a8; }
+    select[multiple].filter-select { height: 110px; padding: 4px; overflow-y: auto; }
+    select[multiple] option { padding: 6px 10px; margin-bottom: 2px; border-radius: 4px; transition: background 0.1s; cursor: pointer; }
+    select[multiple] option:checked { background: #f3e8ff; color: #6b21a8; font-weight: 600; }
+
     .report-card { background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 24px; overflow-x: auto; border: 1px solid #e2e8f0; }
     table { width: 100%; border-collapse: collapse; text-align: left; }
     th { background: #f8fafc; padding: 14px 16px; font-size: 12px; font-weight: 700; color: #475569; border-bottom: 2px solid #e2e8f0; text-transform: uppercase; letter-spacing: 0.05em; }
@@ -1419,22 +1511,37 @@
     </div>
 
     <div class="filters-bar">
-      <select id="filter-trainer" class="filter-select" onchange="filterTable()">
-        <option value="All">All Trainers</option>
-        ${[...uniqueTrainers].sort().map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join('')}
-      </select>
-      <select id="filter-status" class="filter-select" onchange="filterTable()">
-        <option value="All">All Task Statuses</option>
-        ${[...uniqueStatuses].sort().map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join('')}
-      </select>
-      <select id="filter-l1" class="filter-select" onchange="filterTable()">
-        <option value="All">All L1 Reviewers</option>
-        ${[...uniqueL1].sort().map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join('')}
-      </select>
-      <select id="filter-l2" class="filter-select" onchange="filterTable()">
-        <option value="All">All L2 Reviewers</option>
-        ${[...uniqueL2].sort().map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join('')}
-      </select>
+      <div class="filter-wrapper">
+        <span class="filter-label">Trainer <span class="filter-hint">Cmd/Ctrl+Click</span></span>
+        <select id="filter-trainer" class="filter-select" multiple onchange="filterTable()">
+          <option value="All" selected>All Trainers</option>
+          ${[...uniqueTrainers].sort().map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join('')}
+        </select>
+      </div>
+      
+      <div class="filter-wrapper">
+        <span class="filter-label">Task Status <span class="filter-hint">Cmd/Ctrl+Click</span></span>
+        <select id="filter-status" class="filter-select" multiple onchange="filterTable()">
+          <option value="All" selected>All Task Statuses</option>
+          ${[...uniqueStatuses].sort().map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join('')}
+        </select>
+      </div>
+
+      <div class="filter-wrapper">
+        <span class="filter-label">L1 Reviewer <span class="filter-hint">Cmd/Ctrl+Click</span></span>
+        <select id="filter-l1" class="filter-select" multiple onchange="filterTable()">
+          <option value="All" selected>All L1 Reviewers</option>
+          ${[...uniqueL1].sort().map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join('')}
+        </select>
+      </div>
+
+      <div class="filter-wrapper">
+        <span class="filter-label">L2 Reviewer <span class="filter-hint">Cmd/Ctrl+Click</span></span>
+        <select id="filter-l2" class="filter-select" multiple onchange="filterTable()">
+          <option value="All" selected>All L2 Reviewers</option>
+          ${[...uniqueL2].sort().map(x => `<option value="${esc(x)}">${esc(x)}</option>`).join('')}
+        </select>
+      </div>
     </div>
     
     <div class="report-card">
@@ -1458,20 +1565,26 @@
   </div>
   
   <script>
+    function getMultiSelect(id) {
+       var el = document.getElementById(id);
+       if (!el || el.selectedOptions.length === 0) return ['All'];
+       return Array.from(el.selectedOptions).map(function(o) { return o.value; });
+    }
+
     function filterTable() {
-      var fTrainer = document.getElementById('filter-trainer').value;
-      var fL1 = document.getElementById('filter-l1').value;
-      var fL2 = document.getElementById('filter-l2').value;
-      var fStatus = document.getElementById('filter-status').value;
+      var fTrainers = getMultiSelect('filter-trainer');
+      var fL1s = getMultiSelect('filter-l1');
+      var fL2s = getMultiSelect('filter-l2');
+      var fStatuses = getMultiSelect('filter-status');
       
       var rows = document.querySelectorAll('tbody tr.main-row');
       var visibleCount = 0;
       
       rows.forEach(function(row) {
-        var matchT = (fTrainer === 'All' || row.getAttribute('data-trainer') === fTrainer);
-        var matchL1 = (fL1 === 'All' || row.getAttribute('data-l1') === fL1);
-        var matchL2 = (fL2 === 'All' || row.getAttribute('data-l2') === fL2);
-        var matchS = (fStatus === 'All' || row.getAttribute('data-status') === fStatus);
+        var matchT = fTrainers.indexOf('All') > -1 || fTrainers.indexOf(row.getAttribute('data-trainer')) > -1;
+        var matchL1 = fL1s.indexOf('All') > -1 || fL1s.indexOf(row.getAttribute('data-l1')) > -1;
+        var matchL2 = fL2s.indexOf('All') > -1 || fL2s.indexOf(row.getAttribute('data-l2')) > -1;
+        var matchS = fStatuses.indexOf('All') > -1 || fStatuses.indexOf(row.getAttribute('data-status')) > -1;
         
         var histRow = document.getElementById('hist-' + row.getAttribute('data-taskid'));
         
@@ -1559,9 +1672,17 @@
     .header { text-align: center; margin-bottom: 24px; }
     .header h1 { margin: 0 0 10px 0; color: #4f46e5; font-size: 24px; font-weight: 800; }
     .header p { color: #64748b; margin: 0; font-size: 14px; }
-    .filters-bar { display: flex; gap: 16px; justify-content: center; margin-bottom: 24px; background: white; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
-    .filter-select { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #0f172a; outline: none; min-width: 200px;}
+    
+    .filters-bar { display: flex; gap: 16px; justify-content: center; margin-bottom: 24px; background: white; padding: 16px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 2px 4px rgba(0,0,0,0.02); flex-wrap: wrap; align-items: flex-start; }
+    .filter-wrapper { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 200px; }
+    .filter-label { font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.05em; display: flex; justify-content: space-between; }
+    .filter-hint { font-size: 10px; color: #94a3b8; font-weight: 400; text-transform: none; letter-spacing: normal;}
+    .filter-select { padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; color: #0f172a; outline: none; width: 100%; transition: all 0.2s;}
     .filter-select:focus { border-color: #4f46e5; }
+    select[multiple].filter-select { height: 110px; padding: 4px; overflow-y: auto; }
+    select[multiple] option { padding: 6px 10px; margin-bottom: 2px; border-radius: 4px; transition: background 0.1s; cursor: pointer; }
+    select[multiple] option:checked { background: #e0f2fe; color: #0369a1; font-weight: 600; }
+
     .report-card { background: white; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); padding: 24px; overflow-x: auto; border: 1px solid #e2e8f0; }
     table { width: 100%; border-collapse: collapse; text-align: left; }
     th { background: #f8fafc; padding: 14px 16px; font-size: 12px; font-weight: 700; color: #475569; border-bottom: 2px solid #e2e8f0; text-transform: uppercase; letter-spacing: 0.05em; }
@@ -1614,18 +1735,29 @@
     </div>
     
     <div class="filters-bar">
-      <select id="filter-trainer" class="filter-select" onchange="filterTable()">
-        <option value="All">All Trainers</option>
-        ${uniqueTrainers.map(tr => `<option value="${esc(tr)}">${esc(tr)}</option>`).join('')}
-      </select>
-      <select id="filter-reviewer" class="filter-select" onchange="filterTable()">
-        <option value="All">All Reviewers</option>
-        <!-- Injected Below -->
-      </select>
-      <select id="filter-status" class="filter-select" onchange="filterTable()">
-        <option value="All">All Statuses</option>
-        ${uniqueStatuses.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('')}
-      </select>
+      <div class="filter-wrapper">
+        <span class="filter-label">Trainer <span class="filter-hint">Cmd/Ctrl+Click</span></span>
+        <select id="filter-trainer" class="filter-select" multiple onchange="filterTable()">
+          <option value="All" selected>All Trainers</option>
+          ${uniqueTrainers.map(tr => `<option value="${esc(tr)}">${esc(tr)}</option>`).join('')}
+        </select>
+      </div>
+
+      <div class="filter-wrapper">
+        <span class="filter-label">Reviewer <span class="filter-hint">Cmd/Ctrl+Click</span></span>
+        <select id="filter-reviewer" class="filter-select" multiple onchange="filterTable()">
+          <option value="All" selected>All Reviewers</option>
+          <!-- Injected Below -->
+        </select>
+      </div>
+
+      <div class="filter-wrapper">
+        <span class="filter-label">Status <span class="filter-hint">Cmd/Ctrl+Click</span></span>
+        <select id="filter-status" class="filter-select" multiple onchange="filterTable()">
+          <option value="All" selected>All Statuses</option>
+          ${uniqueStatuses.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('')}
+        </select>
+      </div>
     </div>
 
     <div class="report-card">
@@ -1744,17 +1876,24 @@
   </div>
   
   <script>
+    function getMultiSelect(id) {
+       var el = document.getElementById(id);
+       if (!el || el.selectedOptions.length === 0) return ['All'];
+       return Array.from(el.selectedOptions).map(function(o) { return o.value; });
+    }
+
     function filterTable() {
-      var trainer = document.getElementById('filter-trainer').value;
-      var reviewer = document.getElementById('filter-reviewer').value;
-      var status = document.getElementById('filter-status').value;
-      var rows = document.querySelectorAll('tbody tr');
+      var fTrainers = getMultiSelect('filter-trainer');
+      var fReviewers = getMultiSelect('filter-reviewer');
+      var fStatuses = getMultiSelect('filter-status');
       
+      var rows = document.querySelectorAll('tbody tr');
       var visibleCount = 0;
+      
       rows.forEach(function(row) {
-        var matchT = (trainer === 'All' || row.getAttribute('data-trainer') === trainer);
-        var matchR = (reviewer === 'All' || row.getAttribute('data-reviewer') === reviewer);
-        var matchS = (status === 'All' || row.getAttribute('data-status') === status);
+        var matchT = fTrainers.indexOf('All') > -1 || fTrainers.indexOf(row.getAttribute('data-trainer')) > -1;
+        var matchR = fReviewers.indexOf('All') > -1 || fReviewers.indexOf(row.getAttribute('data-reviewer')) > -1;
+        var matchS = fStatuses.indexOf('All') > -1 || fStatuses.indexOf(row.getAttribute('data-status')) > -1;
         
         if (matchT && matchR && matchS) {
           row.style.display = '';
