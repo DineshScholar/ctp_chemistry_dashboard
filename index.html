@@ -126,18 +126,14 @@
       border: 1px solid var(--border);
       border-radius: 12px;
       padding: 20px;
-      margin-bottom: 12px;
+      margin-bottom: 24px;
       display: flex;
       flex-wrap: wrap;
       gap: 16px;
       box-shadow: 0 2px 4px rgba(0,0,0,0.02);
       align-items: flex-start;
     }
-    
-    .filter-wrapper { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 180px; }
-    .filter-label { font-size: 11px; font-weight: 700; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.05em; display: flex; justify-content: space-between; align-items: baseline; }
-    .filter-hint { font-size: 10px; color: #94a3b8; font-weight: 500; text-transform: none; letter-spacing: normal;}
-    
+
     .filter-input {
       padding: 10px 14px;
       border: 1px solid var(--border);
@@ -145,51 +141,25 @@
       font-size: 13px;
       color: var(--text-main);
       outline: none;
-      width: 100%;
+      min-width: 170px;
+      flex: 1;
       cursor: pointer;
-      background: #fff;
-      transition: all 0.2s;
     }
-    .filter-input:hover { border-color: #cbd5e1; }
-    .filter-input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
+    .filter-input:focus { border-color: var(--primary); }
     
-    select.filter-input {
-      background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%2364748b%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E');
-      background-repeat: no-repeat;
-      background-position: right 12px top 50%;
-      background-size: 10px auto;
-      appearance: none;
-      -webkit-appearance: none;
-      padding-right: 30px;
-    }
+    /* Modified for Multiple Selects & Date Wrap */
+    select[multiple].filter-input { height: 85px; padding: 6px; }
+    select[multiple].filter-input option { padding: 4px; border-radius: 4px; }
     
-    select.filter-input:not([multiple]) { height: 42px; }
-    
-    select[multiple].filter-input { 
-      height: 120px; 
-      padding: 4px; 
-      background-image: none; 
-      overflow-y: auto; 
-    }
-    
-    select[multiple].filter-input option { 
-      padding: 6px 10px; 
-      margin-bottom: 2px; 
-      border-radius: 4px; 
-      transition: background 0.1s; 
-    }
-    select[multiple].filter-input option:checked { 
-      background: var(--primary-light); 
-      color: var(--primary); 
-      font-weight: 600; 
-    }
+    .filter-group { display: flex; flex-wrap: wrap; gap: 8px; flex: 1.5; min-width: 250px; }
+    #custom-date-range { display: none; gap: 8px; align-items: center; flex: 2; flex-wrap: wrap; }
 
     /* Ledger Actions Bar */
     .table-actions {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin: 24px 0 12px 0;
+      margin-bottom: 12px;
       padding: 0 4px;
     }
     .table-actions h3 { margin: 0; font-size: 14px; font-weight: 700; color: var(--text-main); }
@@ -357,88 +327,53 @@
 
     <!-- Filters Row 1 -->
     <div class="filters-container">
-      <div class="filter-wrapper" style="flex: 2; min-width: 250px;">
-        <span class="filter-label">Search <span class="filter-hint">By Task ID</span></span>
-        <input type="text" id="search-id" class="filter-input" placeholder="Search Task ID (e.g. 01a081d2...)" oninput="renderTable()">
-      </div>
+      <input type="text" id="search-id" class="filter-input" placeholder="Search Task ID (e.g. 01a081d2...)" oninput="renderTable()" style="height: 40px; margin-top: 2px;">
       
-      <div class="filter-wrapper" style="flex: 1.5; min-width: 200px;">
-        <span class="filter-label">Timezone <span class="filter-hint">For Date Logic</span></span>
-        <select id="filter-timezone" class="filter-input" onchange="renderTable()">
-          <option value="Local" selected>Local (Browser)</option>
-          <option value="IST">IST (UTC+5:30)</option>
-          <option value="UTC">UTC (UTC+0:00)</option>
-          <option value="EST">EST (UTC-5:00)</option>
-          <option value="PST">PST (UTC-8:00)</option>
-        </select>
-      </div>
-
-      <div class="filter-wrapper" style="flex: 1.5; min-width: 200px;">
-        <span class="filter-label">Date Range <span class="filter-hint">Report Date</span></span>
-        <select id="filter-date" class="filter-input" onchange="toggleCustomDate()">
+      <div class="filter-group">
+        <select id="filter-date" class="filter-input" onchange="toggleCustomDate()" style="height: 40px; margin-top: 2px;">
           <option value="All">All Time</option>
           <option value="Today">Today</option>
           <option value="7">Last 7 Days</option>
           <option value="30">Last 30 Days</option>
           <option value="Custom">Custom Range</option>
         </select>
-      </div>
-      
-      <div class="filter-wrapper" id="custom-date-wrapper" style="display: none; flex: 2; min-width: 300px;">
-        <span class="filter-label">Custom Date <span class="filter-hint">Start & End</span></span>
-        <div style="display: flex; gap: 8px; align-items: center;">
-          <input type="date" id="date-start" class="filter-input" onchange="renderTable()" style="height: 42px;">
+        <div id="custom-date-range">
+          <input type="datetime-local" id="date-start" class="filter-input" onchange="renderTable()" style="height: 40px;">
           <span style="color:var(--text-sub); font-size: 12px;">to</span>
-          <input type="date" id="date-end" class="filter-input" onchange="renderTable()" style="height: 42px;">
+          <input type="datetime-local" id="date-end" class="filter-input" onchange="renderTable()" style="height: 40px;">
+          <span id="timezone-hint" style="color:var(--text-sub); font-size: 11px; font-weight: 600;">(IST)</span>
         </div>
       </div>
-    </div>
 
-    <!-- Filters Row 2 (Multi-Selects) -->
-    <div class="filters-container">
-      <div class="filter-wrapper">
-        <span class="filter-label">Pod <span class="filter-hint">Cmd/Ctrl + Click</span></span>
-        <select id="filter-pod" class="filter-input" multiple onchange="renderTable()">
-          <option value="All" selected>All Pods</option>
-          <option value="All_No_Unassigned">All Pods - Unassigned Pod</option>
-        </select>
-      </div>
+      <select id="filter-pod" class="filter-input" multiple onchange="renderTable()">
+        <option value="All" selected>All Pods</option>
+        <option value="All_No_Unassigned">All Pods - Unassigned Pod</option>
+      </select>
 
-      <div class="filter-wrapper">
-        <span class="filter-label">Status <span class="filter-hint">Cmd/Ctrl + Click</span></span>
-        <select id="filter-state" class="filter-input" multiple onchange="renderTable()">
-          <option value="All" selected>All Current Statuses</option>
-          <option value="Draft">Draft / Pool</option>
-          <option value="L1 review">Awaiting L1 Review</option>
-          <option value="L2 review">Awaiting L2 Review</option>
-          <option value="Rework">Rework</option>
-          <option value="Quarantined">Quarantined</option>
-          <option value="Approved">Approved</option>
-        </select>
-      </div>
+      <select id="filter-state" class="filter-input" multiple onchange="renderTable()">
+        <option value="All" selected>All Current Statuses</option>
+        <option value="Draft">Draft / Pool</option>
+        <option value="Fresh Submission">Fresh Submission</option>
+        <option value="L1 review">Awaiting L1 Review</option>
+        <option value="L2 review">Awaiting L2 Review</option>
+        <option value="Rework">Rework</option>
+        <option value="Quarantined">Quarantined</option>
+        <option value="Approved">Approved</option>
+      </select>
 
-      <div class="filter-wrapper">
-        <span class="filter-label">Milestone <span class="filter-hint">Cmd/Ctrl + Click</span></span>
-        <select id="filter-milestone" class="filter-input" multiple onchange="renderTable()">
-          <option value="All" selected>All Progress Milestones</option>
-          <option value="L1">Cleared L1 (Inc. L2/Quarantine)</option>
-          <option value="L2">Cleared L2 (Approved)</option>
-        </select>
-      </div>
+      <select id="filter-milestone" class="filter-input" multiple onchange="renderTable()">
+        <option value="All" selected>All Progress Milestones</option>
+        <option value="L1">Cleared L1 (Inc. L2/Quarantine)</option>
+        <option value="L2">Cleared L2 (Approved)</option>
+      </select>
 
-      <div class="filter-wrapper">
-        <span class="filter-label">Trainer <span class="filter-hint">Cmd/Ctrl + Click</span></span>
-        <select id="filter-trainer" class="filter-input" multiple onchange="renderTable()">
-          <option value="All" selected>All Trainers</option>
-        </select>
-      </div>
+      <select id="filter-trainer" class="filter-input" multiple onchange="renderTable()">
+        <option value="All" selected>All Trainers</option>
+      </select>
 
-      <div class="filter-wrapper">
-        <span class="filter-label">Reviewer <span class="filter-hint">Cmd/Ctrl + Click</span></span>
-        <select id="filter-reviewer" class="filter-input" multiple onchange="renderTable()">
-          <option value="All" selected>All Reviewers</option>
-        </select>
-      </div>
+      <select id="filter-reviewer" class="filter-input" multiple onchange="renderTable()">
+        <option value="All" selected>All Reviewers</option>
+      </select>
     </div>
 
     <!-- Table Action Bar -->
@@ -481,7 +416,7 @@
             <th>Domain</th>
             <th>Report Date</th>
             <th>Current Status</th>
-            <th style="text-align: center;">Review Approved Count</th>
+            <th style="text-align: center;">Review Cycles</th>
             <th>Status History</th>
             <th>Actions</th>
           </tr>
@@ -817,7 +752,7 @@
       const fillOptions = (id, set) => {
         const select = document.getElementById(id);
         Array.from(set).sort().forEach(item => {
-          select.insertAdjacentHTML('beforeend', `<option value="${esc(item)}">${esc(item)}</option>`);
+          select.insertAdjacentHTML('beforeend', `<option value="${item}">${item}</option>`);
         });
       };
 
@@ -828,48 +763,31 @@
 
     function toggleCustomDate() {
       const val = document.getElementById('filter-date').value;
-      document.getElementById('custom-date-wrapper').style.display = val === 'Custom' ? 'flex' : 'none';
+      document.getElementById('custom-date-range').style.display = val === 'Custom' ? 'flex' : 'none';
       renderTable();
-    }
-
-    function getTzString(tz) {
-      if (tz === 'IST') return 'Asia/Kolkata';
-      if (tz === 'PST') return 'America/Los_Angeles';
-      if (tz === 'EST') return 'America/New_York';
-      if (tz === 'UTC') return 'UTC';
-      return Intl.DateTimeFormat().resolvedOptions().timeZone;
-    }
-
-    function getDateStringInTz(dateObj, tzStr) {
-       return new Intl.DateTimeFormat('en-CA', { timeZone: tzStr, year: 'numeric', month: '2-digit', day: '2-digit' }).format(dateObj);
     }
 
     function checkDateMatch(dateStr, filterVal) {
       if (!dateStr || filterVal === 'All') return true;
-
-      const tzSelect = document.getElementById('filter-timezone');
-      const tzStr = getTzString(tzSelect ? tzSelect.value : 'Local');
-
-      const taskDateObj = new Date(dateStr);
-      const taskDateStr = getDateStringInTz(taskDateObj, tzStr);
-      
+      const taskDate = new Date(dateStr);
       const now = new Date();
-      const todayStr = getDateStringInTz(now, tzStr);
+      now.setHours(23, 59, 59, 999);
 
-      if (filterVal === 'Today') {
-        return taskDateStr === todayStr;
-      }
+      if (filterVal === 'Today') return taskDate.toDateString() === new Date().toDateString();
       if (filterVal === '7' || filterVal === '30') {
-        const past = new Date(now.getTime() - parseInt(filterVal) * 24 * 60 * 60 * 1000);
-        const pastStr = getDateStringInTz(past, tzStr);
-        return taskDateStr >= pastStr && taskDateStr <= todayStr;
+        const past = new Date();
+        past.setDate(now.getDate() - parseInt(filterVal));
+        return taskDate >= past && taskDate <= now;
       }
       if (filterVal === 'Custom') {
         const s = document.getElementById('date-start').value;
         const e = document.getElementById('date-end').value;
         let match = true;
-        if (s) match = match && taskDateStr >= s;
-        if (e) match = match && taskDateStr <= e;
+        if (s) match = match && taskDate >= new Date(s);
+        if (e) {
+          const eDate = new Date(e);
+          match = match && taskDate <= eDate;
+        }
         return match;
       }
       return true;
@@ -1036,6 +954,8 @@
         const matchState = qStates.includes('All') || qStates.some(qState => {
           if (qState === 'Draft') {
             return (!t.state || t.state.toLowerCase().includes('draft') || t.state.toLowerCase().includes('pool'));
+          } else if (qState === 'Fresh Submission') {
+            return getCombinedStatus(t) === 'Fresh Submission';
           } else {
             return (t.state && t.state.toLowerCase().includes(qState.toLowerCase()));
           }
@@ -1043,7 +963,6 @@
         
         const matchTrainer = qTrainers.includes('All') || qTrainers.includes(t.annotator);
         const matchReviewer = qReviewers.includes('All') || qReviewers.includes(t.reviewer);
-        
         const matchPod = qPods.includes('All') || qPods.some(qPod => {
            if (qPod === 'All_No_Unassigned') return t.pod !== 'Unassigned Pod';
            return t.pod === qPod;
@@ -1084,16 +1003,15 @@
         const trEmail = userToEmail[t.annotator] || (t.annotator !== 'Unassigned' ? t.annotator.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '');
         const displayState = (!t.state || t.state === '') ? 'Pool / Draft' : t.state;
         
-        // Inline reviewer cycle logic based on "Review approved" count
-        let reviewApprovedCount = 0;
+        let reviewCyclesCount = 0;
         if (t.history) {
           t.history.forEach(h => { 
-            if (h.kind === 'review_approved' || (h.label && h.label.toLowerCase() === 'review approved')) {
-              reviewApprovedCount++;
+            if (h.label && h.label.toLowerCase().includes('rework')) {
+              reviewCyclesCount++;
             }
           });
         }
-        const cycleCount = reviewApprovedCount;
+        const cycleCount = (t.state || '').toLowerCase().includes('pool') || (t.state || '').toLowerCase().includes('draft') || t.state === 'Unassigned' || !t.state ? reviewCyclesCount : reviewCyclesCount + 1;
 
         return `
           <tr onclick="openModal('${t.id}')">
