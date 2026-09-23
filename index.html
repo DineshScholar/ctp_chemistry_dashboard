@@ -131,7 +131,7 @@
       flex-wrap: wrap;
       gap: 16px;
       box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-      align-items: center;
+      align-items: flex-start;
     }
 
     .filter-input {
@@ -147,8 +147,12 @@
     }
     .filter-input:focus { border-color: var(--primary); }
     
-    .filter-group { display: flex; gap: 8px; flex: 1.5; min-width: 250px; }
-    #custom-date-range { display: none; gap: 8px; align-items: center; flex: 2; }
+    /* Modified for Multiple Selects & Date Wrap */
+    select[multiple].filter-input { height: 85px; padding: 6px; }
+    select[multiple].filter-input option { padding: 4px; border-radius: 4px; }
+    
+    .filter-group { display: flex; flex-wrap: wrap; gap: 8px; flex: 1.5; min-width: 250px; }
+    #custom-date-range { display: none; gap: 8px; align-items: center; flex: 2; flex-wrap: wrap; }
 
     /* Ledger Actions Bar */
     .table-actions {
@@ -323,10 +327,10 @@
 
     <!-- Filters -->
     <div class="filters-container">
-      <input type="text" id="search-id" class="filter-input" placeholder="Search Task ID (e.g. 01a081d2...)" oninput="renderTable()">
+      <input type="text" id="search-id" class="filter-input" placeholder="Search Task ID (e.g. 01a081d2...)" oninput="renderTable()" style="height: 40px; margin-top: 2px;">
       
       <div class="filter-group">
-        <select id="filter-date" class="filter-input" onchange="toggleCustomDate()">
+        <select id="filter-date" class="filter-input" onchange="toggleCustomDate()" style="height: 40px; margin-top: 2px;">
           <option value="All">All Time</option>
           <option value="Today">Today</option>
           <option value="7">Last 7 Days</option>
@@ -334,18 +338,19 @@
           <option value="Custom">Custom Range</option>
         </select>
         <div id="custom-date-range">
-          <input type="date" id="date-start" class="filter-input" onchange="renderTable()">
+          <input type="datetime-local" id="date-start" class="filter-input" onchange="renderTable()" style="height: 40px;">
           <span style="color:var(--text-sub); font-size: 12px;">to</span>
-          <input type="date" id="date-end" class="filter-input" onchange="renderTable()">
+          <input type="datetime-local" id="date-end" class="filter-input" onchange="renderTable()" style="height: 40px;">
+          <span id="timezone-hint" style="color:var(--text-sub); font-size: 11px; font-weight: 600;">(IST)</span>
         </div>
       </div>
 
-      <select id="filter-pod" class="filter-input" onchange="renderTable()">
+      <select id="filter-pod" class="filter-input" multiple onchange="renderTable()">
         <option value="All">All Pods</option>
         <option value="All_No_Unassigned">All Pods - Unassigned Pod</option>
       </select>
 
-      <select id="filter-state" class="filter-input" onchange="renderTable()">
+      <select id="filter-state" class="filter-input" multiple onchange="renderTable()">
         <option value="All">All Current Statuses</option>
         <option value="Draft">Draft / Pool</option>
         <option value="L1 review">Awaiting L1 Review</option>
@@ -355,17 +360,17 @@
         <option value="Approved">Approved</option>
       </select>
 
-      <select id="filter-milestone" class="filter-input" onchange="renderTable()">
+      <select id="filter-milestone" class="filter-input" multiple onchange="renderTable()">
         <option value="All">All Progress Milestones</option>
         <option value="L1">Cleared L1 (Inc. L2/Quarantine)</option>
         <option value="L2">Cleared L2 (Approved)</option>
       </select>
 
-      <select id="filter-trainer" class="filter-input" onchange="renderTable()">
+      <select id="filter-trainer" class="filter-input" multiple onchange="renderTable()">
         <option value="All">All Trainers</option>
       </select>
 
-      <select id="filter-reviewer" class="filter-input" onchange="renderTable()">
+      <select id="filter-reviewer" class="filter-input" multiple onchange="renderTable()">
         <option value="All">All Reviewers</option>
       </select>
     </div>
@@ -410,7 +415,7 @@
             <th>Domain</th>
             <th>Report Date</th>
             <th>Current Status</th>
-            <th style="text-align: center;">Review Cycles</th>
+            <th style="text-align: center;">Review Approved Count</th>
             <th>Status History</th>
             <th>Actions</th>
           </tr>
@@ -554,7 +559,6 @@
         const annotatorLower = (task.annotator || '').toLowerCase();
 
         if (task.history) {
-            // PASS 1: Identify explicit assignments and strict L1/L2 time boundaries
             for (let h of task.history) {
                 const actor = h.actor_name;
                 const kLower = (h.kind || '').toLowerCase();
@@ -571,26 +575,21 @@
                     }
                 }
                 
-                // If a "cleared" event occurs, L1 phase is officially over.
-                // We track the time so we don't accidentally attribute previous L1 actions to L2
                 if (kLower === 'review_cleared' || lLower.includes('cleared for claim pool') || lLower.includes('advanced to l2')) {
                     if (!l2StartTime || occurredAt > l2StartTime) {
-                        l2StartTime = occurredAt + 1; // +1 ms ensures simultaneous events stay in L1 phase
+                        l2StartTime = occurredAt + 1;
                     }
                 }
             }
 
-            // PASS 2: Map actions to reviewers
             for (let h of task.history) {
                 const actor = h.actor_name;
                 const kLower = (h.kind || '').toLowerCase();
                 const lLower = (h.label || '').toLowerCase();
                 const occurredAt = new Date(h.occurred_at).getTime();
 
-                // Only consider human actors, exclude the trainer, exclude System
                 if (actor && actor !== 'System' && actor !== '—' && actor !== 'None' && actor.toLowerCase() !== annotatorLower) {
                     
-                    // The system inherently clears tasks for the claim pool, humans don't do this action physically
                     if (kLower === 'review_cleared' || lLower.includes('cleared for claim pool')) {
                         continue; 
                     }
@@ -608,13 +607,11 @@
             }
         }
 
-        // FALLBACK: Use the overall task reviewer property if history was truncated or incomplete
         if (task.reviewer && task.reviewer !== '—' && task.reviewer !== 'Unassigned') {
             const taskRevLower = task.reviewer.trim().toLowerCase();
             const l1RevLower = l1Rev.trim().toLowerCase();
             
             if (hasClearedL1(task)) {
-                // If L1 cleared, reviewer is L2 (unless L1's name is just lingering in the system)
                 if (l2Rev === 'NA' && taskRevLower !== l1RevLower) {
                     l2Rev = task.reviewer;
                 }
@@ -788,7 +785,6 @@
         if (s) match = match && taskDate >= new Date(s);
         if (e) {
           const eDate = new Date(e);
-          eDate.setHours(23, 59, 59, 999);
           match = match && taskDate <= eDate;
         }
         return match;
@@ -933,36 +929,47 @@
 
     function renderTable() {
       const tbody = document.getElementById('table-body');
+      
+      const getMultiSelect = (id) => {
+        const el = document.getElementById(id);
+        if (!el || el.selectedOptions.length === 0) return ['All'];
+        return Array.from(el.selectedOptions).map(o => o.value);
+      };
+
       const qSearch = document.getElementById('search-id').value.toLowerCase();
       const qDate = document.getElementById('filter-date').value;
-      const qState = document.getElementById('filter-state').value;
-      const qMilestone = document.getElementById('filter-milestone').value;
-      const qTrainer = document.getElementById('filter-trainer').value;
-      const qReviewer = document.getElementById('filter-reviewer').value;
-      const qPod = document.getElementById('filter-pod').value;
+      const qPods = getMultiSelect('filter-pod');
+      const qStates = getMultiSelect('filter-state');
+      const qMilestones = getMultiSelect('filter-milestone');
+      const qTrainers = getMultiSelect('filter-trainer');
+      const qReviewers = getMultiSelect('filter-reviewer');
 
       document.getElementById('selectAllCheckbox').checked = false;
 
       window.currentFilteredTasks = globalData.filter(t => {
         const matchSearch = t.id.toLowerCase().includes(qSearch);
         const matchDate = checkDateMatch(t.submitted_at, qDate);
-        let matchState = true;
         
-        if (qState !== 'All') {
+        const matchState = qStates.includes('All') || qStates.some(qState => {
           if (qState === 'Draft') {
-            matchState = (!t.state || t.state.toLowerCase().includes('draft') || t.state.toLowerCase().includes('pool'));
+            return (!t.state || t.state.toLowerCase().includes('draft') || t.state.toLowerCase().includes('pool'));
           } else {
-            matchState = (t.state && t.state.toLowerCase().includes(qState.toLowerCase()));
+            return (t.state && t.state.toLowerCase().includes(qState.toLowerCase()));
           }
-        }
+        });
         
-        const matchTrainer = qTrainer === 'All' || t.annotator === qTrainer;
-        const matchReviewer = qReviewer === 'All' || t.reviewer === qReviewer;
-        const matchPod = qPod === 'All_No_Unassigned' ? t.pod !== 'Unassigned Pod' : (qPod === 'All' || t.pod === qPod);
+        const matchTrainer = qTrainers.includes('All') || qTrainers.includes(t.annotator);
+        const matchReviewer = qReviewers.includes('All') || qReviewers.includes(t.reviewer);
+        const matchPod = qPods.includes('All') || qPods.some(qPod => {
+           if (qPod === 'All_No_Unassigned') return t.pod !== 'Unassigned Pod';
+           return t.pod === qPod;
+        });
         
-        let matchMilestone = true;
-        if (qMilestone === 'L1') matchMilestone = hasClearedL1(t);
-        if (qMilestone === 'L2') matchMilestone = hasClearedL2(t);
+        const matchMilestone = qMilestones.includes('All') || qMilestones.some(qMilestone => {
+          if (qMilestone === 'L1') return hasClearedL1(t);
+          if (qMilestone === 'L2') return hasClearedL2(t);
+          return false;
+        });
 
         return matchSearch && matchDate && matchState && matchMilestone && matchTrainer && matchReviewer && matchPod;
       });
@@ -993,12 +1000,16 @@
         const trEmail = userToEmail[t.annotator] || (t.annotator !== 'Unassigned' ? t.annotator.toLowerCase().replace(/\s/g, '.') + '@turing.com' : '');
         const displayState = (!t.state || t.state === '') ? 'Pool / Draft' : t.state;
         
-        // Inline reviewer cycle logic
-        let reworks = 0;
+        // Inline reviewer cycle logic based on "Review approved" count
+        let reviewApprovedCount = 0;
         if (t.history) {
-          t.history.forEach(h => { if (h.label && h.label.toLowerCase().includes('rework')) reworks++; });
+          t.history.forEach(h => { 
+            if (h.kind === 'review_approved' || (h.label && h.label.toLowerCase() === 'review approved')) {
+              reviewApprovedCount++;
+            }
+          });
         }
-        const cycleCount = (t.state || '').toLowerCase().includes('pool') || (t.state || '').toLowerCase().includes('draft') || t.state === 'Unassigned' || !t.state ? reworks : reworks + 1;
+        const cycleCount = reviewApprovedCount;
 
         return `
           <tr onclick="openModal('${t.id}')">
