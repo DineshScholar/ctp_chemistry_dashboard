@@ -28,7 +28,7 @@
     .dashboard { padding: 32px; max-width: 1600px; margin: 0 auto; }
     .global-controls { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 24px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end; }
     
-    .filter-group { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 180px; }
+    .filter-group { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 150px; }
     .filter-label { font-size: 11px; font-weight: 800; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.05em; display: flex; justify-content: space-between; }
     
     .filter-select { padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px; color: var(--text-main); outline: none; background-color: #f8fafc; transition: all 0.2s; font-weight: 600; width: 100%; cursor: pointer;}
@@ -40,14 +40,16 @@
 
     .grid-1-col { display: grid; grid-template-columns: 1fr; gap: 24px; margin-bottom: 24px; }
     .chart-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); display: flex; flex-direction: column;}
-    .chart-header { margin-bottom: 20px; border-bottom: 1px solid #f1f5f9; padding-bottom: 16px;}
+    .chart-header { margin-bottom: 20px; border-bottom: 1px solid #f1f5f9; padding-bottom: 16px; display: flex; justify-content: space-between; align-items: center;}
     .chart-header h2 { margin: 0; font-size: 16px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-main); }
+    .chart-meta { font-size: 12px; color: #94a3b8; font-weight: 500; }
     
     .canvas-container { position: relative; width: 100%; height: 700px; }
+    .line-container { position: relative; width: 100%; height: 450px; display: none; } /* Hidden by default */
 
     /* CSS Grid for Donuts */
     #donut-grid-container {
-      display: grid;
+      display: none; /* Toggled via JS */
       grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
       gap: 24px;
       width: 100%;
@@ -79,9 +81,9 @@
       <div class="filter-group">
         <span class="filter-label">Time Aggregation</span>
         <select id="filter-agg" class="filter-select" onchange="triggerReRender()">
-          <option value="daily" selected>Daily</option>
-          <option value="weekly">Weekly</option>
-          <option value="monthly">Monthly</option>
+          <option value="daily" selected>Daily Trend</option>
+          <option value="weekly">Weekly Blocks</option>
+          <option value="monthly">Monthly Blocks</option>
         </select>
       </div>
 
@@ -118,15 +120,12 @@
           <option value="All" selected>All Trainers</option>
         </select>
       </div>
-    </div>
 
-    <!-- Status by Period (Donut Grid) -->
-    <div class="grid-1-col">
-      <div class="chart-card">
-        <div class="chart-header">
-          <h2>Status by Period</h2>
-        </div>
-        <div id="donut-grid-container"></div>
+      <div class="filter-group" style="flex: 2;">
+        <span class="filter-label">Reviewers</span>
+        <select id="filter-reviewers" class="filter-select" multiple onchange="triggerReRender()">
+          <option value="All" selected>All Reviewers</option>
+        </select>
       </div>
     </div>
 
@@ -135,8 +134,23 @@
       <div class="chart-card">
         <div class="chart-header">
           <h2>Task Flow Engine</h2>
+          <span class="chart-meta">Mapping: Time &rarr; Pod &rarr; Trainer &rarr; L1 &rarr; L2 Approval</span>
         </div>
         <div class="canvas-container" id="sankey-container"></div>
+      </div>
+    </div>
+
+    <!-- Status by Period (Line or Donut Grid based on Aggregation) -->
+    <div class="grid-1-col">
+      <div class="chart-card">
+        <div class="chart-header">
+          <h2 id="period-chart-title">Status by Period</h2>
+          <span class="chart-meta" id="period-chart-meta">Dynamically adapts to Daily, Weekly, or Monthly views</span>
+        </div>
+        <!-- Daily Area Line Chart -->
+        <div class="line-container" id="line-chart-container"></div>
+        <!-- Weekly/Monthly Donut Grid -->
+        <div id="donut-grid-container"></div>
       </div>
     </div>
   </div>
@@ -151,7 +165,8 @@
     let filteredTasks = [];
     
     let sankeyChart = null;
-    let donutCharts = []; // Store dynamically created instances
+    let lineChart = null;
+    let donutCharts = []; 
 
     const STATUS_COLORS = {
       'Final Approved (L2)': '#10b981',
@@ -273,15 +288,21 @@
         const monday = new Date(tzDate.setDate(diff));
         return monday.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year:'2-digit' }) + ' (Wk)';
       }
-      return tzDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      return tzDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year:'2-digit' });
+    }
+
+    function parseBucketDate(b) {
+        let str = b.replace(' (Wk)', '');
+        // Convert "Sep 23, 26" to "Sep 23, 2026" for reliable cross-browser parsing
+        if (str.match(/, \d{2}$/)) {
+            str = str.replace(/, (\d{2})$/, ', 20$1');
+        }
+        const time = new Date(str).getTime();
+        return isNaN(time) ? 0 : time;
     }
 
     function getUniqueBuckets(dataArray) {
-       return [...new Set(dataArray.map(item => item.bucket).filter(Boolean))].sort((a,b) => {
-           const dateA = new Date(a.replace(' (Wk)', ''));
-           const dateB = new Date(b.replace(' (Wk)', ''));
-           return dateA - dateB;
-       });
+       return [...new Set(dataArray.map(item => item.bucket).filter(Boolean))].sort((a,b) => parseBucketDate(a) - parseBucketDate(b));
     }
 
     async function init() {
@@ -302,6 +323,7 @@
 
         rawTasks = (taskData.tasks || []).map(t => {
           let resolvedAnnotator = resolveAnnotator(t.annotator, allRosterMembers, globalMappings);
+          let resolvedReviewer = resolveAnnotator(t.reviewer, allRosterMembers, globalMappings);
           let combinedStatus = getCombinedStatus(t);
           let revs = getReviewers(t);
           let dateObj = t.submitted_at ? new Date(t.submitted_at) : null;
@@ -311,7 +333,8 @@
             annotator: resolvedAnnotator, 
             pod: trainerToPod[resolvedAnnotator] || 'Unassigned Pod',
             combinedStatus: combinedStatus,
-            finalReviewer: revs.l2 !== 'NA' ? revs.l2 : (revs.l1 !== 'NA' ? revs.l1 : 'Unassigned'),
+            revs: revs,
+            resolvedReviewer: resolvedReviewer,
             dateObj: dateObj
           };
         }).filter(t => t.dateObj && !isNaN(t.dateObj.getTime()));
@@ -328,6 +351,13 @@
     function populateFilters() {
       const pods = new Set(rawTasks.map(t => t.pod));
       const trainers = new Set(rawTasks.map(t => t.annotator).filter(a => a && a !== '—' && a !== 'Unassigned'));
+      
+      const reviewers = new Set();
+      rawTasks.forEach(t => {
+          if (t.revs.l1 && t.revs.l1 !== 'NA' && t.revs.l1 !== 'Unassigned') reviewers.add(t.revs.l1);
+          if (t.revs.l2 && t.revs.l2 !== 'NA' && t.revs.l2 !== 'Unassigned') reviewers.add(t.revs.l2);
+          if (t.resolvedReviewer && t.resolvedReviewer !== '—' && t.resolvedReviewer !== 'Unassigned') reviewers.add(t.resolvedReviewer);
+      });
 
       const fill = (id, set) => {
         const el = document.getElementById(id);
@@ -336,6 +366,7 @@
       };
       fill('filter-pods', pods);
       fill('filter-trainers', trainers);
+      fill('filter-reviewers', reviewers);
     }
 
     function getMultiSelect(id) {
@@ -351,6 +382,7 @@
       
       const qPods = getMultiSelect('filter-pods');
       const qTrainers = getMultiSelect('filter-trainers');
+      const qReviewers = getMultiSelect('filter-reviewers');
 
       const now = new Date('2026-09-23T12:54:14Z');
       let cutoffDate = new Date(0); 
@@ -360,18 +392,98 @@
         const passDate = t.dateObj >= cutoffDate;
         const passPod = qPods.includes('All') || qPods.some(qP => qP === 'All_No_Unassigned' ? t.pod !== 'Unassigned Pod' : t.pod === qP);
         const passTrainer = qTrainers.includes('All') || qTrainers.includes(t.annotator);
-        return passDate && passPod && passTrainer;
+        const passReviewer = qReviewers.includes('All') || 
+                             qReviewers.includes(t.revs.l1) || 
+                             qReviewers.includes(t.revs.l2) || 
+                             qReviewers.includes(t.resolvedReviewer);
+
+        return passDate && passPod && passTrainer && passReviewer;
       }).map(t => ({ ...t, bucket: formatToBucket(t.dateObj, timeframe, tzKey) }));
 
-      renderDonuts();
       renderSankey();
+
+      // Toggle Daily Line vs Weekly/Monthly Donuts
+      if (timeframe === 'daily') {
+          renderLineChart();
+      } else {
+          renderDonuts(timeframe);
+      }
     }
 
-    // --- Chart 1: Status by Period (Donut Grid) ---
-    function renderDonuts() {
-      const container = document.getElementById('donut-grid-container');
+    // --- Chart 1: Daily Line Area Chart ---
+    function renderLineChart() {
+      document.getElementById('period-chart-title').innerText = "Daily Status Trends";
+      document.getElementById('period-chart-meta').innerText = "Hover to see exact distributions for each day";
+      document.getElementById('donut-grid-container').style.display = 'none';
       
-      // Cleanup previous instances
+      const lineContainer = document.getElementById('line-chart-container');
+      lineContainer.style.display = 'block';
+
+      if (lineChart) lineChart.dispose();
+      lineChart = echarts.init(lineContainer);
+
+      const buckets = getUniqueBuckets(filteredTasks);
+      
+      const statuses = Object.keys(STATUS_COLORS);
+      const seriesData = statuses.map(status => {
+          return {
+              name: status,
+              type: 'line',
+              smooth: true,
+              symbol: 'circle',
+              symbolSize: 6,
+              areaStyle: { opacity: 0.15 },
+              lineStyle: { width: 3 },
+              itemStyle: { color: STATUS_COLORS[status] },
+              emphasis: { focus: 'series' },
+              data: buckets.map(b => filteredTasks.filter(t => t.bucket === b && t.combinedStatus === status).length)
+          };
+      }).filter(s => s.data.some(v => v > 0)); // Only include statuses that actually have data
+
+      if (buckets.length === 0) {
+        lineContainer.innerHTML = '<div style="color: #64748b; padding: 40px; text-align: center;">No data available.</div>';
+        return;
+      }
+
+      const option = {
+          tooltip: {
+              trigger: 'axis',
+              axisPointer: { type: 'cross', label: { backgroundColor: '#6b21a8' } },
+              textStyle: { fontFamily: 'Inter' }
+          },
+          legend: {
+              data: seriesData.map(s => s.name),
+              bottom: 0,
+              textStyle: { fontFamily: 'Inter', fontSize: 12, color: '#475569' }
+          },
+          grid: { left: '3%', right: '4%', bottom: '15%', top: '5%', containLabel: true },
+          xAxis: [{
+              type: 'category',
+              boundaryGap: false,
+              data: buckets,
+              axisLabel: { fontFamily: 'Inter', color: '#64748b' },
+              axisLine: { lineStyle: { color: '#e2e8f0' } }
+          }],
+          yAxis: [{
+              type: 'value',
+              axisLabel: { fontFamily: 'Inter', color: '#64748b' },
+              splitLine: { lineStyle: { color: '#f1f5f9', type: 'dashed' } }
+          }],
+          series: seriesData
+      };
+
+      lineChart.setOption(option);
+    }
+
+    // --- Chart 2: Weekly/Monthly Donut Grid ---
+    function renderDonuts(timeframe) {
+      document.getElementById('period-chart-title').innerText = `${timeframe.charAt(0).toUpperCase() + timeframe.slice(1)} Status Distribution`;
+      document.getElementById('period-chart-meta').innerText = "One donut per time block containing total task volume in the center.";
+      document.getElementById('line-chart-container').style.display = 'none';
+
+      const container = document.getElementById('donut-grid-container');
+      container.style.display = 'grid';
+      
       donutCharts.forEach(chart => chart.dispose());
       donutCharts = [];
       container.innerHTML = '';
@@ -379,14 +491,13 @@
       const buckets = getUniqueBuckets(filteredTasks);
 
       if (buckets.length === 0) {
-        container.innerHTML = '<div style="grid-column: 1 / -1; color: #64748b; padding: 40px; text-align: center;">No data available for the selected filters.</div>';
+        container.innerHTML = '<div style="grid-column: 1 / -1; color: #64748b; padding: 40px; text-align: center;">No data available.</div>';
         return;
       }
 
       buckets.forEach(bucket => {
         const bucketTasks = filteredTasks.filter(t => t.bucket === bucket);
         
-        // Create a wrapper div for each bucket
         const wrapper = document.createElement('div');
         wrapper.className = 'donut-wrapper';
         container.appendChild(wrapper);
@@ -421,8 +532,8 @@
                 type: 'pie',
                 radius: ['45%', '70%'],
                 center: ['50%', '55%'],
-                itemStyle: { borderColor: '#fff', borderWidth: 2 },
-                label: { show: false }, // Keep it clean, rely on tooltip
+                itemStyle: { borderColor: '#f8fafc', borderWidth: 2 },
+                label: { show: false }, 
                 data: pieData
             }],
             graphic: {
@@ -444,13 +555,14 @@
       });
     }
 
-    // --- Chart 2: Sankey Diagram ---
+    // --- Chart 3: Sankey Flow (DAG Structure) ---
     function renderSankey() {
       const container = document.getElementById('sankey-container');
       
       if (sankeyChart) sankeyChart.dispose();
       sankeyChart = echarts.init(container);
 
+      // Force strict uniqueness with structural prefixes
       const nodesMap = new Map();
       const linksMap = new Map();
 
@@ -470,24 +582,47 @@
       };
 
       filteredTasks.forEach(t => {
-        const bName = `Time: ${t.bucket}`;
-        const pName = `Pod: ${t.pod}`;
-        const tName = `Tr: ${t.annotator && t.annotator !== '—' ? t.annotator : 'Unassigned'}`;
-        const rName = `Rev: ${t.finalReviewer}`;
-        const sName = `Status: ${t.combinedStatus}`;
-
-        // Build Nodes
+        const bName = `[T] ${t.bucket}`;
+        const pName = `[P] ${t.pod}`;
+        const tName = `[Tr] ${t.annotator && t.annotator !== '—' ? t.annotator : 'Unassigned'}`;
+        
+        // Base Routing: Time -> Pod -> Trainer
         addNode(bName, 'Time', getPaletteColor(t.bucket));
         addNode(pName, 'Pod', '#64748b'); 
         addNode(tName, 'Trainer', '#3b82f6'); 
-        addNode(rName, 'Reviewer', '#f59e0b');
-        addNode(sName, 'Status', STATUS_COLORS[t.combinedStatus] || '#9ca3af');
-
-        // Route links: Time -> Pod -> Trainer -> Reviewer -> Status
         addLink(bName, pName);
         addLink(pName, tName);
-        addLink(tName, rName);
-        addLink(rName, sName);
+
+        // L1 Reviewer
+        const revs = t.revs;
+        const r1Name = `[R1] ${revs.l1 !== 'NA' ? revs.l1 : 'Unassigned L1'}`;
+        addNode(r1Name, 'L1 Reviewer', '#f59e0b');
+        addLink(tName, r1Name);
+
+        const cStat = t.combinedStatus;
+        
+        // Determine if task successfully progressed past L1 into the L2 tier
+        const reachedL2 = ['Final Approved (L2)', 'Rework (L2)', 'Quarantined (L1-Accepted)', 'L1-Accepted (Pending L2)'].includes(cStat);
+
+        if (reachedL2) {
+            const s1Name = `[S1] Cleared L1`;
+            addNode(s1Name, 'L1 Status', STATUS_COLORS['L1-Accepted (Pending L2)']);
+            addLink(r1Name, s1Name);
+
+            const l2Assignment = revs.l2 !== 'NA' ? revs.l2 : (cStat === 'L1-Accepted (Pending L2)' ? 'Pending Assignment' : 'Unassigned L2');
+            const r2Name = `[R2] ${l2Assignment}`;
+            addNode(r2Name, 'L2 Reviewer', '#ec4899');
+            addLink(s1Name, r2Name);
+
+            const s2Name = `[S2] ${cStat}`;
+            addNode(s2Name, 'L2 Status', STATUS_COLORS[cStat] || '#9ca3af');
+            addLink(r2Name, s2Name);
+        } else {
+            // Task stopped in L1 (Draft, Pending L1, Rework L1, Quarantined L1)
+            const s1Name = `[S1] ${cStat}`;
+            addNode(s1Name, 'L1 Status', STATUS_COLORS[cStat] || '#9ca3af');
+            addLink(r1Name, s1Name);
+        }
       });
 
       const option = {
@@ -512,7 +647,8 @@
             fontWeight: 600,
             fontSize: 11,
             formatter: function(params) {
-              return params.data.name.replace(/^(Time: |Pod: |Tr: |Rev: |Status: )/, '');
+              // Strip our bracketed DAG tracking tags for a clean display
+              return params.data.name.replace(/^\[.*?\]\s/, '');
             }
           }
         }
@@ -523,7 +659,8 @@
 
     window.addEventListener('resize', () => {
       if (sankeyChart) sankeyChart.resize();
-      donutCharts.forEach(chart => chart.resize());
+      if (lineChart && document.getElementById('filter-agg').value === 'daily') lineChart.resize();
+      if (donutCharts.length > 0) donutCharts.forEach(chart => chart.resize());
     });
 
     init();
