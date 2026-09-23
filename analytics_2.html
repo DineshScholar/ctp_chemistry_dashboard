@@ -3,9 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Advanced Flow Analytics · Turing Task Ledger</title>
+  <title>Flow Analytics · Turing Task Ledger</title>
   
-  <!-- Apache ECharts CDN for Sankey and Sunburst -->
   <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
   
   <style>
@@ -21,19 +20,16 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: var(--bg-page); color: var(--text-main); }
     
-    /* Navigation */
     nav { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 0 32px; display: flex; gap: 30px; box-shadow: 0 1px 2px rgba(0,0,0,0.02); }
     nav a { text-decoration: none; color: var(--text-sub); font-weight: 600; font-size: 14px; padding: 20px 0; border-bottom: 2px solid transparent; transition: color 0.2s; }
     nav a.active { color: var(--primary); border-bottom-color: var(--primary); }
     nav a:hover:not(.active) { color: var(--text-main); }
 
-    /* Layout & Controls */
     .dashboard { padding: 32px; max-width: 1600px; margin: 0 auto; }
     .global-controls { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 24px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end; }
     
     .filter-group { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 180px; }
     .filter-label { font-size: 11px; font-weight: 800; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.05em; display: flex; justify-content: space-between; }
-    .filter-hint { font-weight: 500; color: #94a3b8; text-transform: none; font-size: 10px; }
     
     .filter-select { padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px; color: var(--text-main); outline: none; background-color: #f8fafc; transition: all 0.2s; font-weight: 600; width: 100%; cursor: pointer;}
     .filter-select:hover { border-color: var(--primary); background: #fff; box-shadow: 0 2px 4px rgba(0,0,0,0.02);}
@@ -42,22 +38,34 @@
     select[multiple] option { padding: 6px 10px; border-radius: 4px; margin-bottom: 2px; }
     select[multiple] option:checked { background: var(--primary-light); color: var(--primary); font-weight: 700; }
 
-    /* Chart Cards */
     .grid-1-col { display: grid; grid-template-columns: 1fr; gap: 24px; margin-bottom: 24px; }
-    .chart-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 30px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); display: flex; flex-direction: column; position: relative; overflow: hidden;}
-    .chart-header { margin-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid #f1f5f9; padding-bottom: 16px;}
-    .chart-header-text h2 { margin: 0 0 8px 0; font-size: 16px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-main); display: flex; align-items: center; gap: 8px; }
-    .chart-header-text p { margin: 0; font-size: 13px; color: var(--text-sub); line-height: 1.6; max-width: 85%;}
+    .chart-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); display: flex; flex-direction: column;}
+    .chart-header { margin-bottom: 20px; border-bottom: 1px solid #f1f5f9; padding-bottom: 16px;}
+    .chart-header h2 { margin: 0; font-size: 16px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-main); }
     
-    .canvas-container { position: relative; width: 100%; min-height: 600px; flex-grow: 1; transition: height 0.3s ease; }
+    .canvas-container { position: relative; width: 100%; height: 700px; }
+
+    /* CSS Grid for Donuts */
+    #donut-grid-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 24px;
+      width: 100%;
+    }
+    .donut-wrapper {
+      height: 320px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 10px;
+    }
     
-    /* Loading overlay */
     #loading-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.9); z-index: 999; display: flex; justify-content: center; align-items: center; font-weight: 700; color: var(--primary); font-size: 18px; backdrop-filter: blur(4px);}
   </style>
 </head>
 <body>
 
-  <div id="loading-overlay">Syncing Ledger Data & Generating Layouts...</div>
+  <div id="loading-overlay">Syncing Ledger Data...</div>
 
   <nav>
     <a href="index.html">Task Ledger</a>
@@ -67,7 +75,6 @@
   </nav>
 
   <div class="dashboard">
-    <!-- Global Filters -->
     <div class="global-controls">
       <div class="filter-group">
         <span class="filter-label">Time Aggregation</span>
@@ -98,7 +105,7 @@
       </div>
 
       <div class="filter-group" style="flex: 2;">
-        <span class="filter-label">Pods <span class="filter-hint">Cmd/Ctrl+Click</span></span>
+        <span class="filter-label">Pods</span>
         <select id="filter-pods" class="filter-select" multiple onchange="triggerReRender()">
           <option value="All" selected>All Pods</option>
           <option value="All_No_Unassigned">Exclude Unassigned</option>
@@ -106,34 +113,28 @@
       </div>
 
       <div class="filter-group" style="flex: 2;">
-        <span class="filter-label">Trainers <span class="filter-hint">Cmd/Ctrl+Click</span></span>
+        <span class="filter-label">Trainers</span>
         <select id="filter-trainers" class="filter-select" multiple onchange="triggerReRender()">
           <option value="All" selected>All Trainers</option>
         </select>
       </div>
     </div>
 
+    <!-- Status by Period (Donut Grid) -->
     <div class="grid-1-col">
-      <!-- Sunburst Interactive Drill-Down -->
       <div class="chart-card">
         <div class="chart-header">
-          <div class="chart-header-text">
-            <h2>Time & Status Sunburst (Interactive)</h2>
-            <p>Click any slice to drill down and expand that specific segment into a full donut chart. Click the center to zoom back out. <br><strong>Hierarchy:</strong> Time Bucket (Inner) &rarr; Final QA Status (Middle) &rarr; Originating Pod (Outer).</p>
-          </div>
+          <h2>Status by Period</h2>
         </div>
-        <div class="canvas-container" id="sunburst-container" style="min-height: 700px;"></div>
+        <div id="donut-grid-container"></div>
       </div>
     </div>
 
+    <!-- Task Flow (Sankey) -->
     <div class="grid-1-col">
-      <!-- Gradient Directed Sankey Diagram -->
       <div class="chart-card">
         <div class="chart-header">
-          <div class="chart-header-text">
-            <h2>Gradient Task Flow Engine (Sankey)</h2>
-            <p>Visualizes volume routing with gradient flow links. The architecture adapts based on your Time Aggregation filter.<br><strong>Pathing:</strong> Time Bucket &rarr; Pod &rarr; Trainer &rarr; <strong>Reviewer</strong> &rarr; Final QA State.</p>
-          </div>
+          <h2>Task Flow Engine</h2>
         </div>
         <div class="canvas-container" id="sankey-container"></div>
       </div>
@@ -141,21 +142,17 @@
   </div>
 
   <script>
-    // System Constants
     const TASK_URL = 'https://turing-api.dineshkashyaparya.workers.dev';
     const ROSTER_URL = 'https://turing-api.dineshkashyaparya.workers.dev/roster';
     
-    // Core Data
     let rawTasks = []; 
     let globalPods = [];
     let trainerToPod = {}; 
     let filteredTasks = [];
     
-    // ECharts Instances
     let sankeyChart = null;
-    let sunburstChart = null;
+    let donutCharts = []; // Store dynamically created instances
 
-    // Strict Alignment Colors
     const STATUS_COLORS = {
       'Final Approved (L2)': '#10b981',
       'L1-Accepted (Pending L2)': '#3b82f6',
@@ -168,7 +165,6 @@
       'Draft / Unsubmitted': '#9ca3af',
     };
 
-    // Generic Color Palette for Pods/Trainers/Time to ensure visual separation
     const PALETTE = ['#3b82f6', '#8b5cf6', '#ec4899', '#f43f5e', '#f97316', '#eab308', '#22c55e', '#14b8a6', '#0ea5e9', '#6366f1'];
     function getPaletteColor(str) {
         if (!str || str === 'Unassigned') return '#94a3b8';
@@ -177,7 +173,6 @@
         return PALETTE[Math.abs(hash) % PALETTE.length];
     }
 
-    // --- Data Parsing Logic (Ledger Math) ---
     function resolveAnnotator(rawName, members, mappings) {
       if (!rawName || rawName === '—' || rawName === 'Unassigned') return rawName;
       if (mappings && mappings[rawName]) return mappings[rawName];
@@ -261,7 +256,6 @@
         return { l1: l1Rev, l2: l2Rev };
     }
 
-    // --- Time/Timezone Logic ---
     function getTzString(tzKey) {
       const map = { 'IST': 'Asia/Kolkata', 'PST': 'America/Los_Angeles', 'UTC': 'UTC' };
       return map[tzKey] || 'UTC';
@@ -290,7 +284,6 @@
        });
     }
 
-    // --- Init & Fetch ---
     async function init() {
       try {
         const [taskRes, rosterRes] = await Promise.all([fetch(TASK_URL), fetch(ROSTER_URL)]);
@@ -359,7 +352,7 @@
       const qPods = getMultiSelect('filter-pods');
       const qTrainers = getMultiSelect('filter-trainers');
 
-      const now = new Date('2026-09-23T12:54:14Z'); // Context anchoring Date
+      const now = new Date('2026-09-23T12:54:14Z');
       let cutoffDate = new Date(0); 
       if (daysFilter !== 'all') cutoffDate = new Date(now.getTime() - (parseInt(daysFilter) * 24 * 60 * 60 * 1000));
 
@@ -370,117 +363,94 @@
         return passDate && passPod && passTrainer;
       }).map(t => ({ ...t, bucket: formatToBucket(t.dateObj, timeframe, tzKey) }));
 
-      renderSunburst();
+      renderDonuts();
       renderSankey();
     }
 
-    // --- Chart 1: Interactive Sunburst (Donut Drilldown) ---
-    function renderSunburst() {
-      const container = document.getElementById('sunburst-container');
+    // --- Chart 1: Status by Period (Donut Grid) ---
+    function renderDonuts() {
+      const container = document.getElementById('donut-grid-container');
+      
+      // Cleanup previous instances
+      donutCharts.forEach(chart => chart.dispose());
+      donutCharts = [];
+      container.innerHTML = '';
+
       const buckets = getUniqueBuckets(filteredTasks);
 
-      if (sunburstChart) sunburstChart.dispose();
-      sunburstChart = echarts.init(container);
-
-      if (filteredTasks.length === 0) {
-        container.innerHTML = '<div style="color: #64748b; padding: 40px; text-align: center;">No data available for the selected filters.</div>';
+      if (buckets.length === 0) {
+        container.innerHTML = '<div style="grid-column: 1 / -1; color: #64748b; padding: 40px; text-align: center;">No data available for the selected filters.</div>';
         return;
       }
 
-      // Hierarchy: Bucket -> Status -> Pod
-      const sunburstData = buckets.map(bucket => {
-          const bucketTasks = filteredTasks.filter(t => t.bucket === bucket);
-          if (bucketTasks.length === 0) return null;
+      buckets.forEach(bucket => {
+        const bucketTasks = filteredTasks.filter(t => t.bucket === bucket);
+        
+        // Create a wrapper div for each bucket
+        const wrapper = document.createElement('div');
+        wrapper.className = 'donut-wrapper';
+        container.appendChild(wrapper);
 
-          const statusMap = {};
-          bucketTasks.forEach(t => {
-              if (!statusMap[t.combinedStatus]) statusMap[t.combinedStatus] = {};
-              if (!statusMap[t.combinedStatus][t.pod]) statusMap[t.combinedStatus][t.pod] = 0;
-              statusMap[t.combinedStatus][t.pod]++;
-          });
+        const chart = echarts.init(wrapper);
+        donutCharts.push(chart);
 
-          const children = Object.keys(statusMap).map(status => {
-              const podChildren = Object.keys(statusMap[status]).map(pod => ({
-                  name: pod,
-                  value: statusMap[status][pod],
-                  itemStyle: { color: getPaletteColor(pod) }
-              }));
-              return {
-                  name: status,
-                  itemStyle: { color: STATUS_COLORS[status] || '#cbd5e1' },
-                  children: podChildren
-              };
-          });
+        const statusCounts = {};
+        bucketTasks.forEach(t => {
+            statusCounts[t.combinedStatus] = (statusCounts[t.combinedStatus] || 0) + 1;
+        });
 
-          return {
-              name: bucket,
-              itemStyle: { color: getPaletteColor(bucket) }, // Soft distinct colors for time
-              children: children
-          };
-      }).filter(Boolean);
+        const pieData = Object.keys(statusCounts).map(status => ({
+            name: status,
+            value: statusCounts[status],
+            itemStyle: { color: STATUS_COLORS[status] || '#cbd5e1' }
+        }));
 
-      const option = {
-        tooltip: {
-            trigger: 'item',
-            fontFamily: 'Inter',
-            formatter: (params) => {
-               return `<strong>${params.name}</strong><br/>
-                       Tasks: <strong>${params.value}</strong><br/>
-                       <em>Click to drill down/up</em>`;
-            }
-        },
-        series: {
-            type: 'sunburst',
-            data: sunburstData,
-            radius: ['15%', '90%'],
-            center: ['50%', '50%'],
-            sort: null,
-            emphasis: { focus: 'ancestor' },
-            itemStyle: {
-                borderRadius: 4,
-                borderWidth: 2,
-                borderColor: '#ffffff'
+        const option = {
+            title: { 
+                text: bucket, 
+                left: 'center', 
+                top: 15, 
+                textStyle: { fontSize: 14, fontWeight: 700, fontFamily: 'Inter', color: '#0f172a' } 
             },
-            label: {
+            tooltip: { 
+                trigger: 'item', 
                 fontFamily: 'Inter',
-                fontWeight: 600,
-                color: '#ffffff',
-                textBorderColor: '#000000',
-                textBorderWidth: 1,
-                formatter: function (param) {
-                    // Only show labels for slices large enough to hold text
-                    return param.value > (filteredTasks.length * 0.02) ? param.name : ''; 
-                }
+                formatter: '{b}: <strong>{c}</strong> ({d}%)'
             },
-            levels: [
-                {}, // Blank for center hole
-                { r0: '15%', r: '40%', label: { position: 'inner' } }, // Time Bucket
-                { r0: '40%', r: '70%', label: { position: 'inner' } }, // Status
-                { r0: '70%', r: '90%', label: { position: 'outside', textBorderWidth: 0, color: '#475569', padding: 3, silent: false } } // Pod
-            ]
-        }
-      };
+            series: [{
+                type: 'pie',
+                radius: ['45%', '70%'],
+                center: ['50%', '55%'],
+                itemStyle: { borderColor: '#fff', borderWidth: 2 },
+                label: { show: false }, // Keep it clean, rely on tooltip
+                data: pieData
+            }],
+            graphic: {
+                type: 'text',
+                left: 'center',
+                top: '52%',
+                style: { 
+                    text: bucketTasks.length, 
+                    textAlign: 'center', 
+                    fill: '#0f172a', 
+                    fontSize: 22, 
+                    fontWeight: 800, 
+                    fontFamily: 'Inter' 
+                }
+            }
+        };
 
-      sunburstChart.setOption(option);
+        chart.setOption(option);
+      });
     }
 
-    // --- Chart 2: Gradient Directed Sankey Diagram ---
+    // --- Chart 2: Sankey Diagram ---
     function renderSankey() {
       const container = document.getElementById('sankey-container');
       
-      // Calculate dynamic height based on total unique entities to prevent crowding
-      const uniqueEntities = new Set();
-      filteredTasks.forEach(t => {
-          uniqueEntities.add(t.bucket); uniqueEntities.add(t.pod); 
-          uniqueEntities.add(t.annotator); uniqueEntities.add(t.finalReviewer);
-      });
-      const dynamicHeight = Math.max(600, uniqueEntities.size * 22); 
-      container.style.height = `${dynamicHeight}px`;
-
       if (sankeyChart) sankeyChart.dispose();
       sankeyChart = echarts.init(container);
 
-      // Prefix nodes to guarantee strict uniqueness in the Sankey network.
       const nodesMap = new Map();
       const linksMap = new Map();
 
@@ -525,15 +495,15 @@
         series: {
           type: 'sankey',
           layout: 'none',
-          nodeGap: 14,
-          nodeWidth: 20,
+          nodeGap: 8,
+          nodeAlign: 'justify',
           emphasis: { focus: 'adjacency' },
           data: Array.from(nodesMap.values()),
           links: Array.from(linksMap.values()),
           lineStyle: { 
-              color: 'gradient', // Aesthetically pleasing gradient interpolation
+              color: 'gradient',
               curveness: 0.5, 
-              opacity: 0.35 
+              opacity: 0.4 
           },
           itemStyle: { borderWidth: 1, borderColor: '#ffffff', borderRadius: 2 },
           label: {
@@ -542,7 +512,6 @@
             fontWeight: 600,
             fontSize: 11,
             formatter: function(params) {
-              // Cleanly strip logic prefixes
               return params.data.name.replace(/^(Time: |Pod: |Tr: |Rev: |Status: )/, '');
             }
           }
@@ -550,16 +519,13 @@
       };
 
       sankeyChart.setOption(option);
-      sankeyChart.resize(); // Force fit to new dynamic container height
     }
 
-    // Handle Window Resize Responsiveness
     window.addEventListener('resize', () => {
       if (sankeyChart) sankeyChart.resize();
-      if (sunburstChart) sunburstChart.resize();
+      donutCharts.forEach(chart => chart.resize());
     });
 
-    // Boot
     init();
   </script>
 </body>
