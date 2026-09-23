@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Advanced Flow Analytics · Turing Task Ledger</title>
+  
+  <!-- Apache ECharts CDN for Sankey and Advanced Visualizations -->
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+  
+  <style>
+    :root { 
+      --bg-page: #f8fafc; 
+      --bg-card: #ffffff; 
+      --border: #e2e8f0; 
+      --text-main: #0f172a; 
+      --text-sub: #64748b; 
+      --primary: #6b21a8; 
+      --primary-light: #f3e8ff;
+      --secondary: #10b981; 
+      --warning: #f59e0b; 
+      --danger: #ef4444; 
+      --info: #3b82f6;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background-color: var(--bg-page); color: var(--text-main); }
+    
+    /* Navigation */
+    nav { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 0 32px; display: flex; gap: 30px; box-shadow: 0 1px 2px rgba(0,0,0,0.02); }
+    nav a { text-decoration: none; color: var(--text-sub); font-weight: 600; font-size: 14px; padding: 20px 0; border-bottom: 2px solid transparent; transition: color 0.2s; }
+    nav a.active { color: var(--primary); border-bottom-color: var(--primary); }
+    nav a:hover:not(.active) { color: var(--text-main); }
+
+    /* Layout & Controls */
+    .dashboard { padding: 32px; max-width: 1600px; margin: 0 auto; }
+    .global-controls { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 24px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end; }
+    
+    .filter-group { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 180px; }
+    .filter-label { font-size: 11px; font-weight: 800; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.05em; display: flex; justify-content: space-between; }
+    .filter-hint { font-weight: 500; color: #94a3b8; text-transform: none; font-size: 10px; }
+    
+    .filter-select { padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13px; color: var(--text-main); outline: none; background-color: #f8fafc; transition: all 0.2s; font-weight: 600; width: 100%; cursor: pointer;}
+    .filter-select:hover { border-color: var(--primary); background: #fff; }
+    .filter-select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); background: #fff;}
+    select[multiple].filter-select { height: 90px; padding: 4px; overflow-y: auto; font-weight: 500; }
+    select[multiple] option { padding: 6px 10px; border-radius: 4px; margin-bottom: 2px; }
+    select[multiple] option:checked { background: var(--primary-light); color: var(--primary); font-weight: 700; }
+
+    /* Chart Cards */
+    .grid-1-col { display: grid; grid-template-columns: 1fr; gap: 24px; margin-bottom: 24px; }
+    .chart-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 24px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); display: flex; flex-direction: column; position: relative;}
+    .chart-header { margin-bottom: 16px; display: flex; justify-content: space-between; align-items: flex-start; }
+    .chart-header-text h2 { margin: 0 0 6px 0; font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-main); display: flex; align-items: center; gap: 8px; }
+    .chart-header-text p { margin: 0; font-size: 13px; color: var(--text-sub); line-height: 1.5; max-width: 90%;}
+    .canvas-container { position: relative; width: 100%; min-height: 500px; flex-grow: 1; }
+    
+    /* Loading overlay */
+    #loading-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.8); z-index: 999; display: flex; justify-content: center; align-items: center; font-weight: 700; color: var(--primary); font-size: 18px; }
+  </style>
+</head>
+<body>
+
+  <div id="loading-overlay">Syncing Ledger Data...</div>
+
+  <nav>
+    <a href="index.html">Task Ledger</a>
+    <a href="analytics.html">Analytics & Reporting</a>
+    <a href="analytics_2.html" class="active">Flow Analytics (v2)</a>
+    <a href="admin.html">Team Builder (Admin)</a>
+  </nav>
+
+  <div class="dashboard">
+    <!-- Global Filters -->
+    <div class="global-controls">
+      <div class="filter-group">
+        <span class="filter-label">Time Aggregation</span>
+        <select id="filter-agg" class="filter-select" onchange="triggerReRender()">
+          <option value="daily" selected>Daily</option>
+          <option value="weekly">Weekly</option>
+          <option value="monthly">Monthly</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <span class="filter-label">Date Range</span>
+        <select id="filter-daterange" class="filter-select" onchange="triggerReRender()">
+          <option value="7">Last 7 Days</option>
+          <option value="30" selected>Last 30 Days</option>
+          <option value="90">Last 90 Days</option>
+          <option value="all">All Time</option>
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <span class="filter-label">Timezone</span>
+        <select id="filter-tz" class="filter-select" onchange="triggerReRender()">
+          <option value="IST" selected>IST (UTC+5:30)</option>
+          <option value="PST">PST (UTC-8:00)</option>
+          <option value="UTC">UTC (UTC+0:00)</option>
+        </select>
+      </div>
+
+      <div class="filter-group" style="flex: 2;">
+        <span class="filter-label">Pods <span class="filter-hint">Cmd/Ctrl+Click</span></span>
+        <select id="filter-pods" class="filter-select" multiple onchange="triggerReRender()">
+          <option value="All" selected>All Pods</option>
+          <option value="All_No_Unassigned">Exclude Unassigned</option>
+        </select>
+      </div>
+
+      <div class="filter-group" style="flex: 2;">
+        <span class="filter-label">Trainers <span class="filter-hint">Cmd/Ctrl+Click</span></span>
+        <select id="filter-trainers" class="filter-select" multiple onchange="triggerReRender()">
+          <option value="All" selected>All Trainers</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="grid-1-col">
+      <!-- Directed Sankey Diagram -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-header-text">
+            <h2>Task Journey Flow (Sankey Diagram)</h2>
+            <p>Visualizes the volume and direction of task routing. Read from left to right: <strong>Pod Distribution → Trainer Workload → Final QA State</strong>. Thicker bands indicate higher task volumes traversing that specific path.</p>
+          </div>
+        </div>
+        <div class="canvas-container" id="sankey-container"></div>
+      </div>
+    </div>
+
+    <div class="grid-1-col">
+      <!-- Cumulative Flow Diagram -->
+      <div class="chart-card">
+        <div class="chart-header">
+          <div class="chart-header-text">
+            <h2>Cohort Cumulative Flow Diagram (CFD)</h2>
+            <p>A stacked area chart showing the current status of tasks based on their original submission date. If the purple (Pending) or orange (Rework) bands expand significantly while green (Approved) shrinks, a bottleneck is occurring in that cohort.</p>
+          </div>
+        </div>
+        <div class="canvas-container" id="cfd-container"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // System Constants
+    const TASK_URL = 'https://turing-api.dineshkashyaparya.workers.dev';
+    const ROSTER_URL = 'https://turing-api.dineshkashyaparya.workers.dev/roster';
+    
+    // Core Data
+    let rawTasks = []; 
+    let globalPods = [];
+    let trainerToPod = {}; 
+    let filteredTasks = [];
+    
+    // ECharts Instances
+    let sankeyChart = null;
+    let cfdChart = null;
+
+    // Strict Alignment Colors
+    const STATUS_COLORS = {
+      'Final Approved (L2)': '#10b981',
+      'L1-Accepted (Pending L2)': '#3b82f6',
+      'Pending L1': '#6b21a8',
+      'Fresh Submission': '#8b5cf6',
+      'Rework (L1)': '#b45309',
+      'Rework (L2)': '#f59e0b',
+      'Quarantined (L1-Accepted)': '#9f1239',
+      'Quarantined': '#ef4444',
+      'Draft / Unsubmitted': '#9ca3af',
+    };
+
+    // --- Data Parsing Logic (Ledger Math) ---
+    function resolveAnnotator(rawName, members, mappings) {
+      if (!rawName || rawName === '—' || rawName === 'Unassigned') return rawName;
+      if (mappings && mappings[rawName]) return mappings[rawName];
+      const exactMatch = members.find(r => r.name.toLowerCase() === rawName.toLowerCase());
+      if (exactMatch) return exactMatch.name;
+      const rawFirstName = rawName.trim().split(' ')[0].toLowerCase();
+      const firstMatch = members.find(r => r.name.trim().split(' ')[0].toLowerCase() === rawFirstName);
+      if (firstMatch) return firstMatch.name;
+      return rawName;
+    }
+
+    function hasClearedL1(task) {
+      if (['Approved', 'L2 review'].includes(task.state)) return true;
+      if (!task.history) return false;
+      return task.history.some(h => 
+        (h.kind === 'review_cleared' && h.detail && h.detail.includes('review_l2')) ||
+        (h.label && h.label.toLowerCase().includes('cleared for claim pool')) ||
+        (h.label && h.label.toLowerCase().includes('l1 approved')) || 
+        (h.label && h.label.toLowerCase().includes('advanced to l2')) || 
+        (h.label === 'Approved' && h.actor_name !== 'System')
+      );
+    }
+
+    function hasClearedL2(task) {
+      if (task.state === 'Approved') return true;
+      if (!task.history) return false;
+      return task.history.some(h => h.label === 'Approved' || h.kind === 'approved' || h.state === 'Approved' || (h.label && h.label.toLowerCase().includes('l2 approved')));
+    }
+
+    function getCombinedStatus(task) {
+      const s = (task.state || '').toLowerCase();
+      const clearedL1 = hasClearedL1(task);
+      const clearedL2 = hasClearedL2(task);
+      let reworks = 0;
+      if (task.history) { task.history.forEach(h => { if (h.label && h.label.toLowerCase().includes('rework')) reworks++; }); }
+      
+      if (s.includes('pool') || s.includes('draft') || s === '' || s === 'unassigned' || s === '—') return 'Draft / Unsubmitted';
+      if (s.includes('approved') || clearedL2) return 'Final Approved (L2)';
+      if (s.includes('quarantine')) return clearedL1 ? 'Quarantined (L1-Accepted)' : 'Quarantined';
+      if (s.includes('rework')) return clearedL1 ? 'Rework (L2)' : 'Rework (L1)';
+      if (clearedL1) return 'L1-Accepted (Pending L2)';
+      if (reworks === 0) return 'Fresh Submission';
+      return 'Pending L1';
+    }
+
+    // --- Time/Timezone Logic ---
+    function getTzString(tzKey) {
+      const map = { 'IST': 'Asia/Kolkata', 'PST': 'America/Los_Angeles', 'UTC': 'UTC' };
+      return map[tzKey] || 'UTC';
+    }
+
+    function formatToBucket(dateObj, timeframe, tzKey) {
+      if (!dateObj || isNaN(dateObj.getTime())) return null;
+      const tz = getTzString(tzKey);
+      const tzDate = new Date(dateObj.toLocaleString('en-US', { timeZone: tz }));
+
+      if (timeframe === 'monthly') return tzDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+      if (timeframe === 'weekly') {
+        const day = tzDate.getDay();
+        const diff = tzDate.getDate() - day + (day === 0 ? -6 : 1);
+        const monday = new Date(tzDate.setDate(diff));
+        return monday.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year:'2-digit' }) + ' (Wk)';
+      }
+      return tzDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year:'2-digit' });
+    }
+
+    function getUniqueBuckets(dataArray) {
+       return [...new Set(dataArray.map(item => item.bucket).filter(Boolean))].sort((a,b) => {
+           const dateA = new Date(a.replace(' (Wk)', ''));
+           const dateB = new Date(b.replace(' (Wk)', ''));
+           return dateA - dateB;
+       });
+    }
+
+    // --- Init & Fetch ---
+    async function init() {
+      try {
+        const [taskRes, rosterRes] = await Promise.all([fetch(TASK_URL), fetch(ROSTER_URL)]);
+        const taskData = await taskRes.json();
+        const rosterData = await rosterRes.json();
+        
+        let globalMappings = rosterData.mappings || {};
+        let allRosterMembers = [];
+
+        globalPods = rosterData.pods || [];
+        globalPods.forEach(pod => {
+          if (pod.lead) allRosterMembers.push({ name: pod.lead, email: pod.lead_email || '' });
+          pod.trainers.forEach(t => { trainerToPod[t.name] = pod.name; allRosterMembers.push(t); });
+        });
+        if (rosterData.l2_reviewers) rosterData.l2_reviewers.forEach(r => allRosterMembers.push(r));
+
+        rawTasks = (taskData.tasks || []).map(t => {
+          let resolvedAnnotator = resolveAnnotator(t.annotator, allRosterMembers, globalMappings);
+          let combinedStatus = getCombinedStatus(t);
+          let dateObj = t.submitted_at ? new Date(t.submitted_at) : null;
+          
+          return { 
+            ...t, 
+            annotator: resolvedAnnotator, 
+            pod: trainerToPod[resolvedAnnotator] || 'Unassigned Pod',
+            combinedStatus: combinedStatus,
+            dateObj: dateObj
+          };
+        }).filter(t => t.dateObj && !isNaN(t.dateObj.getTime()));
+
+        populateFilters();
+        document.getElementById('loading-overlay').style.display = 'none';
+        triggerReRender();
+      } catch (err) { 
+        console.error("Initialization Error", err); 
+        document.getElementById('loading-overlay').innerText = 'Failed to load data.';
+      }
+    }
+
+    function populateFilters() {
+      const pods = new Set(rawTasks.map(t => t.pod));
+      const trainers = new Set(rawTasks.map(t => t.annotator).filter(a => a && a !== '—' && a !== 'Unassigned'));
+
+      const fill = (id, set) => {
+        const el = document.getElementById(id);
+        if(!el) return;
+        Array.from(set).sort().forEach(val => el.insertAdjacentHTML('beforeend', `<option value="${val}">${val}</option>`));
+      };
+      fill('filter-pods', pods);
+      fill('filter-trainers', trainers);
+    }
+
+    function getMultiSelect(id) {
+       const el = document.getElementById(id);
+       if (!el || el.selectedOptions.length === 0) return ['All'];
+       return Array.from(el.selectedOptions).map(o => o.value);
+    }
+
+    function triggerReRender() {
+      const daysFilter = document.getElementById('filter-daterange').value;
+      const timeframe = document.getElementById('filter-agg').value;
+      const tzKey = document.getElementById('filter-tz').value;
+      
+      const qPods = getMultiSelect('filter-pods');
+      const qTrainers = getMultiSelect('filter-trainers');
+
+      const now = new Date('2026-09-23T12:54:14Z'); // Context anchoring Date
+      let cutoffDate = new Date(0); 
+      if (daysFilter !== 'all') cutoffDate = new Date(now.getTime() - (parseInt(daysFilter) * 24 * 60 * 60 * 1000));
+
+      filteredTasks = rawTasks.filter(t => {
+        const passDate = t.dateObj >= cutoffDate;
+        const passPod = qPods.includes('All') || qPods.some(qP => qP === 'All_No_Unassigned' ? t.pod !== 'Unassigned Pod' : t.pod === qP);
+        const passTrainer = qTrainers.includes('All') || qTrainers.includes(t.annotator);
+        return passDate && passPod && passTrainer;
+      }).map(t => ({ ...t, bucket: formatToBucket(t.dateObj, timeframe, tzKey) }));
+
+      renderSankey();
+      renderCFD();
+    }
+
+    // --- Chart 1: Directed Sankey Diagram ---
+    function renderSankey() {
+      if (sankeyChart) sankeyChart.dispose();
+      sankeyChart = echarts.init(document.getElementById('sankey-container'));
+
+      // Sankey requires strict uniqueness in node names to prevent loops or overlap.
+      // We prefix them to guarantee uniqueness (e.g., if a Pod and Trainer share a name).
+      const nodesMap = new Map();
+      const linksMap = new Map();
+
+      const addNode = (name, category, color) => {
+        if (!nodesMap.has(name)) {
+          nodesMap.set(name, { name: name, category: category, itemStyle: { color: color } });
+        }
+      };
+
+      const addLink = (source, target) => {
+        const key = `${source}->${target}`;
+        if (linksMap.has(key)) {
+          linksMap.get(key).value += 1;
+        } else {
+          linksMap.set(key, { source: source, target: target, value: 1 });
+        }
+      };
+
+      filteredTasks.forEach(t => {
+        const pName = `Pod: ${t.pod}`;
+        const tName = `Tr: ${t.annotator && t.annotator !== '—' ? t.annotator : 'Unassigned'}`;
+        const sName = `Status: ${t.combinedStatus}`;
+
+        // Ensure nodes exist
+        addNode(pName, 'Pod', '#64748b'); // Slate for pods
+        addNode(tName, 'Trainer', '#3b82f6'); // Blue for trainers
+        addNode(sName, 'Status', STATUS_COLORS[t.combinedStatus] || '#9ca3af');
+
+        // Create links
+        addLink(pName, tName);
+        addLink(tName, sName);
+      });
+
+      const option = {
+        tooltip: { trigger: 'item', triggerOn: 'mousemove' },
+        series: {
+          type: 'sankey',
+          layout: 'none',
+          emphasis: { focus: 'adjacency' },
+          data: Array.from(nodesMap.values()),
+          links: Array.from(linksMap.values()),
+          lineStyle: { color: 'source', curveness: 0.5, opacity: 0.3 },
+          itemStyle: { borderWidth: 0, borderColor: '#fff' },
+          label: {
+            color: '#0f172a',
+            fontFamily: 'Inter',
+            fontWeight: 600,
+            fontSize: 11,
+            formatter: function(params) {
+              // Strip the prefixes for cleaner UI
+              return params.data.name.replace(/^(Pod: |Tr: |Status: )/, '');
+            }
+          }
+        }
+      };
+
+      sankeyChart.setOption(option);
+    }
+
+    // --- Chart 2: Cohort Cumulative Flow Diagram ---
+    function renderCFD() {
+      if (cfdChart) cfdChart.dispose();
+      cfdChart = echarts.init(document.getElementById('cfd-container'));
+
+      const buckets = getUniqueBuckets(filteredTasks);
+      
+      // Order matters in stacked area charts. Bottom to Top.
+      const statuses = [
+        'Final Approved (L2)',
+        'L1-Accepted (Pending L2)',
+        'Quarantined (L1-Accepted)',
+        'Quarantined',
+        'Rework (L2)',
+        'Rework (L1)',
+        'Pending L1',
+        'Fresh Submission',
+        'Draft / Unsubmitted'
+      ];
+
+      const seriesData = statuses.map(status => {
+        const data = buckets.map(bucket => {
+          return filteredTasks.filter(t => t.bucket === bucket && t.combinedStatus === status).length;
+        });
+
+        return {
+          name: status,
+          type: 'line',
+          stack: 'Total',
+          areaStyle: { opacity: 0.8 },
+          emphasis: { focus: 'series' },
+          showSymbol: false,
+          smooth: true,
+          lineStyle: { width: 0 },
+          itemStyle: { color: STATUS_COLORS[status] || '#9ca3af' },
+          data: data
+        };
+      }).filter(series => series.data.some(val => val > 0)); // Hide empty series
+
+      const option = {
+        tooltip: {
+          trigger: 'axis',
+          axisPointer: { type: 'cross', label: { backgroundColor: '#6b21a8' } },
+          textStyle: { fontFamily: 'Inter' }
+        },
+        legend: {
+          data: seriesData.map(s => s.name),
+          bottom: 0,
+          textStyle: { fontFamily: 'Inter', fontSize: 11, color: '#64748b' }
+        },
+        grid: { left: '3%', right: '4%', bottom: '10%', top: '5%', containLabel: true },
+        xAxis: [
+          {
+            type: 'category',
+            boundaryGap: false,
+            data: buckets,
+            axisLabel: { fontFamily: 'Inter', color: '#64748b' },
+            axisLine: { lineStyle: { color: '#e2e8f0' } }
+          }
+        ],
+        yAxis: [
+          {
+            type: 'value',
+            axisLabel: { fontFamily: 'Inter', color: '#64748b' },
+            splitLine: { lineStyle: { color: '#f1f5f9', type: 'dashed' } }
+          }
+        ],
+        series: seriesData
+      };
+
+      cfdChart.setOption(option);
+    }
+
+    // Handle Window Resize for ECharts
+    window.addEventListener('resize', () => {
+      if (sankeyChart) sankeyChart.resize();
+      if (cfdChart) cfdChart.resize();
+    });
+
+    // Boot
+    init();
+  </script>
+</body>
+</html>
