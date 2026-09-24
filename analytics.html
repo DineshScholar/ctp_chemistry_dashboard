@@ -379,8 +379,8 @@
       const exactMatch = members.find(r => r.name.toLowerCase() === rawName.toLowerCase());
       if (exactMatch) return exactMatch.name;
       const rawFirstName = rawName.trim().split(' ')[0].toLowerCase();
-      const firstMatch = members.find(r => r.name.trim().split(' ')[0].toLowerCase() === rawFirstName);
-      if (firstMatch) return firstMatch.name;
+      const firstNameMatches = members.filter(r => r.name.trim().split(' ')[0].toLowerCase() === rawFirstName);
+      if (firstNameMatches.length === 1) return firstNameMatches[0].name;
       return rawName;
     }
 
@@ -770,7 +770,7 @@
       const scatterOptions = {
         series: scatterSeries,
         chart: { type: 'scatter', height: 400, toolbar: { show: false }, fontFamily: 'Inter' },
-        colors: MULTI_COLORS,
+        colors: ['#2563eb', '#7c3aed', '#db2777', '#ea580c', '#ca8a04', '#16a34a', '#0d9488', '#0284c7', '#4f46e5', '#be185d'],
         markers: { size: 8, hover: { size: 10 } },
         xaxis: { title: { text: 'Total Volume Submitted' }, labels: { style: { colors: '#64748b' } }, tickAmount: 5 },
         yaxis: { title: { text: 'L1 Approval Rate (%)' }, max: 100, labels: { style: { colors: '#64748b' } } },
@@ -833,7 +833,7 @@
       const areaStackOptions = {
         series: areaSeries,
         chart: { type: 'area', stacked: true, height: 400, toolbar: { show: false }, fontFamily: 'Inter', events: getInteractiveChartEvents(cIdArea) },
-        colors: MULTI_COLORS, stroke: { width: 1 }, fill: { type: 'solid', opacity: 0.8 },
+        colors: ['#2563eb', '#7c3aed', '#db2777', '#ea580c', '#ca8a04', '#16a34a', '#0d9488', '#0284c7', '#4f46e5', '#be185d'], stroke: { width: 1 }, fill: { type: 'solid', opacity: 0.8 },
         xaxis: { categories: buckets, tickAmount: 10, labels: { style: { colors: '#64748b' } } },
         yaxis: { labels: { style: { colors: '#64748b' } } },
         legend: { position: 'top', horizontalAlign: 'right' }, grid: { borderColor: '#f1f5f9', strokeDashArray: 4 },
@@ -981,7 +981,7 @@
       const lineOptions = {
         series: lineSeries,
         chart: { type: 'line', height: 350, toolbar: { show: false }, fontFamily: 'Inter', events: getInteractiveChartEvents(cIdLine) },
-        colors: MULTI_COLORS, stroke: { curve: 'smooth', width: 2 }, markers: { size: 4 }, 
+        colors: ['#2563eb', '#7c3aed', '#db2777', '#ea580c', '#ca8a04', '#16a34a', '#0d9488', '#0284c7', '#4f46e5', '#be185d'], stroke: { curve: 'smooth', width: 2 }, markers: { size: 4 }, 
         xaxis: { categories: buckets, tickAmount: 10, labels: { style: { colors: '#64748b' } } },
         yaxis: { labels: { style: { colors: '#64748b' } } },
         legend: { position: 'top', horizontalAlign: 'right' }, grid: { borderColor: '#f1f5f9', strokeDashArray: 4 },
