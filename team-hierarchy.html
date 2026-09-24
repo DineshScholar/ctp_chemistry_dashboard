@@ -3,474 +3,376 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CTP Chemistry · Team Topology</title>
-  
-  <!-- ECharts for the Bento Dashboard view -->
-  <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+  <title>CTP Chemistry · Corporate Topology</title>
   
   <style>
-    :root { 
-      --primary: #4f46e5; --primary-light: #e0e7ff; 
-      --text-main: #0f172a; --text-sub: #64748b; 
-      --bg-page: #fbfbfe; --border: #e2e8f0;
+    :root {
+      --bg-page: #f4f4f9;
+      --bg-card: #ffffff;
+      --border: #e2e8f0;
       
+      --text-main: #0f172a;
+      --text-sub: #64748b;
+      
+      /* Status Colors */
       --c-active: #059669; --bg-active: #d1fae5;
       --c-mia: #e11d48; --bg-mia: #ffe4e6;
       --c-lowperf: #d97706; --bg-lowperf: #fef3c7;
       --c-off: #475569; --bg-off: #f1f5f9;
-      --c-sys: #4f46e5; --bg-sys: #e0e7ff;
+      --c-exec: #4f46e5; --bg-exec: #e0e7ff;
     }
-    
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg-page); color: var(--text-main); line-height: 1.5; }
-    
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg-page); color: var(--text-main); line-height: 1.5; padding-bottom: 60px; }
+
     /* Navigation */
-    nav { background: #ffffff; padding: 0 32px; display: flex; gap: 30px; border-bottom: 1px solid var(--border); }
-    nav a { text-decoration: none; color: var(--text-sub); font-weight: 600; font-size: 14px; padding: 20px 0; border-bottom: 2px solid transparent; transition: 0.2s;}
-    nav a.active { color: var(--primary); border-bottom-color: var(--primary); }
+    nav { background: #ffffff; padding: 0 32px; display: flex; gap: 30px; border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 100; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
+    nav a { text-decoration: none; color: var(--text-sub); font-weight: 600; font-size: 14px; padding: 20px 0; border-bottom: 2px solid transparent; transition: 0.2s; }
+    nav a.active { color: var(--c-exec); border-bottom-color: var(--c-exec); }
     nav a:hover:not(.active) { color: var(--text-main); }
 
-    .container { padding: 32px; max-width: 1600px; margin: 0 auto; display: flex; flex-direction: column; min-height: calc(100vh - 65px); }
+    .container { max-width: 1400px; margin: 0 auto; padding: 32px; }
+
+    /* Header & Interactive Filters */
+    .header { text-align: center; margin-bottom: 40px; animation: slideDown 0.5s ease; }
+    .header h1 { font-size: 28px; font-weight: 800; color: #0f172a; margin-bottom: 12px; letter-spacing: -0.02em; }
     
-    /* Header & Controls */
-    .header { margin-bottom: 32px; display: flex; justify-content: space-between; align-items: flex-end; }
-    .header-text h1 { font-size: 24px; font-weight: 800; margin-bottom: 6px; letter-spacing: -0.02em; }
-    .header-text p { font-size: 14px; color: var(--text-sub); }
+    .status-filters { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; }
+    .filter-btn { 
+      background: #ffffff; border: 1px solid var(--border); padding: 8px 16px; border-radius: 30px; 
+      font-size: 13px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 8px; 
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+    }
+    .filter-btn .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
     
-    .action-row { display: flex; gap: 12px; }
-    .btn { background: var(--primary); color: white; border: none; padding: 10px 18px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 8px; transition: all 0.2s; box-shadow: 0 2px 4px rgba(79, 70, 229, 0.15); }
-    .btn:hover { background: #4338ca; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25); transform: translateY(-1px); }
-    .btn-secondary { background: #ffffff; color: var(--text-main); border: 1px solid #cbd5e1; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
-    .btn-secondary:hover { background: #f8fafc; border-color: #94a3b8; transform: translateY(-1px); }
-
-    /* Layout Tabs */
-    .view-tabs { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 24px; background: #fff; padding: 8px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 2px 8px rgba(0,0,0,0.02); width: fit-content; }
-    .view-tab { background: transparent; border: none; padding: 10px 16px; border-radius: 8px; font-weight: 600; color: var(--text-sub); cursor: pointer; transition: all 0.2s ease; font-size: 13px; }
-    .view-tab.active { background: var(--primary-light); color: var(--primary); }
-    .view-tab:hover:not(.active) { background: #f1f5f9; color: var(--text-main); }
-
-    /* View Container */
-    .view-content { display: none; width: 100%; animation: fadeIn 0.4s ease; }
-    .view-content.active { display: block; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-
-    /* Shared Universal Card Design (SaaS Style) */
-    .u-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; align-items: center; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 10px 15px -5px rgba(0,0,0,0.02); transition: transform 0.2s, box-shadow 0.2s; position: relative; z-index: 2; width: 170px; }
-    .u-card:hover { transform: translateY(-2px); box-shadow: 0 4px 6px rgba(0,0,0,0.05), 0 15px 20px -5px rgba(0,0,0,0.05); }
+    .filter-btn:hover, .filter-btn.active { transform: translateY(-2px); box-shadow: 0 6px 12px rgba(0,0,0,0.08); border-color: transparent; }
+    .f-active:hover, .f-active.active { background: var(--bg-active); color: var(--c-active); }
+    .f-mia:hover, .f-mia.active { background: var(--bg-mia); color: var(--c-mia); }
+    .f-lowperf:hover, .f-lowperf.active { background: var(--bg-lowperf); color: var(--c-lowperf); }
+    .f-off:hover, .f-off.active { background: var(--bg-off); color: var(--c-off); }
     
-    .u-avatar { width: 48px; height: 48px; border-radius: 50%; display: flex; justify-content: center; align-items: center; color: #fff; font-weight: 800; font-size: 16px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border: 2px solid #fff; }
-    .u-name { font-size: 14px; font-weight: 800; color: #0f172a; line-height: 1.2; margin-bottom: 4px; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .u-role { font-size: 11px; font-weight: 600; color: #64748b; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
-    .u-badge { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; padding: 4px 10px; border-radius: 20px; width: 100%; }
+    /* Interactive States for Cards */
+    .topology-wrapper { transition: background 0.3s ease; position: relative; }
+    .topology-wrapper.is-filtering .node-card:not(.is-highlighted) { 
+      opacity: 0.15; filter: grayscale(100%); transform: scale(0.95); box-shadow: none; 
+    }
+    .topology-wrapper.is-filtering .node-card.is-highlighted { 
+      transform: scale(1.03) translateY(-4px); 
+      box-shadow: 0 15px 30px -5px rgba(0,0,0,0.15); 
+      z-index: 10; position: relative;
+    }
 
-    .c-active { border-top: 4px solid var(--c-active); } .c-active .u-badge { background: var(--bg-active); color: var(--c-active); }
-    .c-mia { border-top: 4px solid var(--c-mia); } .c-mia .u-badge { background: var(--bg-mia); color: var(--c-mia); }
-    .c-lowperf { border-top: 4px solid var(--c-lowperf); } .c-lowperf .u-badge { background: var(--bg-lowperf); color: var(--c-lowperf); }
-    .c-off { border-top: 4px solid var(--c-off); opacity: 0.7; } .c-off .u-badge { background: var(--bg-off); color: var(--c-off); }
-    .c-sys { border-top: 4px solid var(--c-sys); } .c-sys .u-badge { background: var(--bg-sys); color: var(--c-sys); }
-
-    /* VIEW 1: CSS Org Tree */
-    .org-tree-wrapper { width: 100%; overflow-x: auto; padding: 20px 20px 60px 20px; background: #fff; border-radius: 16px; border: 1px solid var(--border); box-shadow: 0 4px 20px rgba(0,0,0,0.03); cursor: grab;}
-    .org-tree-wrapper:active { cursor: grabbing; }
-    .css-tree { display: inline-block; min-width: 100%; text-align: center; }
-    .css-tree ul { padding-top: 24px; position: relative; transition: all 0.5s; display: flex; justify-content: center; gap: 24px; list-style: none; margin: 0; padding-left: 0; }
-    .css-tree li { float: left; text-align: center; list-style-type: none; position: relative; padding: 24px 5px 0 5px; transition: all 0.5s; }
-    .css-tree li::before, .css-tree li::after { content: ''; position: absolute; top: 0; right: 50%; border-top: 2px solid #cbd5e1; width: 50%; height: 24px; }
-    .css-tree li::after { right: auto; left: 50%; border-left: 2px solid #cbd5e1; }
-    .css-tree li:only-child::after, .css-tree li:only-child::before { display: none; }
-    .css-tree li:only-child { padding-top: 0; }
-    .css-tree li:first-child::before, .css-tree li:last-child::after { border: 0 none; }
-    .css-tree li:last-child::before { border-right: 2px solid #cbd5e1; border-radius: 0 8px 0 0; }
-    .css-tree li:first-child::after { border-radius: 8px 0 0 0; }
-    .css-tree ul ul::before { content: ''; position: absolute; top: 0; left: 50%; border-left: 2px solid #cbd5e1; width: 0; height: 24px; margin-left: -1px; }
-
-    /* VIEW 2: Swimlane Flow */
-    .swimlanes { display: flex; flex-direction: column; gap: 20px; }
-    .swimlane { display: flex; background: #fff; border: 1px solid var(--border); border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.02); }
-    .lane-header { width: 300px; background: #f8fafc; padding: 24px; border-right: 1px solid var(--border); display: flex; flex-direction: column; justify-content: center; position: relative; }
-    .lane-header::after { content: '→'; position: absolute; right: -14px; top: 50%; transform: translateY(-50%); width: 28px; height: 28px; background: #fff; border: 1px solid var(--border); border-radius: 50%; display: flex; justify-content: center; align-items: center; color: var(--text-sub); font-weight: bold; z-index: 2;}
-    .lane-title { font-size: 18px; font-weight: 800; color: #0f172a; margin-bottom: 16px; }
-    .lane-body { flex: 1; padding: 30px; display: flex; flex-wrap: wrap; gap: 20px; background: #ffffff; }
-
-    /* VIEW 3: Health Matrix (Kanban) */
-    .matrix-board { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; }
-    .matrix-col { background: #f8fafc; border: 1px solid var(--border); border-radius: 16px; display: flex; flex-direction: column; overflow: hidden; }
-    .m-header { padding: 16px 20px; font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0,0,0,0.05); }
-    .m-header.active { background: var(--bg-active); color: var(--c-active); }
-    .m-header.lowperf { background: var(--bg-lowperf); color: var(--c-lowperf); }
-    .m-header.mia { background: var(--bg-mia); color: var(--c-mia); }
-    .m-header.off { background: var(--bg-off); color: var(--c-off); }
-    .m-count { background: rgba(255,255,255,0.6); padding: 2px 10px; border-radius: 20px; font-size: 12px; }
-    .m-body { padding: 20px; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; max-height: 700px; }
-    .m-card { background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 16px; display: flex; align-items: center; gap: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
-    .m-card .u-avatar { width: 36px; height: 36px; font-size: 13px; margin: 0; flex-shrink: 0; }
-    .m-card-info { display: flex; flex-direction: column; overflow: hidden; }
-    .m-card-name { font-size: 14px; font-weight: 700; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .m-card-role { font-size: 11px; color: var(--text-sub); }
-
-    /* VIEW 4: Directory Grid */
-    .directory-section { margin-bottom: 40px; }
-    .dir-header { font-size: 18px; font-weight: 800; color: #0f172a; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
-    .dir-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 20px; }
-
-    /* VIEW 5: Executive Bento Dashboard */
-    .bento-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; }
-    .bento-card { background: #fff; border: 1px solid var(--border); border-radius: 16px; padding: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.02); display: flex; flex-direction: column; }
-    .bento-span-2 { grid-column: span 2; }
-    .bento-title { font-size: 16px; font-weight: 800; color: #0f172a; margin-bottom: 20px; display: flex; align-items: center; gap: 8px; }
+    /* Nested Topology Layout (No Horizontal Scroll) */
+    .tree-root { display: flex; flex-direction: column; align-items: center; margin-bottom: 24px; position: relative; animation: fadeIn 0.6s ease; }
+    .connector-line { width: 2px; height: 32px; background: #cbd5e1; margin: 0 auto; }
     
-    .stats-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
-    .b-stat { padding: 16px; border-radius: 12px; border: 1px solid var(--border); background: #f8fafc; }
-    .b-stat-val { font-size: 32px; font-weight: 800; line-height: 1; margin-bottom: 4px; }
-    .b-stat-lbl { font-size: 11px; font-weight: 700; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.05em; }
+    .departments-grid { 
+      display: grid; 
+      grid-template-columns: repeat(auto-fill, minmax(380px, 1fr)); 
+      gap: 24px; 
+      align-items: start; 
+      animation: slideUp 0.6s ease 0.1s both;
+    }
+    
+    .department-module {
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: box-shadow 0.3s ease;
+    }
+    .department-module:hover { box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05); }
 
-    #loading { position: fixed; inset: 0; background: rgba(255,255,255,0.9); display: flex; justify-content: center; align-items: center; font-weight: 800; color: var(--primary); font-size: 18px; z-index: 100; backdrop-filter: blur(4px); }
+    .dept-header { 
+      padding: 20px; 
+      background: #f8fafc; 
+      border-bottom: 1px solid var(--border); 
+      position: relative;
+    }
+    .dept-title { font-size: 16px; font-weight: 800; color: #0f172a; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    .dept-title-badge { font-size: 10px; font-weight: 800; text-transform: uppercase; background: var(--bg-exec); color: var(--c-exec); padding: 4px 8px; border-radius: 6px; }
+    
+    .dept-body { 
+      padding: 20px; 
+      display: grid; 
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); 
+      gap: 16px; 
+      background: #ffffff;
+    }
 
-    /* Print Styles */
+    /* Node Cards (Personnel) */
+    .node-card {
+      background: #ffffff; border: 1px solid var(--border); border-radius: 12px; padding: 16px; 
+      display: flex; align-items: center; gap: 12px;
+      transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      cursor: default; position: relative; overflow: hidden;
+    }
+    .node-card::before {
+      content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; border-radius: 12px 0 0 12px;
+    }
+    .node-card:hover { transform: translateY(-3px); box-shadow: 0 8px 16px -4px rgba(0,0,0,0.08); border-color: #cbd5e1; }
+
+    /* Card Status Variations */
+    .status-exec::before { background: var(--c-exec); }
+    .status-active::before { background: var(--c-active); }
+    .status-mia::before { background: var(--c-mia); }
+    .status-lowperf::before { background: var(--c-lowperf); }
+    .status-off::before { background: var(--c-off); }
+
+    .avatar { width: 36px; height: 36px; border-radius: 50%; display: flex; justify-content: center; align-items: center; color: #fff; font-weight: 700; font-size: 14px; flex-shrink: 0; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.1); }
+    .node-info { display: flex; flex-direction: column; overflow: hidden; }
+    .node-name { font-size: 13px; font-weight: 700; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .node-role { font-size: 11px; font-weight: 500; color: var(--text-sub); margin-top: 2px; }
+    
+    .status-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; margin-right: 4px; }
+    .bg-active { background: var(--c-active); }
+    .bg-mia { background: var(--c-mia); box-shadow: 0 0 0 3px var(--bg-mia); animation: pulse-mia 2s infinite; }
+    .bg-lowperf { background: var(--c-lowperf); }
+    .bg-off { background: var(--c-off); }
+
+    /* Executive Root Card specifically */
+    .root-card { width: 280px; padding: 20px; text-align: center; flex-direction: column; border-color: var(--c-exec); box-shadow: 0 10px 20px -5px rgba(79, 70, 229, 0.15); }
+    .root-card::before { display: none; }
+    .root-card .avatar { width: 56px; height: 56px; font-size: 20px; margin: 0 auto 12px auto; }
+    .root-card .node-name { font-size: 16px; white-space: normal; }
+    .root-card .node-role { font-size: 12px; color: var(--c-exec); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 4px;}
+
+    #loading { position: fixed; inset: 0; background: rgba(255,255,255,0.9); display: flex; justify-content: center; align-items: center; font-weight: 800; color: var(--c-exec); font-size: 18px; z-index: 1000; backdrop-filter: blur(4px); }
+
+    @keyframes slideDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes pulse-mia { 0% { box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(225, 29, 72, 0); } 100% { box-shadow: 0 0 0 0 transparent; } }
+
+    /* Print Optimization */
     @media print {
-      nav, .header, .view-tabs { display: none !important; }
-      .container { padding: 0 !important; max-width: 100% !important; }
+      nav, .status-filters { display: none !important; }
       body { background: #fff !important; }
+      .container { max-width: 100% !important; padding: 0 !important; }
+      .department-module { break-inside: avoid; border-color: #cbd5e1 !important; box-shadow: none !important; }
+      .node-card { border-color: #cbd5e1 !important; }
       * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-      .swimlane, .m-card, .u-card, .bento-card { break-inside: avoid; }
-      .org-tree-wrapper { overflow: visible !important; box-shadow: none !important; border: none !important; }
     }
   </style>
 </head>
 <body>
 
-  <div id="loading">Compiling Topology Data...</div>
+  <div id="loading">Compiling Hierarchy...</div>
 
   <nav>
     <a href="index.html">Task Ledger</a>
     <a href="analytics.html">Analytics & Reporting</a>
     <a href="admin.html">Team Builder (Admin)</a>
-    <a href="team-hierarchy.html" class="active">Team Hierarchy (Publication)</a>
+    <a href="team-hierarchy.html" class="active">Corporate Topology</a>
   </nav>
 
   <div class="container">
-    
     <div class="header">
-      <div class="header-text">
-        <h1>Operational Topology & Hierarchy</h1>
-        <p>100% visible, publication-ready layouts synced from the live roster.</p>
-      </div>
-      <div class="action-row">
-        <button class="btn btn-secondary" onclick="window.print()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
-          Print / Save PDF
+      <h1>Operational Hierarchy</h1>
+      
+      <!-- Interactive Status Legend -->
+      <div class="status-filters" id="status-filters">
+        <button class="filter-btn f-active" data-filter="active">
+          <span class="dot" style="background: var(--c-active)"></span> Active (<span id="c-act">0</span>)
+        </button>
+        <button class="filter-btn f-mia" data-filter="mia">
+          <span class="dot" style="background: var(--c-mia)"></span> MIA (<span id="c-mia">0</span>)
+        </button>
+        <button class="filter-btn f-lowperf" data-filter="lowperf">
+          <span class="dot" style="background: var(--c-lowperf)"></span> Low Perf (<span id="c-low">0</span>)
+        </button>
+        <button class="filter-btn f-off" data-filter="offboarded">
+          <span class="dot" style="background: var(--c-off)"></span> Offboarded (<span id="c-off">0</span>)
         </button>
       </div>
+      <p style="margin-top: 16px; font-size: 12px; color: var(--text-sub);">Hover over or click a status above to instantly isolate personnel.</p>
     </div>
 
-    <div class="view-tabs">
-      <button class="view-tab active" onclick="switchView('v-org', this)">1. Corporate Tree</button>
-      <button class="view-tab" onclick="switchView('v-swim', this)">2. Swimlane Flow</button>
-      <button class="view-tab" onclick="switchView('v-matrix', this)">3. Health Matrix (Kanban)</button>
-      <button class="view-tab" onclick="switchView('v-dir', this)">4. The Directory</button>
-      <button class="view-tab" onclick="switchView('v-bento', this)">5. Executive Dashboard</button>
-    </div>
-
-    <!-- VIEW 1: Org Tree -->
-    <div class="view-content active" id="v-org">
-      <div class="org-tree-wrapper" id="org-tree-container"></div>
-    </div>
-
-    <!-- VIEW 2: Swimlanes -->
-    <div class="view-content" id="v-swim">
-      <div class="swimlanes" id="swimlane-container"></div>
-    </div>
-
-    <!-- VIEW 3: Health Matrix -->
-    <div class="view-content" id="v-matrix">
-      <div class="matrix-board" id="matrix-container"></div>
-    </div>
-
-    <!-- VIEW 4: Directory -->
-    <div class="view-content" id="v-dir">
-      <div id="dir-container"></div>
-    </div>
-
-    <!-- VIEW 5: Bento -->
-    <div class="view-content" id="v-bento">
-      <div class="bento-grid">
-        <div class="bento-card bento-span-2">
-          <div class="bento-title">Team Health Distribution</div>
-          <div id="health-chart" style="width: 100%; height: 350px;"></div>
-        </div>
-        <div class="bento-card">
-          <div class="bento-title">Headcount Metrics</div>
-          <div class="stats-row">
-            <div class="b-stat"><div class="b-stat-val" id="b-tot" style="color:var(--primary)">0</div><div class="b-stat-lbl">Total</div></div>
-            <div class="b-stat"><div class="b-stat-val" id="b-act" style="color:var(--c-active)">0</div><div class="b-stat-lbl">Active</div></div>
+    <div class="topology-wrapper" id="topology-wrapper">
+      <!-- Top Level Root -->
+      <div class="tree-root">
+        <div class="node-card root-card status-exec" data-status="active">
+          <div class="avatar" style="background: linear-gradient(135deg, #4f46e5, #3730a3);">DK</div>
+          <div class="node-info">
+            <div class="node-name">Dinesh Kashyap</div>
+            <div class="node-role">Operations Lead</div>
           </div>
-          <div class="stats-row">
-            <div class="b-stat"><div class="b-stat-val" id="b-mia" style="color:var(--c-mia)">0</div><div class="b-stat-lbl">MIA</div></div>
-            <div class="b-stat"><div class="b-stat-val" id="b-low" style="color:var(--c-lowperf)">0</div><div class="b-stat-lbl">Low Perf</div></div>
-          </div>
-          <div class="b-stat" style="margin-bottom:0;"><div class="b-stat-val" id="b-off" style="color:var(--c-off)">0</div><div class="b-stat-lbl">Offboarded</div></div>
         </div>
+        <div class="connector-line"></div>
       </div>
-    </div>
 
+      <!-- Department Grids -->
+      <div class="departments-grid" id="departments-container"></div>
+    </div>
   </div>
 
   <script>
     const API_URL = 'https://turing-api.dineshkashyaparya.workers.dev/roster';
-    let roster = {};
-    let allPersonnel = [];
-    let stats = { total: 0, active: 0, mia: 0, lowperf: 0, offboarded: 0 };
-    let donutChart = null;
-
-    // --- Utilities ---
+    let globalRoster = {};
+    
+    // Gradient Generator for Avatars
     function getGradient(name) {
         const gradients = [
-            'linear-gradient(135deg, #4f46e5, #8b5cf6)', 'linear-gradient(135deg, #059669, #10b981)',
-            'linear-gradient(135deg, #d97706, #f59e0b)', 'linear-gradient(135deg, #e11d48, #f43f5e)',
-            'linear-gradient(135deg, #0284c7, #38bdf8)', 'linear-gradient(135deg, #7e22ce, #a855f7)'
+            'linear-gradient(135deg, #0ea5e9, #2563eb)', 'linear-gradient(135deg, #10b981, #059669)',
+            'linear-gradient(135deg, #f59e0b, #d97706)', 'linear-gradient(135deg, #8b5cf6, #7e22ce)',
+            'linear-gradient(135deg, #f43f5e, #e11d48)', 'linear-gradient(135deg, #14b8a6, #0f766e)'
         ];
         let hash = 0; for(let i=0; i<name.length; i++) hash += name.charCodeAt(i);
         return gradients[hash % gradients.length];
     }
     function getInitials(name) { return name.split(' ').map(n=>n[0]).join('').substring(0,2).toUpperCase(); }
     
-    function getStatusClass(s) {
-      if (!s || s === 'Active') return 'c-active';
-      if (s === 'MIA') return 'c-mia';
-      if (s === 'Low Performance') return 'c-lowperf';
-      if (s === 'Offboarded' || s === 'Resigned') return 'c-off';
-      return 'c-active';
-    }
-    
-    function getStatusText(s) { return s || 'Active'; }
-
-    function createCard(name, role, status, isSys = false) {
-        const sClass = isSys ? 'c-sys' : getStatusClass(status);
-        const sText = isSys ? status : getStatusText(status);
-        return `
-        <div class="u-card ${sClass}">
-            <div class="u-avatar" style="background: ${getGradient(name)}">${getInitials(name)}</div>
-            <div class="u-name" title="${name}">${name}</div>
-            <div class="u-role" title="${role}">${role}</div>
-            <div class="u-badge">${sText}</div>
-        </div>`;
+    // Status Logic
+    function getStatusData(s) {
+      if (!s || s === 'Active') return { key: 'active', cls: 'status-active', dot: 'bg-active', label: 'Active' };
+      if (s === 'MIA') return { key: 'mia', cls: 'status-mia', dot: 'bg-mia', label: 'MIA' };
+      if (s === 'Low Performance') return { key: 'lowperf', cls: 'status-lowperf', dot: 'bg-lowperf', label: 'Low Perf' };
+      if (s === 'Offboarded' || s === 'Resigned') return { key: 'offboarded', cls: 'status-off', dot: 'bg-off', label: 'Offboarded' };
+      return { key: 'active', cls: 'status-active', dot: 'bg-active', label: 'Active' };
     }
 
-    function createMiniCard(name, role, status) {
+    // Node Builder Component
+    function buildNode(name, role, statusString, isLead = false) {
+        const s = getStatusData(statusString);
         return `
-        <div class="m-card">
-            <div class="u-avatar" style="background: ${getGradient(name)}">${getInitials(name)}</div>
-            <div class="m-card-info">
-                <div class="m-card-name" title="${name}">${name}</div>
-                <div class="m-card-role">${role}</div>
+        <div class="node-card ${s.cls}" data-status="${s.key}">
+            <div class="avatar" style="background: ${getGradient(name)}">${getInitials(name)}</div>
+            <div class="node-info">
+                <div class="node-name" title="${name}">${name}</div>
+                <div class="node-role">${isLead ? '<strong>' + role + '</strong>' : role}</div>
+                <div style="font-size: 10px; color: var(--text-sub); margin-top: 4px; display: flex; align-items: center;">
+                    <span class="status-dot ${s.dot}"></span> ${s.label}
+                </div>
             </div>
         </div>`;
     }
 
-    // --- Init & Data Processing ---
     async function init() {
       try {
         const res = await fetch(API_URL);
-        roster = await res.json();
-        processData();
-        renderAllViews();
+        globalRoster = await res.json();
+        renderHierarchy();
+        setupInteractions();
         document.getElementById('loading').style.display = 'none';
-        
-        // Setup Drag-to-scroll for Org Tree
-        const ele = document.getElementById('org-tree-container');
-        let pos = { top: 0, left: 0, x: 0, y: 0 };
-        const mouseDownHandler = function (e) {
-            pos = { left: ele.scrollLeft, top: ele.scrollTop, x: e.clientX, y: e.clientY };
-            document.addEventListener('mousemove', mouseMoveHandler);
-            document.addEventListener('mouseup', mouseUpHandler);
-        };
-        const mouseMoveHandler = function (e) {
-            ele.scrollLeft = pos.left - (e.clientX - pos.x);
-            ele.scrollTop = pos.top - (e.clientY - pos.y);
-        };
-        const mouseUpHandler = function () {
-            document.removeEventListener('mousemove', mouseMoveHandler);
-            document.removeEventListener('mouseup', mouseUpHandler);
-        };
-        ele.addEventListener('mousedown', mouseDownHandler);
-
       } catch(err) {
-        document.getElementById('loading').innerText = 'Failed to load live data.';
+        document.getElementById('loading').innerText = 'System Offline: Could not load topology.';
       }
     }
 
-    function processData() {
-        allPersonnel = [];
-        const process = (p, role, group) => {
-            allPersonnel.push({ ...p, role, group });
-            stats.total++;
-            const s = getStatusClass(p.status);
-            if (s === 'c-active') stats.active++;
-            else if (s === 'c-mia') stats.mia++;
-            else if (s === 'c-lowperf') stats.lowperf++;
-            else if (s === 'c-off') stats.offboarded++;
+    function renderHierarchy() {
+        let html = '';
+        let counts = { active: 1, mia: 0, lowperf: 0, offboarded: 0 }; // 1 for Root
+
+        const trackCount = (statusStr) => {
+            const key = getStatusData(statusStr).key;
+            counts[key]++;
         };
 
-        if (roster.l2_reviewers) {
-            roster.l2_reviewers.forEach(r => process(r, 'L2 Reviewer', 'Quality Oversight'));
-        }
-        if (roster.pods) {
-            roster.pods.forEach(pod => {
-                if(pod.lead) process({ name: pod.lead, status: 'Active' }, 'Pod Lead', pod.name);
-                pod.trainers.forEach(t => process(t, 'Trainer', pod.name));
-            });
-        }
-        
-        document.getElementById('b-tot').innerText = stats.total;
-        document.getElementById('b-act').innerText = stats.active;
-        document.getElementById('b-mia').innerText = stats.mia;
-        document.getElementById('b-low').innerText = stats.lowperf;
-        document.getElementById('b-off').innerText = stats.offboarded;
-    }
-
-    // --- Render Engines ---
-    function renderAllViews() {
-        renderOrgTree();
-        renderSwimlanes();
-        renderMatrix();
-        renderDirectory();
-        renderBentoChart();
-    }
-
-    function renderOrgTree() {
-        let html = `<div class="css-tree"><ul><li>`;
-        html += createCard('Dinesh Kashyap', 'Operations Lead', 'Executive', true);
-        html += `<ul>`;
-        
-        if (roster.l2_reviewers && roster.l2_reviewers.length > 0) {
-            html += `<li>${createCard('Quality Oversight', 'L2 Unit', 'Audit Network', true)}<ul>`;
-            roster.l2_reviewers.forEach(r => { html += `<li>${createCard(r.name, 'L2 Reviewer', r.status)}</li>`; });
-            html += `</ul></li>`;
-        }
-        
-        if (roster.pods) {
-            roster.pods.forEach(pod => {
-                html += `<li>${createCard(pod.name, 'Pod Lead: ' + (pod.lead||'Unassigned'), 'Pod Unit', true)}<ul>`;
-                pod.trainers.forEach(t => { html += `<li>${createCard(t.name, 'Trainer', t.status)}</li>`; });
-                html += `</ul></li>`;
-            });
-        }
-        html += `</ul></li></ul></div>`;
-        document.getElementById('org-tree-container').innerHTML = html;
-    }
-
-    function renderSwimlanes() {
-        let html = '';
-        
-        if (roster.l2_reviewers && roster.l2_reviewers.length > 0) {
+        // 1. Quality Oversight Module
+        if (globalRoster.l2_reviewers && globalRoster.l2_reviewers.length > 0) {
             html += `
-            <div class="swimlane">
-                <div class="lane-header">
-                    <div class="lane-title">Quality Oversight</div>
-                    <div style="font-size:13px; color:var(--text-sub);">L2 Reviewers Network</div>
+            <div class="department-module">
+                <div class="dept-header">
+                    <div class="dept-title">Quality Oversight <span class="dept-title-badge">L2 UNIT</span></div>
+                    <div style="font-size:12px; color:var(--text-sub);">${globalRoster.l2_reviewers.length} Assigned L2 Reviewers</div>
                 </div>
-                <div class="lane-body">
-                    ${roster.l2_reviewers.map(r => createCard(r.name, 'L2 Reviewer', r.status)).join('')}
+                <div class="dept-body">
+                    ${globalRoster.l2_reviewers.map(r => {
+                        trackCount(r.status);
+                        return buildNode(r.name, 'L2 Reviewer', r.status);
+                    }).join('')}
                 </div>
             </div>`;
         }
 
-        if (roster.pods) {
-            roster.pods.forEach(pod => {
+        // 2. Pod Modules
+        if (globalRoster.pods) {
+            globalRoster.pods.forEach(pod => {
+                trackCount('Active'); // Assuming lead is active
+                pod.trainers.forEach(t => trackCount(t.status));
+
                 html += `
-                <div class="swimlane">
-                    <div class="lane-header">
-                        <div class="lane-title">${pod.name}</div>
-                        ${createCard(pod.lead || 'Unassigned', 'Pod Lead', 'Active', true)}
+                <div class="department-module">
+                    <div class="dept-header">
+                        <div class="dept-title">${pod.name} <span class="dept-title-badge" style="background:#f1f5f9; color:#475569;">POD</span></div>
+                        <div style="font-size:12px; color:var(--text-sub); margin-bottom: 16px;">${pod.trainers.length} Trainers Active</div>
+                        ${buildNode(pod.lead || 'Unassigned', 'Pod Lead', 'Active', true)}
                     </div>
-                    <div class="lane-body">
-                        ${pod.trainers.map(t => createCard(t.name, 'Trainer', t.status)).join('')}
+                    <div class="dept-body">
+                        ${pod.trainers.map(t => buildNode(t.name, 'Trainer', t.status)).join('')}
                     </div>
                 </div>`;
             });
         }
-        document.getElementById('swimlane-container').innerHTML = html;
+
+        document.getElementById('departments-container').innerHTML = html;
+
+        // Update Counts
+        document.getElementById('c-act').innerText = counts.active;
+        document.getElementById('c-mia').innerText = counts.mia;
+        document.getElementById('c-low').innerText = counts.lowperf;
+        document.getElementById('c-off').innerText = counts.offboarded;
     }
 
-    function renderMatrix() {
-        const groups = { 'c-active': [], 'c-lowperf': [], 'c-mia': [], 'c-off': [] };
-        allPersonnel.forEach(p => {
-            const s = getStatusClass(p.status);
-            if (groups[s]) groups[s].push(p);
+    function setupInteractions() {
+        const wrapper = document.getElementById('topology-wrapper');
+        const filters = document.querySelectorAll('.filter-btn');
+        let activeFilter = null;
+
+        const applyFilter = (filterKey) => {
+            if (!filterKey) {
+                wrapper.classList.remove('is-filtering');
+                document.querySelectorAll('.node-card').forEach(c => c.classList.remove('is-highlighted'));
+                filters.forEach(btn => btn.classList.remove('active'));
+                return;
+            }
+
+            wrapper.classList.add('is-filtering');
+            document.querySelectorAll('.node-card').forEach(card => {
+                if (card.dataset.status === filterKey) {
+                    card.classList.add('is-highlighted');
+                } else {
+                    card.classList.remove('is-highlighted');
+                }
+            });
+        };
+
+        // Hover Logic
+        filters.forEach(btn => {
+            btn.addEventListener('mouseenter', () => {
+                if (!activeFilter) applyFilter(btn.dataset.filter);
+            });
+            btn.addEventListener('mouseleave', () => {
+                if (!activeFilter) applyFilter(null);
+            });
+            
+            // Click Logic (Locks the filter)
+            btn.addEventListener('click', (e) => {
+                const targetKey = btn.dataset.filter;
+                if (activeFilter === targetKey) {
+                    // Unlock
+                    activeFilter = null;
+                    applyFilter(null);
+                } else {
+                    // Lock
+                    activeFilter = targetKey;
+                    filters.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    applyFilter(targetKey);
+                }
+            });
         });
-
-        const col = (key, title, cls) => `
-            <div class="matrix-col">
-                <div class="m-header ${cls}">${title} <span class="m-count">${groups[key].length}</span></div>
-                <div class="m-body">
-                    ${groups[key].map(p => createMiniCard(p.name, p.group + ' · ' + p.role, p.status)).join('')}
-                </div>
-            </div>`;
-
-        let html = col('c-active', 'Active Capacity', 'active') + 
-                   col('c-lowperf', 'Low Performance', 'lowperf') + 
-                   col('c-mia', 'MIA Alerts', 'mia') + 
-                   col('c-off', 'Offboarded', 'off');
         
-        document.getElementById('matrix-container').innerHTML = html;
-    }
-
-    function renderDirectory() {
-        let html = '';
-        const groups = { 'L2 Reviewers': [], 'Pod Leads': [], 'Trainers': [] };
-        
-        allPersonnel.forEach(p => {
-            if(p.role === 'L2 Reviewer') groups['L2 Reviewers'].push(p);
-            else if(p.role === 'Pod Lead') groups['Pod Leads'].push(p);
-            else groups['Trainers'].push(p);
-        });
-
-        Object.keys(groups).forEach(k => {
-            if (groups[k].length > 0) {
-                html += `
-                <div class="directory-section">
-                    <div class="dir-header">${k} <span style="font-size:13px; color:var(--text-sub); font-weight:600;">${groups[k].length} Members</span></div>
-                    <div class="dir-grid">
-                        ${groups[k].sort((a,b)=>a.name.localeCompare(b.name)).map(p => createCard(p.name, p.group, p.status)).join('')}
-                    </div>
-                </div>`;
+        // Click outside to clear lock
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.status-filters') && activeFilter) {
+                activeFilter = null;
+                applyFilter(null);
             }
         });
-        document.getElementById('dir-container').innerHTML = html;
-    }
-
-    function renderBentoChart() {
-        const chartDom = document.getElementById('health-chart');
-        if(donutChart) donutChart.dispose();
-        donutChart = echarts.init(chartDom);
-        
-        const option = {
-            tooltip: { trigger: 'item', fontFamily: 'Inter' },
-            legend: { top: '5%', left: 'center', fontFamily: 'Inter' },
-            series: [{
-                name: 'Team Health',
-                type: 'pie', radius: ['40%', '70%'], center: ['50%', '60%'],
-                avoidLabelOverlap: false,
-                itemStyle: { borderRadius: 10, borderColor: '#fff', borderWidth: 2 },
-                label: { show: false },
-                data: [
-                    { value: stats.active, name: 'Active', itemStyle: { color: '#059669' } },
-                    { value: stats.lowperf, name: 'Low Perf', itemStyle: { color: '#d97706' } },
-                    { value: stats.mia, name: 'MIA', itemStyle: { color: '#e11d48' } },
-                    { value: stats.offboarded, name: 'Offboarded', itemStyle: { color: '#475569' } }
-                ]
-            }]
-        };
-        donutChart.setOption(option);
-        window.addEventListener('resize', () => donutChart.resize());
-    }
-
-    function switchView(id, btn) {
-        document.querySelectorAll('.view-tab').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        document.querySelectorAll('.view-content').forEach(v => v.classList.remove('active'));
-        document.getElementById(id).classList.add('active');
-        if(id === 'v-bento' && donutChart) donutChart.resize();
     }
 
     init();
