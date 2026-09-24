@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CTP Chemistry · Corporate Topology</title>
+  <title>CTP Chemistry · Team Hierarchy</title>
   
   <style>
     :root {
@@ -34,7 +34,7 @@
     .container { max-width: 1400px; margin: 0 auto; padding: 32px; }
 
     /* Header & Interactive Filters */
-    .header { text-align: center; margin-bottom: 40px; animation: slideDown 0.5s ease; }
+    .header { text-align: center; margin-bottom: 24px; animation: slideDown 0.5s ease; }
     .header h1 { font-size: 28px; font-weight: 800; color: #0f172a; margin-bottom: 12px; letter-spacing: -0.02em; }
     
     .status-filters { display: flex; justify-content: center; gap: 12px; flex-wrap: wrap; }
@@ -50,8 +50,16 @@
     .f-mia:hover, .f-mia.active { background: var(--bg-mia); color: var(--c-mia); }
     .f-lowperf:hover, .f-lowperf.active { background: var(--bg-lowperf); color: var(--c-lowperf); }
     .f-off:hover, .f-off.active { background: var(--bg-off); color: var(--c-off); }
+
+    /* Sub-Tabs System */
+    .sub-tabs-container { display: flex; gap: 8px; margin-bottom: 32px; border-bottom: 1px solid var(--border); padding-bottom: 0; overflow-x: auto; scrollbar-width: none; }
+    .sub-tab-btn { background: transparent; border: none; padding: 14px 20px; font-weight: 700; color: var(--text-sub); font-size: 14px; cursor: pointer; border-bottom: 3px solid transparent; transition: all 0.2s; white-space: nowrap; margin-bottom: -1px; }
+    .sub-tab-btn:hover { color: var(--c-exec); }
+    .sub-tab-btn.active { color: var(--c-exec); border-bottom-color: var(--c-exec); }
+    .tab-content { display: none; animation: fadeIn 0.4s ease; }
+    .tab-content.active { display: block; }
     
-    /* Interactive States for Cards */
+    /* Interactive States for Cards (Tab 1) */
     .topology-wrapper { transition: background 0.3s ease; position: relative; }
     .topology-wrapper.is-filtering .node-card:not(.is-highlighted) { 
       opacity: 0.15; filter: grayscale(100%); transform: scale(0.95); box-shadow: none; 
@@ -62,7 +70,7 @@
       z-index: 10; position: relative;
     }
 
-    /* Nested Topology Layout (No Horizontal Scroll) */
+    /* Nested Topology Layout */
     .tree-root { display: flex; flex-direction: column; align-items: center; margin-bottom: 24px; position: relative; animation: fadeIn 0.6s ease; }
     .connector-line { width: 2px; height: 32px; background: #cbd5e1; margin: 0 auto; }
     
@@ -86,22 +94,11 @@
     }
     .department-module:hover { box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05); }
 
-    .dept-header { 
-      padding: 20px; 
-      background: #f8fafc; 
-      border-bottom: 1px solid var(--border); 
-      position: relative;
-    }
+    .dept-header { padding: 20px; background: #f8fafc; border-bottom: 1px solid var(--border); position: relative; }
     .dept-title { font-size: 16px; font-weight: 800; color: #0f172a; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
     .dept-title-badge { font-size: 10px; font-weight: 800; text-transform: uppercase; background: var(--bg-exec); color: var(--c-exec); padding: 4px 8px; border-radius: 6px; }
     
-    .dept-body { 
-      padding: 20px; 
-      display: grid; 
-      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); 
-      gap: 16px; 
-      background: #ffffff;
-    }
+    .dept-body { padding: 20px; display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 16px; background: #ffffff; }
 
     /* Node Cards (Personnel) */
     .node-card {
@@ -110,9 +107,7 @@
       transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
       cursor: default; position: relative; overflow: hidden;
     }
-    .node-card::before {
-      content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; border-radius: 12px 0 0 12px;
-    }
+    .node-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; border-radius: 12px 0 0 12px; }
     .node-card:hover { transform: translateY(-3px); box-shadow: 0 8px 16px -4px rgba(0,0,0,0.08); border-color: #cbd5e1; }
 
     /* Card Status Variations */
@@ -133,12 +128,58 @@
     .bg-lowperf { background: var(--c-lowperf); }
     .bg-off { background: var(--c-off); }
 
-    /* Executive Root Card specifically */
     .root-card { width: 280px; padding: 20px; text-align: center; flex-direction: column; border-color: var(--c-exec); box-shadow: 0 10px 20px -5px rgba(79, 70, 229, 0.15); }
     .root-card::before { display: none; }
     .root-card .avatar { width: 56px; height: 56px; font-size: 20px; margin: 0 auto 12px auto; }
     .root-card .node-name { font-size: 16px; white-space: normal; }
     .root-card .node-role { font-size: 12px; color: var(--c-exec); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 4px;}
+
+    /* List Tab Styles */
+    .local-filters { display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; background: #fff; padding: 16px; border-radius: 12px; border: 1px solid var(--border); }
+    .filter-input { padding: 10px 14px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; outline: none; min-width: 160px; font-family: inherit; }
+    .filter-input:focus { border-color: var(--c-exec); box-shadow: 0 0 0 3px var(--bg-exec); }
+    
+    .data-table-wrapper { background: #fff; border-radius: 12px; border: 1px solid var(--border); overflow-x: auto; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02); }
+    .data-table { width: 100%; border-collapse: collapse; text-align: left; }
+    .data-table th, .data-table td { padding: 14px 16px; border-bottom: 1px solid var(--border); font-size: 13px; }
+    .data-table th { background: #f8fafc; font-weight: 700; color: #475569; text-transform: uppercase; letter-spacing: 0.05em; font-size: 11px; }
+    .data-table tr:hover td { background: #f8fafc; }
+    
+    /* Stats Tree Tab Styles (Tab 6) */
+    .outline-card { background: #fff; border-radius: 12px; border: 1px solid var(--border); padding: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02); }
+    .tree-branch { margin-left: 20px; border-left: 2px solid #e2e8f0; padding-left: 16px; margin-top: 8px; margin-bottom: 16px;}
+    .tree-node { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-radius: 8px; transition: background 0.2s; margin-bottom: 4px; border: 1px solid transparent;}
+    .tree-node:hover { background: #f8fafc; border-color: var(--border); }
+    .tree-node.pod-head { cursor: pointer; background: #f1f5f9; border: 1px solid var(--border); margin-top: 12px;}
+    .tree-node.pod-head:hover { background: #e2e8f0; }
+    
+    .tree-node-left { display: flex; align-items: center; gap: 12px; font-weight: 600; color: #0f172a;}
+    .tree-node-right { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end;}
+    
+    .tree-toggle { color: #64748b; font-weight: bold; width: 20px; text-align: center; transition: transform 0.2s;}
+    .tree-toggle.collapsed { transform: rotate(-90deg); }
+    .role-badge { font-size: 10px; font-weight: 800; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; background: #e2e8f0; color: #475569; }
+    .role-badge.lead { background: #e0e7ff; color: #3730a3; }
+    .role-badge.l2 { background: #f3e8ff; color: #7e22ce; }
+    
+    /* Beautiful Stat Badges */
+    .stat-badge { font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 30px; display: inline-flex; align-items: center; gap: 4px; border: 1px solid transparent; white-space: nowrap;}
+    .stat-blue { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+    .stat-green { background: #f0fdf4; color: #15803d; border-color: #bbf7d0; }
+    .stat-amber { background: #fffbeb; color: #b45309; border-color: #fde68a; }
+    .stat-purple { background: #f5f3ff; color: #6d28d9; border-color: #ddd6fe; }
+    .stat-slate { background: #f1f5f9; color: #475569; border-color: #cbd5e1; }
+    
+    /* Other views */
+    .dense-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+    .role-lanes { display: flex; flex-direction: column; gap: 24px; }
+    .role-lane { background: #fff; border-radius: 12px; border: 1px solid var(--border); padding: 20px; }
+    .role-lane-title { font-size: 16px; font-weight: 800; color: #0f172a; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+    
+    .pod-analytics-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+    .pod-stat-card { background: #fff; border-radius: 12px; border: 1px solid var(--border); padding: 20px; }
+    .pod-stat-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; color: #475569; }
+    .pod-stat-row strong { color: #0f172a; }
 
     #loading { position: fixed; inset: 0; background: rgba(255,255,255,0.9); display: flex; justify-content: center; align-items: center; font-weight: 800; color: var(--c-exec); font-size: 18px; z-index: 1000; backdrop-filter: blur(4px); }
 
@@ -147,34 +188,25 @@
     @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     @keyframes pulse-mia { 0% { box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(225, 29, 72, 0); } 100% { box-shadow: 0 0 0 0 transparent; } }
 
-    /* Print Optimization */
-    @media print {
-      nav, .status-filters { display: none !important; }
-      body { background: #fff !important; }
-      .container { max-width: 100% !important; padding: 0 !important; }
-      .department-module { break-inside: avoid; border-color: #cbd5e1 !important; box-shadow: none !important; }
-      .node-card { border-color: #cbd5e1 !important; }
-      * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-    }
   </style>
 </head>
 <body>
 
-  <div id="loading">Compiling Hierarchy...</div>
+  <div id="loading">Compiling Hierarchy & Analytics...</div>
 
   <nav>
     <a href="index.html">Task Ledger</a>
     <a href="analytics.html">Analytics & Reporting</a>
     <a href="analytics_2.html">Flow Analytics (v2)</a>
     <a href="admin.html">Team Builder (Admin)</a>
-    <a href="team-hierarchy.html" class="active">Corporate Topology</a>
+    <a href="team-hierarchy.html" class="active">Team Hierarchy</a>
   </nav>
 
   <div class="container">
     <div class="header">
-      <h1>Operational Hierarchy</h1>
+      <h1>Team Hierarchy</h1>
       
-      <!-- Interactive Status Legend -->
+      <!-- Interactive Status Legend (Primarily for Tab 1, but globally visible) -->
       <div class="status-filters" id="status-filters">
         <button class="filter-btn f-active" data-filter="active">
           <span class="dot" style="background: var(--c-active)"></span> Active (<span id="c-act">0</span>)
@@ -186,35 +218,113 @@
           <span class="dot" style="background: var(--c-lowperf)"></span> Low Perf (<span id="c-low">0</span>)
         </button>
         <button class="filter-btn f-off" data-filter="offboarded">
-          <span class="dot" style="background: var(--c-off)"></span> Offboarded (<span id="c-off">0</span>)
+          <span class="dot" style="background: var(--c-off)"></span> Off/Resigned (<span id="c-off">0</span>)
         </button>
       </div>
-      <p style="margin-top: 16px; font-size: 12px; color: var(--text-sub);">Hover over or click a status above to instantly isolate personnel.</p>
     </div>
 
-    <div class="topology-wrapper" id="topology-wrapper">
-      <!-- Top Level Root -->
-      <div class="tree-root">
-        <div class="node-card root-card status-exec" data-status="active">
-          <div class="avatar" style="background: linear-gradient(135deg, #4f46e5, #3730a3);">DK</div>
-          <div class="node-info">
-            <div class="node-name">Dinesh Kashyap</div>
-            <div class="node-role">Operations Lead</div>
+    <!-- Sub-Tabs Navigation -->
+    <div class="sub-tabs-container">
+      <button class="sub-tab-btn active" onclick="switchTab('tab-topology')">Operational Topology</button>
+      <button class="sub-tab-btn" onclick="switchTab('tab-list')">Directory List</button>
+      <button class="sub-tab-btn" onclick="switchTab('tab-grid')">Grid Matrix</button>
+      <button class="sub-tab-btn" onclick="switchTab('tab-roles')">Department Matrix</button>
+      <button class="sub-tab-btn" onclick="switchTab('tab-pods')">Pod Analytics</button>
+      <button class="sub-tab-btn" onclick="switchTab('tab-stats')" style="color: var(--c-exec);">✦ Concise Stats Hierarchy</button>
+    </div>
+
+    <!-- Tab 1: Topology (Original) -->
+    <div id="tab-topology" class="tab-content active">
+      <div class="topology-wrapper" id="topology-wrapper">
+        <div class="tree-root">
+          <div class="node-card root-card status-exec" data-status="active">
+            <div class="avatar" style="background: linear-gradient(135deg, #4f46e5, #3730a3);">DK</div>
+            <div class="node-info">
+              <div class="node-name">Dinesh Kashyap</div>
+              <div class="node-role">Operations Lead</div>
+            </div>
           </div>
+          <div class="connector-line"></div>
         </div>
-        <div class="connector-line"></div>
+        <div class="departments-grid" id="departments-container"></div>
       </div>
-
-      <!-- Department Grids -->
-      <div class="departments-grid" id="departments-container"></div>
     </div>
+
+    <!-- Tab 2: Directory List -->
+    <div id="tab-list" class="tab-content">
+      <div class="local-filters">
+        <input type="text" id="list-search" class="filter-input" placeholder="Search name..." onkeyup="renderListView()">
+        <select id="list-role" class="filter-input" onchange="renderListView()">
+          <option value="All">All Roles</option>
+          <option value="Operations Lead">Operations Lead</option>
+          <option value="L2 Reviewer">L2 Reviewer</option>
+          <option value="Pod Lead">Pod Lead</option>
+          <option value="Trainer">Trainer</option>
+        </select>
+        <select id="list-status" class="filter-input" onchange="renderListView()">
+          <option value="All">All Statuses</option>
+          <option value="Active">Active</option>
+          <option value="Low Performance">Low Performance</option>
+          <option value="MIA">MIA</option>
+          <option value="Offboarded">Offboarded</option>
+        </select>
+      </div>
+      <div class="data-table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Role</th>
+              <th>Pod / Group</th>
+              <th>Status</th>
+              <th>Email</th>
+            </tr>
+          </thead>
+          <tbody id="list-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Tab 3: Grid Matrix -->
+    <div id="tab-grid" class="tab-content">
+      <div class="local-filters">
+        <input type="text" id="grid-search" class="filter-input" placeholder="Quick find..." onkeyup="renderGridView()">
+      </div>
+      <div class="dense-grid" id="grid-container"></div>
+    </div>
+
+    <!-- Tab 4: Role/Department Matrix -->
+    <div id="tab-roles" class="tab-content">
+      <div class="role-lanes" id="roles-container"></div>
+    </div>
+
+    <!-- Tab 5: Pod Analytics -->
+    <div id="tab-pods" class="tab-content">
+      <div class="pod-analytics-grid" id="pods-container"></div>
+    </div>
+
+    <!-- Tab 6: Concise Stats Hierarchy -->
+    <div id="tab-stats" class="tab-content">
+      <div class="outline-card">
+        <div style="font-size: 13px; color: #64748b; margin-bottom: 20px;">
+          Live task metrics computed against all-time dataset. Click on a Pod Header to collapse or expand its trainers.
+        </div>
+        <div id="stats-outline-container"></div>
+      </div>
+    </div>
+
   </div>
 
   <script>
-    const API_URL = 'https://turing-api.dineshkashyaparya.workers.dev/roster';
-    let globalRoster = {};
+    const ROSTER_URL = 'https://turing-api.dineshkashyaparya.workers.dev/roster';
+    const TASK_URL = 'https://turing-api.dineshkashyaparya.workers.dev';
     
-    // Gradient Generator for Avatars
+    let globalRoster = { pods: [], l2_reviewers: [], mappings: {} };
+    let rawTasks = [];
+    let allMembersFlat = [];
+    let userStats = {}; // To store computed metrics per user
+
+    // Gradient Generator
     function getGradient(name) {
         const gradients = [
             'linear-gradient(135deg, #0ea5e9, #2563eb)', 'linear-gradient(135deg, #10b981, #059669)',
@@ -226,16 +336,133 @@
     }
     function getInitials(name) { return name.split(' ').map(n=>n[0]).join('').substring(0,2).toUpperCase(); }
     
-    // Status Logic
     function getStatusData(s) {
-      if (!s || s === 'Active') return { key: 'active', cls: 'status-active', dot: 'bg-active', label: 'Active' };
-      if (s === 'MIA') return { key: 'mia', cls: 'status-mia', dot: 'bg-mia', label: 'MIA' };
-      if (s === 'Low Performance') return { key: 'lowperf', cls: 'status-lowperf', dot: 'bg-lowperf', label: 'Low Perf' };
-      if (s === 'Offboarded' || s === 'Resigned') return { key: 'offboarded', cls: 'status-off', dot: 'bg-off', label: 'Offboarded' };
-      return { key: 'active', cls: 'status-active', dot: 'bg-active', label: 'Active' };
+      if (!s || s === 'Active') return { key: 'active', cls: 'status-active', dot: 'bg-active', label: 'Active', color: '#059669' };
+      if (s === 'MIA') return { key: 'mia', cls: 'status-mia', dot: 'bg-mia', label: 'MIA', color: '#e11d48' };
+      if (s === 'Low Performance') return { key: 'lowperf', cls: 'status-lowperf', dot: 'bg-lowperf', label: 'Low Perf', color: '#d97706' };
+      if (s === 'Offboarded' || s === 'Resigned') return { key: 'offboarded', cls: 'status-off', dot: 'bg-off', label: 'Off/Resigned', color: '#475569' };
+      return { key: 'active', cls: 'status-active', dot: 'bg-active', label: 'Active', color: '#059669' };
     }
 
-    // Node Builder Component
+    function switchTab(tabId) {
+      document.querySelectorAll('.sub-tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+      document.querySelector(`[onclick="switchTab('${tabId}')"]`).classList.add('active');
+      document.getElementById(tabId).classList.add('active');
+    }
+
+    // Task Analytics Utilities (Imported from index.html)
+    function resolveAnnotator(rawName, members, mappings) {
+      if (!rawName || rawName === '—' || rawName === 'Unassigned') return null;
+      if (mappings && mappings[rawName]) return mappings[rawName];
+      const exactMatch = members.find(r => r.name.toLowerCase() === rawName.toLowerCase());
+      if (exactMatch) return exactMatch.name;
+      const rawFirstName = rawName.trim().split(' ')[0].toLowerCase();
+      const firstNameMatches = members.filter(r => r.name.trim().split(' ')[0].toLowerCase() === rawFirstName);
+      if (firstNameMatches.length === 1) return firstNameMatches[0].name;
+      return rawName;
+    }
+
+    function hasClearedL1(task) {
+      if (['Approved', 'L2 review'].includes(task.state)) return true;
+      if (!task.history) return false;
+      return task.history.some(h => 
+        (h.kind === 'review_cleared' && h.detail && h.detail.includes('review_l2')) ||
+        (h.label && h.label.toLowerCase().includes('cleared for claim pool')) ||
+        (h.label && h.label.toLowerCase().includes('l1 approved')) || 
+        (h.label && h.label.toLowerCase().includes('advanced to l2')) || 
+        (h.label === 'Approved' && h.actor_name !== 'System')
+      );
+    }
+
+    async function init() {
+      try {
+        const [rosterRes, taskRes] = await Promise.all([
+          fetch(ROSTER_URL),
+          fetch(TASK_URL).catch(() => ({ json: () => ({ tasks: [] }) }))
+        ]);
+        globalRoster = await rosterRes.json();
+        const taskData = await taskRes.json();
+        rawTasks = taskData.tasks || [];
+
+        if (!globalRoster.l2_reviewers) globalRoster.l2_reviewers = [];
+        if (!globalRoster.pods) globalRoster.pods = [];
+        if (!globalRoster.mappings) globalRoster.mappings = {};
+
+        flattenRoster();
+        computeStats();
+        
+        // Render all views
+        renderTopologyView();
+        renderListView();
+        renderGridView();
+        renderRolesView();
+        renderPodsView();
+        renderStatsView();
+
+        setupInteractions();
+        document.getElementById('loading').style.display = 'none';
+      } catch(err) {
+        console.error(err);
+        document.getElementById('loading').innerText = 'System Offline: Could not load data.';
+      }
+    }
+
+    function flattenRoster() {
+      allMembersFlat = [];
+      allMembersFlat.push({ name: 'Dinesh Kashyap', role: 'Operations Lead', pod: 'Core Admin', status: 'Active', email: 'dinesh.k3@turing.com' });
+      
+      globalRoster.l2_reviewers.forEach(r => {
+        allMembersFlat.push({ name: r.name, role: 'L2 Reviewer', pod: 'Quality Oversight', status: r.status, email: r.email });
+      });
+      
+      globalRoster.pods.forEach(pod => {
+        if (pod.lead) allMembersFlat.push({ name: pod.lead, role: 'Pod Lead', pod: pod.name, status: 'Active', email: pod.lead_email });
+        pod.trainers.forEach(t => {
+          allMembersFlat.push({ name: t.name, role: 'Trainer', pod: pod.name, status: t.status, email: t.email });
+        });
+      });
+    }
+
+    function computeStats() {
+      // Initialize stats dictionary
+      allMembersFlat.forEach(m => {
+        userStats[m.name] = { submitted: 0, l1_passed: 0, reworks_got: 0, reviewed: 0, reworks_sent: 0 };
+      });
+
+      rawTasks.forEach(t => {
+        const tr = resolveAnnotator(t.annotator, allMembersFlat, globalRoster.mappings);
+        const rev = resolveAnnotator(t.reviewer, allMembersFlat, globalRoster.mappings);
+        
+        const l1 = hasClearedL1(t);
+        const state = (t.state || '').toLowerCase();
+        
+        if (tr && userStats[tr]) {
+          userStats[tr].submitted++;
+          if (l1) userStats[tr].l1_passed++;
+          if (state.includes('rework')) userStats[tr].reworks_got++;
+        }
+        
+        if (rev && userStats[rev]) {
+          userStats[rev].reviewed++;
+          if (state.includes('rework')) userStats[rev].reworks_sent++;
+        }
+
+        // Deeper history check for accurate reviewer actions (optional but useful)
+        if (t.history) {
+            t.history.forEach(h => {
+                let act = resolveAnnotator(h.actor_name, allMembersFlat, globalRoster.mappings) || h.actor_name;
+                if(act && userStats[act]) {
+                   if(h.kind==='review_rework' || (h.label||'').toLowerCase().includes('rework requested')) {
+                       // Note: this might overcount if multiple reworks on same task, but serves as good "events" stat
+                       userStats[act].reworks_sent++;
+                   }
+                }
+            });
+        }
+      });
+    }
+
     function buildNode(name, role, statusString, isLead = false) {
         const s = getStatusData(statusString);
         return `
@@ -251,28 +478,16 @@
         </div>`;
     }
 
-    async function init() {
-      try {
-        const res = await fetch(API_URL);
-        globalRoster = await res.json();
-        renderHierarchy();
-        setupInteractions();
-        document.getElementById('loading').style.display = 'none';
-      } catch(err) {
-        document.getElementById('loading').innerText = 'System Offline: Could not load topology.';
-      }
-    }
-
-    function renderHierarchy() {
+    // --- Tab 1: Topology Render ---
+    function renderTopologyView() {
         let html = '';
-        let counts = { active: 1, mia: 0, lowperf: 0, offboarded: 0 }; // 1 for Root
+        let counts = { active: 1, mia: 0, lowperf: 0, offboarded: 0 };
 
         const trackCount = (statusStr) => {
             const key = getStatusData(statusStr).key;
-            counts[key]++;
+            if(counts[key] !== undefined) counts[key]++;
         };
 
-        // 1. Quality Oversight Module
         if (globalRoster.l2_reviewers && globalRoster.l2_reviewers.length > 0) {
             html += `
             <div class="department-module">
@@ -289,10 +504,9 @@
             </div>`;
         }
 
-        // 2. Pod Modules
         if (globalRoster.pods) {
             globalRoster.pods.forEach(pod => {
-                trackCount('Active'); // Assuming lead is active
+                trackCount('Active');
                 pod.trainers.forEach(t => trackCount(t.status));
 
                 html += `
@@ -308,19 +522,219 @@
                 </div>`;
             });
         }
-
         document.getElementById('departments-container').innerHTML = html;
-
-        // Update Counts
         document.getElementById('c-act').innerText = counts.active;
         document.getElementById('c-mia').innerText = counts.mia;
         document.getElementById('c-low').innerText = counts.lowperf;
         document.getElementById('c-off').innerText = counts.offboarded;
     }
 
+    // --- Tab 2: Directory List Render ---
+    function renderListView() {
+      const q = document.getElementById('list-search').value.toLowerCase();
+      const rFilter = document.getElementById('list-role').value;
+      const sFilter = document.getElementById('list-status').value;
+      
+      const filtered = allMembersFlat.filter(m => {
+         const matchQ = m.name.toLowerCase().includes(q) || (m.email||'').toLowerCase().includes(q);
+         const matchR = rFilter === 'All' || m.role === rFilter;
+         let mStat = m.status === 'Resigned' ? 'Offboarded' : (m.status || 'Active');
+         const matchS = sFilter === 'All' || mStat === sFilter;
+         return matchQ && matchR && matchS;
+      });
+
+      const tbody = document.getElementById('list-tbody');
+      tbody.innerHTML = filtered.map(m => {
+        const s = getStatusData(m.status);
+        return `
+          <tr>
+            <td style="font-weight:600; color:#0f172a;">${m.name}</td>
+            <td>${m.role}</td>
+            <td style="color:var(--text-sub);">${m.pod}</td>
+            <td><span style="display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:700; color:${s.color};"><span class="status-dot ${s.dot}"></span> ${s.label}</span></td>
+            <td style="font-family:monospace; color:var(--text-sub);">${m.email || '—'}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // --- Tab 3: Grid Matrix Render ---
+    function renderGridView() {
+      const q = document.getElementById('grid-search').value.toLowerCase();
+      const filtered = allMembersFlat.filter(m => m.name.toLowerCase().includes(q));
+      
+      document.getElementById('grid-container').innerHTML = filtered.map(m => buildNode(m.name, m.role, m.status)).join('');
+    }
+
+    // --- Tab 4: Roles View Render ---
+    function renderRolesView() {
+      const roles = ['Operations Lead', 'L2 Reviewer', 'Pod Lead', 'Trainer'];
+      let html = '';
+      
+      roles.forEach(role => {
+        const members = allMembersFlat.filter(m => m.role === role);
+        if(members.length === 0) return;
+        
+        html += `
+          <div class="role-lane">
+            <div class="role-lane-title">${role}s <span style="color:var(--text-sub); font-weight:500; font-size:13px; margin-left:8px;">(${members.length})</span></div>
+            <div class="dense-grid">
+              ${members.map(m => buildNode(m.name, m.pod, m.status)).join('')}
+            </div>
+          </div>
+        `;
+      });
+      document.getElementById('roles-container').innerHTML = html;
+    }
+
+    // --- Tab 5: Pods View Render ---
+    function renderPodsView() {
+      let html = '';
+      globalRoster.pods.forEach(pod => {
+         let active = 0, issues = 0;
+         pod.trainers.forEach(t => {
+            if(t.status === 'Active') active++; else issues++;
+         });
+         
+         html += `
+          <div class="pod-stat-card">
+            <h3 style="margin-bottom: 16px; display:flex; justify-content:space-between; align-items:center;">
+              ${pod.name} <span class="role-badge" style="background:#f1f5f9; color:#0f172a;">${pod.trainers.length + 1} Members</span>
+            </h3>
+            <div class="pod-stat-row"><span>Lead</span> <strong>${pod.lead || 'None'}</strong></div>
+            <div class="pod-stat-row"><span>Active Trainers</span> <strong style="color:var(--c-active);">${active}</strong></div>
+            <div class="pod-stat-row"><span>At-Risk / Offboarded</span> <strong style="color:${issues > 0 ? 'var(--c-mia)' : '#475569'};">${issues}</strong></div>
+          </div>
+         `;
+      });
+      document.getElementById('pods-container').innerHTML = html;
+    }
+
+    // --- Tab 6: Stats Outline Tree Render ---
+    function toggleBranch(podId, iconId) {
+       const branch = document.getElementById(podId);
+       const icon = document.getElementById(iconId);
+       if(branch) {
+         if (branch.style.display === 'none') {
+            branch.style.display = 'block';
+            if(icon) icon.classList.remove('collapsed');
+         } else {
+            branch.style.display = 'none';
+            if(icon) icon.classList.add('collapsed');
+         }
+       }
+    }
+
+    function buildStatBadges(name, isRev = false) {
+      const st = userStats[name] || {submitted:0, l1_passed:0, reworks_got:0, reviewed:0, reworks_sent:0};
+      
+      if (isRev) {
+        return `
+          <span class="stat-badge stat-blue">Reviewed: ${st.reviewed}</span>
+          <span class="stat-badge stat-amber">RW Sent: ${st.reworks_sent}</span>
+        `;
+      } else {
+        return `
+          <span class="stat-badge stat-purple">Tasks: ${st.submitted}</span>
+          <span class="stat-badge stat-green">L1 Pass: ${st.l1_passed}</span>
+          <span class="stat-badge stat-amber">RW Got: ${st.reworks_got}</span>
+        `;
+      }
+    }
+
+    function renderStatsView() {
+      const c = document.getElementById('stats-outline-container');
+      let html = '';
+
+      // Root
+      html += `
+        <div class="tree-node" style="border-bottom: 1px solid var(--border); padding-bottom: 16px; border-radius: 0;">
+           <div class="tree-node-left">
+             <span class="role-badge" style="background:var(--bg-exec); color:var(--c-exec);">Ops Lead</span>
+             Dinesh Kashyap
+           </div>
+           <div class="tree-node-right">
+             <span class="stat-badge stat-slate">Administrator</span>
+           </div>
+        </div>
+      `;
+
+      // L2 Branch
+      html += `
+        <div class="tree-node pod-head" onclick="toggleBranch('branch-l2', 'icon-l2')">
+           <div class="tree-node-left">
+             <span class="tree-toggle" id="icon-l2">▼</span>
+             Quality Oversight (L2)
+             <span style="font-size:11px; color:var(--text-sub); font-weight:500;">${globalRoster.l2_reviewers.length} Reviewers</span>
+           </div>
+        </div>
+        <div class="tree-branch" id="branch-l2">
+           ${globalRoster.l2_reviewers.map(r => `
+             <div class="tree-node">
+               <div class="tree-node-left">
+                 <span class="status-dot ${getStatusData(r.status).dot}"></span>
+                 <span class="role-badge l2">L2</span> ${r.name}
+               </div>
+               <div class="tree-node-right">
+                 ${buildStatBadges(r.name, true)}
+               </div>
+             </div>
+           `).join('')}
+        </div>
+      `;
+
+      // Pods
+      globalRoster.pods.forEach((pod, idx) => {
+         const pId = `branch-pod-${idx}`;
+         const iId = `icon-pod-${idx}`;
+         
+         let lLeadHtml = '';
+         if (pod.lead) {
+            lLeadHtml = `
+              <div class="tree-node" style="background:#fafafa; border:1px solid #f1f5f9; margin-bottom:8px;">
+                <div class="tree-node-left">
+                  <span class="status-dot bg-active"></span>
+                  <span class="role-badge lead">Lead</span> ${pod.lead}
+                </div>
+                <div class="tree-node-right">
+                  ${buildStatBadges(pod.lead, true)}
+                </div>
+              </div>
+            `;
+         }
+
+         html += `
+          <div class="tree-node pod-head" onclick="toggleBranch('${pId}', '${iId}')">
+             <div class="tree-node-left">
+               <span class="tree-toggle" id="${iId}">▼</span>
+               ${pod.name}
+               <span style="font-size:11px; color:var(--text-sub); font-weight:500;">${pod.trainers.length} Trainers</span>
+             </div>
+          </div>
+          <div class="tree-branch" id="${pId}">
+             ${lLeadHtml}
+             ${pod.trainers.map(t => `
+               <div class="tree-node">
+                 <div class="tree-node-left">
+                   <span class="status-dot ${getStatusData(t.status).dot}"></span>
+                   <span class="role-badge">TR</span> ${t.name}
+                 </div>
+                 <div class="tree-node-right">
+                   ${buildStatBadges(t.name, false)}
+                 </div>
+               </div>
+             `).join('')}
+          </div>
+         `;
+      });
+
+      c.innerHTML = html;
+    }
+
+    // Top Header Filters Logic (For Topology Tab)
     function setupInteractions() {
         const wrapper = document.getElementById('topology-wrapper');
-        const filters = document.querySelectorAll('.filter-btn');
+        const filters = document.querySelectorAll('.status-filters .filter-btn');
         let activeFilter = null;
 
         const applyFilter = (filterKey) => {
@@ -341,24 +755,15 @@
             });
         };
 
-        // Hover Logic
         filters.forEach(btn => {
-            btn.addEventListener('mouseenter', () => {
-                if (!activeFilter) applyFilter(btn.dataset.filter);
-            });
-            btn.addEventListener('mouseleave', () => {
-                if (!activeFilter) applyFilter(null);
-            });
+            btn.addEventListener('mouseenter', () => { if (!activeFilter) applyFilter(btn.dataset.filter); });
+            btn.addEventListener('mouseleave', () => { if (!activeFilter) applyFilter(null); });
             
-            // Click Logic (Locks the filter)
             btn.addEventListener('click', (e) => {
                 const targetKey = btn.dataset.filter;
                 if (activeFilter === targetKey) {
-                    // Unlock
-                    activeFilter = null;
-                    applyFilter(null);
+                    activeFilter = null; applyFilter(null);
                 } else {
-                    // Lock
                     activeFilter = targetKey;
                     filters.forEach(b => b.classList.remove('active'));
                     btn.classList.add('active');
@@ -367,11 +772,9 @@
             });
         });
         
-        // Click outside to clear lock
         document.addEventListener('click', (e) => {
             if (!e.target.closest('.status-filters') && activeFilter) {
-                activeFilter = null;
-                applyFilter(null);
+                activeFilter = null; applyFilter(null);
             }
         });
     }
