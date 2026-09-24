@@ -3,101 +3,143 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CTP Chemistry · Operational Hierarchy</title>
+  <title>CTP Chemistry · Team Topology</title>
   
-  <!-- ECharts Library (SVG Rendering Optimized) -->
+  <!-- ECharts for the Bento Dashboard view -->
   <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
   
   <style>
     :root { 
-      --primary: #4f46e5; --primary-light: #e0e7ff; --primary-dark: #3730a3;
+      --primary: #4f46e5; --primary-light: #e0e7ff; 
       --text-main: #0f172a; --text-sub: #64748b; 
-      --bg-page: #f8fafc; --border: #e2e8f0;
+      --bg-page: #fbfbfe; --border: #e2e8f0;
       
-      --c-active: #047857; --bg-active: #d1fae5;
+      --c-active: #059669; --bg-active: #d1fae5;
       --c-mia: #e11d48; --bg-mia: #ffe4e6;
       --c-lowperf: #d97706; --bg-lowperf: #fef3c7;
       --c-off: #475569; --bg-off: #f1f5f9;
+      --c-sys: #4f46e5; --bg-sys: #e0e7ff;
     }
     
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg-page); color: var(--text-main); }
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: var(--bg-page); color: var(--text-main); line-height: 1.5; }
     
     /* Navigation */
-    nav { background: #ffffff; padding: 0 32px; display: flex; gap: 30px; border-bottom: 1px solid var(--border); box-shadow: 0 1px 2px rgba(0,0,0,0.02); }
+    nav { background: #ffffff; padding: 0 32px; display: flex; gap: 30px; border-bottom: 1px solid var(--border); }
     nav a { text-decoration: none; color: var(--text-sub); font-weight: 600; font-size: 14px; padding: 20px 0; border-bottom: 2px solid transparent; transition: 0.2s;}
     nav a.active { color: var(--primary); border-bottom-color: var(--primary); }
     nav a:hover:not(.active) { color: var(--text-main); }
 
-    .container { padding: 32px; max-width: 1500px; margin: 0 auto; display: flex; flex-direction: column; min-height: calc(100vh - 65px); }
+    .container { padding: 32px; max-width: 1600px; margin: 0 auto; display: flex; flex-direction: column; min-height: calc(100vh - 65px); }
     
-    /* Global Status Ledger */
-    .stats-dashboard { display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
-    .stat-box { flex: 1; min-width: 150px; padding: 18px 20px; border-radius: 12px; border: 1px solid var(--border); background: #fff; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02); display: flex; flex-direction: column; gap: 6px; }
-    .stat-label { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-sub); }
-    .stat-value { font-size: 32px; font-weight: 800; line-height: 1; }
-    
-    .box-total { border-bottom: 4px solid var(--primary); } .box-total .stat-value { color: var(--primary); }
-    .box-active { border-bottom: 4px solid var(--c-active); } .box-active .stat-value { color: var(--c-active); }
-    .box-mia { border-bottom: 4px solid var(--c-mia); } .box-mia .stat-value { color: var(--c-mia); }
-    .box-lowperf { border-bottom: 4px solid var(--c-lowperf); } .box-lowperf .stat-value { color: var(--c-lowperf); }
-    .box-off { border-bottom: 4px solid var(--c-off); } .box-off .stat-value { color: var(--c-off); }
-
     /* Header & Controls */
-    .header { margin-bottom: 24px; display: flex; justify-content: space-between; align-items: flex-end; }
-    .header-text h1 { font-size: 20px; font-weight: 800; margin-bottom: 4px; }
-    .header-text p { font-size: 13px; color: var(--text-sub); }
+    .header { margin-bottom: 32px; display: flex; justify-content: space-between; align-items: flex-end; }
+    .header-text h1 { font-size: 24px; font-weight: 800; margin-bottom: 6px; letter-spacing: -0.02em; }
+    .header-text p { font-size: 14px; color: var(--text-sub); }
     
     .action-row { display: flex; gap: 12px; }
-    .btn { background: var(--primary); color: white; border: none; padding: 10px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 8px; transition: 0.2s; box-shadow: 0 2px 4px rgba(79, 70, 229, 0.1); }
-    .btn:hover { background: var(--primary-dark); box-shadow: 0 4px 6px rgba(79, 70, 229, 0.2); }
-    .btn-secondary { background: #ffffff; color: var(--text-main); border: 1px solid #cbd5e1; box-shadow: 0 1px 2px rgba(0,0,0,0.02); }
-    .btn-secondary:hover { background: #f1f5f9; border-color: #94a3b8; }
+    .btn { background: var(--primary); color: white; border: none; padding: 10px 18px; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 8px; transition: all 0.2s; box-shadow: 0 2px 4px rgba(79, 70, 229, 0.15); }
+    .btn:hover { background: #4338ca; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.25); transform: translateY(-1px); }
+    .btn-secondary { background: #ffffff; color: var(--text-main); border: 1px solid #cbd5e1; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+    .btn-secondary:hover { background: #f8fafc; border-color: #94a3b8; transform: translateY(-1px); }
 
     /* Layout Tabs */
-    .view-tabs { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px; }
-    .view-tab { background: #ffffff; border: 1px solid var(--border); padding: 10px 16px; border-radius: 8px; font-weight: 600; color: var(--text-sub); cursor: pointer; transition: all 0.2s ease; font-size: 13px; }
-    .view-tab.active { background: var(--primary-light); color: var(--primary); border-color: #a5b4fc; box-shadow: inset 0 0 0 1px #a5b4fc;}
+    .view-tabs { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 24px; background: #fff; padding: 8px; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 2px 8px rgba(0,0,0,0.02); width: fit-content; }
+    .view-tab { background: transparent; border: none; padding: 10px 16px; border-radius: 8px; font-weight: 600; color: var(--text-sub); cursor: pointer; transition: all 0.2s ease; font-size: 13px; }
+    .view-tab.active { background: var(--primary-light); color: var(--primary); }
     .view-tab:hover:not(.active) { background: #f1f5f9; color: var(--text-main); }
 
-    /* Chart Area */
-    .chart-card { background: #ffffff; border: 1px solid var(--border); border-radius: 12px; padding: 24px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.03); flex-grow: 1; display: flex; flex-direction: column; position: relative; min-height: 700px; }
-    .view-content { width: 100%; height: 100%; flex-grow: 1; display: none; }
+    /* View Container */
+    .view-content { display: none; width: 100%; animation: fadeIn 0.4s ease; }
     .view-content.active { display: block; }
-    #chart-container { width: 100%; height: 700px; }
-    
-    #loading { position: absolute; inset: 0; background: rgba(255,255,255,0.9); display: flex; justify-content: center; align-items: center; font-weight: 700; color: var(--primary); font-size: 16px; z-index: 10; border-radius: 12px; backdrop-filter: blur(4px); }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
 
-    /* Bento Grid HTML View */
-    .bento-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 24px; }
-    .bento-card { border: 1px solid var(--border); border-radius: 12px; background: #fff; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02); }
-    .bento-header { padding: 20px; background: #f8fafc; border-bottom: 1px solid var(--border); }
-    .bento-title { font-size: 16px; font-weight: 800; color: #0f172a; display: flex; justify-content: space-between; align-items: center; }
-    .bento-meta { font-size: 12px; color: var(--text-sub); margin-top: 6px; font-weight: 500; }
-    .bento-list { display: flex; flex-direction: column; }
-    .bento-item { display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; border-bottom: 1px solid #f1f5f9; }
-    .bento-item:last-child { border-bottom: none; }
-    .bento-info { display: flex; flex-direction: column; gap: 4px; }
-    .bento-info strong { font-size: 13px; color: #1e293b; font-weight: 700; }
-    .bento-info span { font-size: 11px; color: #94a3b8; font-family: ui-monospace, monospace; }
+    /* Shared Universal Card Design (SaaS Style) */
+    .u-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; align-items: center; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 10px 15px -5px rgba(0,0,0,0.02); transition: transform 0.2s, box-shadow 0.2s; position: relative; z-index: 2; width: 170px; }
+    .u-card:hover { transform: translateY(-2px); box-shadow: 0 4px 6px rgba(0,0,0,0.05), 0 15px 20px -5px rgba(0,0,0,0.05); }
     
-    .bento-badge { padding: 4px 10px; border-radius: 6px; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; border: 1px solid transparent; }
-    .badge-active { background: var(--bg-active); color: var(--c-active); border-color: #a7f3d0; }
-    .badge-mia { background: var(--bg-mia); color: var(--c-mia); border-color: #fecaca; }
-    .badge-lowperf { background: var(--bg-lowperf); color: var(--c-lowperf); border-color: #fde68a; }
-    .badge-offboarded { background: var(--bg-off); color: var(--c-off); border-color: #cbd5e1; }
-    .badge-system { background: var(--primary-light); color: var(--primary); border-color: #c7d2fe; }
+    .u-avatar { width: 48px; height: 48px; border-radius: 50%; display: flex; justify-content: center; align-items: center; color: #fff; font-weight: 800; font-size: 16px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); border: 2px solid #fff; }
+    .u-name { font-size: 14px; font-weight: 800; color: #0f172a; line-height: 1.2; margin-bottom: 4px; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .u-role { font-size: 11px; font-weight: 600; color: #64748b; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+    .u-badge { font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; padding: 4px 10px; border-radius: 20px; width: 100%; }
+
+    .c-active { border-top: 4px solid var(--c-active); } .c-active .u-badge { background: var(--bg-active); color: var(--c-active); }
+    .c-mia { border-top: 4px solid var(--c-mia); } .c-mia .u-badge { background: var(--bg-mia); color: var(--c-mia); }
+    .c-lowperf { border-top: 4px solid var(--c-lowperf); } .c-lowperf .u-badge { background: var(--bg-lowperf); color: var(--c-lowperf); }
+    .c-off { border-top: 4px solid var(--c-off); opacity: 0.7; } .c-off .u-badge { background: var(--bg-off); color: var(--c-off); }
+    .c-sys { border-top: 4px solid var(--c-sys); } .c-sys .u-badge { background: var(--bg-sys); color: var(--c-sys); }
+
+    /* VIEW 1: CSS Org Tree */
+    .org-tree-wrapper { width: 100%; overflow-x: auto; padding: 20px 20px 60px 20px; background: #fff; border-radius: 16px; border: 1px solid var(--border); box-shadow: 0 4px 20px rgba(0,0,0,0.03); cursor: grab;}
+    .org-tree-wrapper:active { cursor: grabbing; }
+    .css-tree { display: inline-block; min-width: 100%; text-align: center; }
+    .css-tree ul { padding-top: 24px; position: relative; transition: all 0.5s; display: flex; justify-content: center; gap: 24px; list-style: none; margin: 0; padding-left: 0; }
+    .css-tree li { float: left; text-align: center; list-style-type: none; position: relative; padding: 24px 5px 0 5px; transition: all 0.5s; }
+    .css-tree li::before, .css-tree li::after { content: ''; position: absolute; top: 0; right: 50%; border-top: 2px solid #cbd5e1; width: 50%; height: 24px; }
+    .css-tree li::after { right: auto; left: 50%; border-left: 2px solid #cbd5e1; }
+    .css-tree li:only-child::after, .css-tree li:only-child::before { display: none; }
+    .css-tree li:only-child { padding-top: 0; }
+    .css-tree li:first-child::before, .css-tree li:last-child::after { border: 0 none; }
+    .css-tree li:last-child::before { border-right: 2px solid #cbd5e1; border-radius: 0 8px 0 0; }
+    .css-tree li:first-child::after { border-radius: 8px 0 0 0; }
+    .css-tree ul ul::before { content: ''; position: absolute; top: 0; left: 50%; border-left: 2px solid #cbd5e1; width: 0; height: 24px; margin-left: -1px; }
+
+    /* VIEW 2: Swimlane Flow */
+    .swimlanes { display: flex; flex-direction: column; gap: 20px; }
+    .swimlane { display: flex; background: #fff; border: 1px solid var(--border); border-radius: 16px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.02); }
+    .lane-header { width: 300px; background: #f8fafc; padding: 24px; border-right: 1px solid var(--border); display: flex; flex-direction: column; justify-content: center; position: relative; }
+    .lane-header::after { content: '→'; position: absolute; right: -14px; top: 50%; transform: translateY(-50%); width: 28px; height: 28px; background: #fff; border: 1px solid var(--border); border-radius: 50%; display: flex; justify-content: center; align-items: center; color: var(--text-sub); font-weight: bold; z-index: 2;}
+    .lane-title { font-size: 18px; font-weight: 800; color: #0f172a; margin-bottom: 16px; }
+    .lane-body { flex: 1; padding: 30px; display: flex; flex-wrap: wrap; gap: 20px; background: #ffffff; }
+
+    /* VIEW 3: Health Matrix (Kanban) */
+    .matrix-board { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; }
+    .matrix-col { background: #f8fafc; border: 1px solid var(--border); border-radius: 16px; display: flex; flex-direction: column; overflow: hidden; }
+    .m-header { padding: 16px 20px; font-size: 14px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0,0,0,0.05); }
+    .m-header.active { background: var(--bg-active); color: var(--c-active); }
+    .m-header.lowperf { background: var(--bg-lowperf); color: var(--c-lowperf); }
+    .m-header.mia { background: var(--bg-mia); color: var(--c-mia); }
+    .m-header.off { background: var(--bg-off); color: var(--c-off); }
+    .m-count { background: rgba(255,255,255,0.6); padding: 2px 10px; border-radius: 20px; font-size: 12px; }
+    .m-body { padding: 20px; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; max-height: 700px; }
+    .m-card { background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 16px; display: flex; align-items: center; gap: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+    .m-card .u-avatar { width: 36px; height: 36px; font-size: 13px; margin: 0; flex-shrink: 0; }
+    .m-card-info { display: flex; flex-direction: column; overflow: hidden; }
+    .m-card-name { font-size: 14px; font-weight: 700; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .m-card-role { font-size: 11px; color: var(--text-sub); }
+
+    /* VIEW 4: Directory Grid */
+    .directory-section { margin-bottom: 40px; }
+    .dir-header { font-size: 18px; font-weight: 800; color: #0f172a; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+    .dir-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 20px; }
+
+    /* VIEW 5: Executive Bento Dashboard */
+    .bento-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; }
+    .bento-card { background: #fff; border: 1px solid var(--border); border-radius: 16px; padding: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.02); display: flex; flex-direction: column; }
+    .bento-span-2 { grid-column: span 2; }
+    .bento-title { font-size: 16px; font-weight: 800; color: #0f172a; margin-bottom: 20px; display: flex; align-items: center; gap: 8px; }
+    
+    .stats-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+    .b-stat { padding: 16px; border-radius: 12px; border: 1px solid var(--border); background: #f8fafc; }
+    .b-stat-val { font-size: 32px; font-weight: 800; line-height: 1; margin-bottom: 4px; }
+    .b-stat-lbl { font-size: 11px; font-weight: 700; color: var(--text-sub); text-transform: uppercase; letter-spacing: 0.05em; }
+
+    #loading { position: fixed; inset: 0; background: rgba(255,255,255,0.9); display: flex; justify-content: center; align-items: center; font-weight: 800; color: var(--primary); font-size: 18px; z-index: 100; backdrop-filter: blur(4px); }
 
     /* Print Styles */
     @media print {
-      nav, .header, .view-tabs, .action-row { display: none !important; }
+      nav, .header, .view-tabs { display: none !important; }
       .container { padding: 0 !important; max-width: 100% !important; }
-      .chart-card { border: none !important; box-shadow: none !important; padding: 0 !important; }
-      .bento-card { page-break-inside: avoid; margin-bottom: 24px; border: 1px solid #cbd5e1 !important; }
+      body { background: #fff !important; }
+      * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+      .swimlane, .m-card, .u-card, .bento-card { break-inside: avoid; }
+      .org-tree-wrapper { overflow: visible !important; box-shadow: none !important; border: none !important; }
     }
   </style>
 </head>
 <body>
+
+  <div id="loading">Compiling Topology Data...</div>
 
   <nav>
     <a href="index.html">Task Ledger</a>
@@ -108,336 +150,327 @@
 
   <div class="container">
     
-    <div class="stats-dashboard">
-      <div class="stat-box box-total"><span class="stat-label">Total Roster</span><span class="stat-value" id="stat-total">0</span></div>
-      <div class="stat-box box-active"><span class="stat-label">Active Capacity</span><span class="stat-value" id="stat-active">0</span></div>
-      <div class="stat-box box-mia"><span class="stat-label">MIA (Red Flag)</span><span class="stat-value" id="stat-mia">0</span></div>
-      <div class="stat-box box-lowperf"><span class="stat-label">Low Performance</span><span class="stat-value" id="stat-lowperf">0</span></div>
-      <div class="stat-box box-off"><span class="stat-label">Offboarded/Resigned</span><span class="stat-value" id="stat-off">0</span></div>
-    </div>
-
     <div class="header">
       <div class="header-text">
-        <h1 id="view-title">Corporate Tree Topology</h1>
-        <p>Uneditable, publication-ready views directly synced from the live operational roster.</p>
+        <h1>Operational Topology & Hierarchy</h1>
+        <p>100% visible, publication-ready layouts synced from the live roster.</p>
       </div>
       <div class="action-row">
-        <button class="btn btn-secondary" id="btn-img" onclick="exportView()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-          Export PNG Canvas
-        </button>
-        <button class="btn" onclick="downloadOfflineHTML()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2-2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-          Download Snapshot
+        <button class="btn btn-secondary" onclick="window.print()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+          Print / Save PDF
         </button>
       </div>
     </div>
 
     <div class="view-tabs">
-      <button class="view-tab active" onclick="switchView('vertical', this)">1. Corporate Tree (Vertical)</button>
-      <button class="view-tab" onclick="switchView('horizontal', this)">2. Organic Flow (Horizontal)</button>
-      <button class="view-tab" onclick="switchView('radial', this)">3. Radial Network (Hub & Spoke)</button>
-      <button class="view-tab" onclick="switchView('treemap', this)">4. Capacity Treemap (Heatmap)</button>
-      <button class="view-tab" onclick="switchView('bento', this)">5. Operational Deck (Bento Grid)</button>
+      <button class="view-tab active" onclick="switchView('v-org', this)">1. Corporate Tree</button>
+      <button class="view-tab" onclick="switchView('v-swim', this)">2. Swimlane Flow</button>
+      <button class="view-tab" onclick="switchView('v-matrix', this)">3. Health Matrix (Kanban)</button>
+      <button class="view-tab" onclick="switchView('v-dir', this)">4. The Directory</button>
+      <button class="view-tab" onclick="switchView('v-bento', this)">5. Executive Dashboard</button>
     </div>
 
-    <div class="chart-card">
-      <div id="loading">Compiling Live Topology...</div>
-      
-      <div class="view-content active" id="echarts-view">
-        <div id="chart-container"></div>
-      </div>
-      
-      <div class="view-content" id="bento-view">
-        <div class="bento-grid" id="bento-container"></div>
+    <!-- VIEW 1: Org Tree -->
+    <div class="view-content active" id="v-org">
+      <div class="org-tree-wrapper" id="org-tree-container"></div>
+    </div>
+
+    <!-- VIEW 2: Swimlanes -->
+    <div class="view-content" id="v-swim">
+      <div class="swimlanes" id="swimlane-container"></div>
+    </div>
+
+    <!-- VIEW 3: Health Matrix -->
+    <div class="view-content" id="v-matrix">
+      <div class="matrix-board" id="matrix-container"></div>
+    </div>
+
+    <!-- VIEW 4: Directory -->
+    <div class="view-content" id="v-dir">
+      <div id="dir-container"></div>
+    </div>
+
+    <!-- VIEW 5: Bento -->
+    <div class="view-content" id="v-bento">
+      <div class="bento-grid">
+        <div class="bento-card bento-span-2">
+          <div class="bento-title">Team Health Distribution</div>
+          <div id="health-chart" style="width: 100%; height: 350px;"></div>
+        </div>
+        <div class="bento-card">
+          <div class="bento-title">Headcount Metrics</div>
+          <div class="stats-row">
+            <div class="b-stat"><div class="b-stat-val" id="b-tot" style="color:var(--primary)">0</div><div class="b-stat-lbl">Total</div></div>
+            <div class="b-stat"><div class="b-stat-val" id="b-act" style="color:var(--c-active)">0</div><div class="b-stat-lbl">Active</div></div>
+          </div>
+          <div class="stats-row">
+            <div class="b-stat"><div class="b-stat-val" id="b-mia" style="color:var(--c-mia)">0</div><div class="b-stat-lbl">MIA</div></div>
+            <div class="b-stat"><div class="b-stat-val" id="b-low" style="color:var(--c-lowperf)">0</div><div class="b-stat-lbl">Low Perf</div></div>
+          </div>
+          <div class="b-stat" style="margin-bottom:0;"><div class="b-stat-val" id="b-off" style="color:var(--c-off)">0</div><div class="b-stat-lbl">Offboarded</div></div>
+        </div>
       </div>
     </div>
+
   </div>
 
   <script>
     const API_URL = 'https://turing-api.dineshkashyaparya.workers.dev/roster';
-    let eChartInstance = null;
-    let globalRoster = {};
-    let treeData = {};
-    let currentViewType = 'vertical';
+    let roster = {};
+    let allPersonnel = [];
+    let stats = { total: 0, active: 0, mia: 0, lowperf: 0, offboarded: 0 };
+    let donutChart = null;
 
-    // Base Rich Card Settings (Ensures crisp pixel-perfect cards in SVG)
-    const CARD_W = 130; 
-    const richConfig = {
-      name: { width: CARD_W, overflow: 'truncate', fontSize: 13, fontWeight: 800, color: '#0f172a', padding: [14, 10, 2, 10], align: 'center', fontFamily: 'Inter, sans-serif' },
-      role: { width: CARD_W, overflow: 'truncate', fontSize: 11, color: '#64748b', padding: [2, 10, 12, 10], align: 'center', fontFamily: 'Inter, sans-serif' },
-      statusBox_active: { width: CARD_W + 20, backgroundColor: '#d1fae5', color: '#047857', padding: [8, 0], align: 'center', borderRadius: [0, 0, 7, 7], fontSize: 10, fontWeight: 800 },
-      statusBox_mia: { width: CARD_W + 20, backgroundColor: '#ffe4e6', color: '#e11d48', padding: [8, 0], align: 'center', borderRadius: [0, 0, 7, 7], fontSize: 10, fontWeight: 800 },
-      statusBox_lowperf: { width: CARD_W + 20, backgroundColor: '#fef3c7', color: '#d97706', padding: [8, 0], align: 'center', borderRadius: [0, 0, 7, 7], fontSize: 10, fontWeight: 800 },
-      statusBox_offboarded: { width: CARD_W + 20, backgroundColor: '#f1f5f9', color: '#64748b', padding: [8, 0], align: 'center', borderRadius: [0, 0, 7, 7], fontSize: 10, fontWeight: 800 },
-      statusBox_system: { width: CARD_W + 20, backgroundColor: '#e0e7ff', color: '#4338ca', padding: [8, 0], align: 'center', borderRadius: [0, 0, 7, 7], fontSize: 10, fontWeight: 800 }
-    };
+    // --- Utilities ---
+    function getGradient(name) {
+        const gradients = [
+            'linear-gradient(135deg, #4f46e5, #8b5cf6)', 'linear-gradient(135deg, #059669, #10b981)',
+            'linear-gradient(135deg, #d97706, #f59e0b)', 'linear-gradient(135deg, #e11d48, #f43f5e)',
+            'linear-gradient(135deg, #0284c7, #38bdf8)', 'linear-gradient(135deg, #7e22ce, #a855f7)'
+        ];
+        let hash = 0; for(let i=0; i<name.length; i++) hash += name.charCodeAt(i);
+        return gradients[hash % gradients.length];
+    }
+    function getInitials(name) { return name.split(' ').map(n=>n[0]).join('').substring(0,2).toUpperCase(); }
+    
+    function getStatusClass(s) {
+      if (!s || s === 'Active') return 'c-active';
+      if (s === 'MIA') return 'c-mia';
+      if (s === 'Low Performance') return 'c-lowperf';
+      if (s === 'Offboarded' || s === 'Resigned') return 'c-off';
+      return 'c-active';
+    }
+    
+    function getStatusText(s) { return s || 'Active'; }
 
-    const nodeLabel = {
-      show: true, position: 'inside',
-      backgroundColor: '#ffffff', borderColor: '#cbd5e1', borderWidth: 1, borderRadius: 8,
-      shadowColor: 'rgba(0, 0, 0, 0.08)', shadowBlur: 10, shadowOffsetY: 4, padding: 0,
-      formatter: function(p) { return `{name|${p.data.name}}\n{role|${p.data.role}}\n{statusBox_${p.data.statusClass}|${p.data.status.toUpperCase()}}`; },
-      rich: richConfig
-    };
+    function createCard(name, role, status, isSys = false) {
+        const sClass = isSys ? 'c-sys' : getStatusClass(status);
+        const sText = isSys ? status : getStatusText(status);
+        return `
+        <div class="u-card ${sClass}">
+            <div class="u-avatar" style="background: ${getGradient(name)}">${getInitials(name)}</div>
+            <div class="u-name" title="${name}">${name}</div>
+            <div class="u-role" title="${role}">${role}</div>
+            <div class="u-badge">${sText}</div>
+        </div>`;
+    }
 
+    function createMiniCard(name, role, status) {
+        return `
+        <div class="m-card">
+            <div class="u-avatar" style="background: ${getGradient(name)}">${getInitials(name)}</div>
+            <div class="m-card-info">
+                <div class="m-card-name" title="${name}">${name}</div>
+                <div class="m-card-role">${role}</div>
+            </div>
+        </div>`;
+    }
+
+    // --- Init & Data Processing ---
     async function init() {
-      if (window.__OFFLINE_PAYLOAD__) {
-        globalRoster = window.__OFFLINE_PAYLOAD__;
-        postDataLoad();
-        return;
-      }
       try {
         const res = await fetch(API_URL);
-        globalRoster = await res.json();
-        postDataLoad();
+        roster = await res.json();
+        processData();
+        renderAllViews();
+        document.getElementById('loading').style.display = 'none';
+        
+        // Setup Drag-to-scroll for Org Tree
+        const ele = document.getElementById('org-tree-container');
+        let pos = { top: 0, left: 0, x: 0, y: 0 };
+        const mouseDownHandler = function (e) {
+            pos = { left: ele.scrollLeft, top: ele.scrollTop, x: e.clientX, y: e.clientY };
+            document.addEventListener('mousemove', mouseMoveHandler);
+            document.addEventListener('mouseup', mouseUpHandler);
+        };
+        const mouseMoveHandler = function (e) {
+            ele.scrollLeft = pos.left - (e.clientX - pos.x);
+            ele.scrollTop = pos.top - (e.clientY - pos.y);
+        };
+        const mouseUpHandler = function () {
+            document.removeEventListener('mousemove', mouseMoveHandler);
+            document.removeEventListener('mouseup', mouseUpHandler);
+        };
+        ele.addEventListener('mousedown', mouseDownHandler);
+
       } catch(err) {
-        document.getElementById('loading').innerText = 'System Disconnected: Failed to load hierarchy data.';
+        document.getElementById('loading').innerText = 'Failed to load live data.';
       }
     }
 
-    function postDataLoad() {
-      document.getElementById('loading').style.display = 'none';
-      calculateStats();
-      buildTreeData();
-      
-      // Initialize ECharts with SVG renderer for infinite zoom clarity
-      eChartInstance = echarts.init(document.getElementById('chart-container'), null, { renderer: 'svg' });
-      window.addEventListener('resize', () => eChartInstance.resize());
-      
-      switchView('vertical', document.querySelector('.view-tab'));
-    }
+    function processData() {
+        allPersonnel = [];
+        const process = (p, role, group) => {
+            allPersonnel.push({ ...p, role, group });
+            stats.total++;
+            const s = getStatusClass(p.status);
+            if (s === 'c-active') stats.active++;
+            else if (s === 'c-mia') stats.mia++;
+            else if (s === 'c-lowperf') stats.lowperf++;
+            else if (s === 'c-off') stats.offboarded++;
+        };
 
-    // -- Utilities --
-    function getStatusText(s) { return s ? s : 'Active'; }
-    function getStatusClass(s) {
-      if (!s || s === 'Active') return 'active';
-      if (s === 'MIA') return 'mia';
-      if (s === 'Low Performance') return 'lowperf';
-      if (s === 'Offboarded' || s === 'Resigned') return 'offboarded';
-      return 'active';
-    }
-    function getStatusHex(c) {
-      if(c==='active') return '#10b981';
-      if(c==='mia') return '#e11d48';
-      if(c==='lowperf') return '#f59e0b';
-      if(c==='offboarded') return '#94a3b8';
-      return '#3730a3';
-    }
-
-    function calculateStats() {
-      let t = 0, a = 0, m = 0, l = 0, o = 0;
-      const process = (p) => {
-        t++; const s = getStatusClass(p.status);
-        if (s === 'active') a++; else if (s === 'mia') m++; else if (s === 'lowperf') l++; else if (s === 'offboarded') o++;
-      };
-      if (globalRoster.l2_reviewers) globalRoster.l2_reviewers.forEach(process);
-      if (globalRoster.pods) globalRoster.pods.forEach(pod => pod.trainers.forEach(process));
-      
-      document.getElementById('stat-total').innerText = t; document.getElementById('stat-active').innerText = a;
-      document.getElementById('stat-mia').innerText = m; document.getElementById('stat-lowperf').innerText = l; document.getElementById('stat-off').innerText = o;
-    }
-
-    function buildTreeData() {
-      treeData = {
-        name: 'Dinesh Kashyap', role: 'Operations Lead', status: 'Active Executive', statusClass: 'system',
-        children: []
-      };
-
-      if (globalRoster.l2_reviewers?.length > 0) {
-        treeData.children.push({
-          name: 'Quality Oversight', role: 'L2 Reviewers', status: 'Audit Network', statusClass: 'system',
-          children: globalRoster.l2_reviewers.map(r => ({ name: r.name, role: 'L2 Reviewer', status: getStatusText(r.status), statusClass: getStatusClass(r.status), value: 1 }))
-        });
-      }
-
-      if (globalRoster.pods?.length > 0) {
-        globalRoster.pods.forEach(pod => {
-          treeData.children.push({
-            name: pod.name, role: `Lead: ${pod.lead}`, status: 'Pod Unit', statusClass: 'system',
-            children: pod.trainers.map(t => ({ name: t.name, role: 'Trainer', status: getStatusText(t.status), statusClass: getStatusClass(t.status), value: 1 }))
-          });
-        });
-      }
-    }
-
-    // -- ECharts Layout Engines --
-    function getVerticalOption() {
-      return {
-        series: [{
-          type: 'tree', data: [treeData], top: '8%', left: '5%', bottom: '5%', right: '5%',
-          layout: 'orthogonal', orient: 'TB', symbol: 'none', edgeShape: 'polyline', edgeForkPosition: '60%',
-          initialTreeDepth: 3, roam: true, expandAndCollapse: true, animationDuration: 400,
-          lineStyle: { color: '#cbd5e1', width: 2 }, label: nodeLabel, leaves: { label: nodeLabel }
-        }]
-      };
-    }
-
-    function getHorizontalOption() {
-      return {
-        series: [{
-          type: 'tree', data: [treeData], top: '5%', left: '10%', bottom: '5%', right: '15%',
-          layout: 'orthogonal', orient: 'LR', symbol: 'none', edgeShape: 'curve',
-          initialTreeDepth: 3, roam: true, expandAndCollapse: true, animationDuration: 400,
-          lineStyle: { color: '#94a3b8', width: 2, curveness: 0.6 }, label: nodeLabel, leaves: { label: nodeLabel }
-        }]
-      };
-    }
-
-    function getRadialOption() {
-      const radialLabel = {
-        show: true, formatter: function(p) { return `{p_${p.data.statusClass}|${p.data.name}}`; },
-        rich: {
-          p_active: { backgroundColor: '#d1fae5', color: '#047857', padding: [6, 12], borderRadius: 12, fontSize: 12, fontWeight: 700, border: '1px solid #a7f3d0' },
-          p_mia: { backgroundColor: '#ffe4e6', color: '#e11d48', padding: [6, 12], borderRadius: 12, fontSize: 12, fontWeight: 700, border: '1px solid #fecaca' },
-          p_lowperf: { backgroundColor: '#fef3c7', color: '#d97706', padding: [6, 12], borderRadius: 12, fontSize: 12, fontWeight: 700, border: '1px solid #fde68a' },
-          p_offboarded: { backgroundColor: '#f1f5f9', color: '#64748b', padding: [6, 12], borderRadius: 12, fontSize: 12, fontWeight: 700, border: '1px solid #cbd5e1' },
-          p_system: { backgroundColor: '#0f172a', color: '#ffffff', padding: [6, 12], borderRadius: 12, fontSize: 12, fontWeight: 700 }
+        if (roster.l2_reviewers) {
+            roster.l2_reviewers.forEach(r => process(r, 'L2 Reviewer', 'Quality Oversight'));
         }
-      };
-      return {
-        series: [{
-          type: 'tree', data: [treeData], layout: 'radial', symbol: 'emptyCircle', symbolSize: 6,
-          roam: true, initialTreeDepth: 3, label: { ...radialLabel, position: 'outside', rotate: 'tangential' },
-          lineStyle: { color: '#94a3b8', width: 1.5, curveness: 0.4 }, animationDuration: 400
-        }]
-      };
+        if (roster.pods) {
+            roster.pods.forEach(pod => {
+                if(pod.lead) process({ name: pod.lead, status: 'Active' }, 'Pod Lead', pod.name);
+                pod.trainers.forEach(t => process(t, 'Trainer', pod.name));
+            });
+        }
+        
+        document.getElementById('b-tot').innerText = stats.total;
+        document.getElementById('b-act').innerText = stats.active;
+        document.getElementById('b-mia').innerText = stats.mia;
+        document.getElementById('b-low').innerText = stats.lowperf;
+        document.getElementById('b-off').innerText = stats.offboarded;
     }
 
-    function getTreemapOption() {
-      const treemapData = treeData.children.map(branch => ({
-        name: branch.name,
-        value: branch.children.length,
-        itemStyle: { color: '#1e3a8a' }, // Deep Blue grouping
-        children: branch.children.map(leaf => ({
-          name: leaf.name, value: 1, itemStyle: { color: getStatusHex(leaf.statusClass) }
-        }))
-      }));
-      return {
-        tooltip: { formatter: '{b}' },
-        series: [{
-          type: 'treemap', data: treemapData, width: '100%', height: '100%',
-          roam: false, nodeClick: false, breadcrumb: { show: false },
-          label: { show: true, formatter: '{b}', fontSize: 14, fontWeight: 800, color: '#fff', fontFamily: 'Inter' },
-          itemStyle: { borderColor: '#fff', borderWidth: 2, gapWidth: 2 },
-          levels: [
-            { itemStyle: { borderColor: '#fff', borderWidth: 5, gapWidth: 5 } },
-            { itemStyle: { borderColor: '#fff', borderWidth: 2, gapWidth: 2 } }
-          ]
-        }]
-      };
+    // --- Render Engines ---
+    function renderAllViews() {
+        renderOrgTree();
+        renderSwimlanes();
+        renderMatrix();
+        renderDirectory();
+        renderBentoChart();
     }
 
-    function renderBentoGrid() {
-      let html = '';
-      
-      // L2 Card
-      if(globalRoster.l2_reviewers) {
-        html += `
-        <div class="bento-card">
-          <div class="bento-header">
-            <div class="bento-title">Quality Oversight <span class="badge-system bento-badge">L2 UNIT</span></div>
-            <div class="bento-meta">${globalRoster.l2_reviewers.length} Assigned Reviewers</div>
-          </div>
-          <div class="bento-list">
-            ${globalRoster.l2_reviewers.map(r => `
-              <div class="bento-item">
-                <div class="bento-info"><strong>${r.name}</strong><span>${r.email || '—'}</span></div>
-                <span class="bento-badge badge-${getStatusClass(r.status)}">${getStatusText(r.status)}</span>
-              </div>
-            `).join('')}
-          </div>
-        </div>`;
-      }
+    function renderOrgTree() {
+        let html = `<div class="css-tree"><ul><li>`;
+        html += createCard('Dinesh Kashyap', 'Operations Lead', 'Executive', true);
+        html += `<ul>`;
+        
+        if (roster.l2_reviewers && roster.l2_reviewers.length > 0) {
+            html += `<li>${createCard('Quality Oversight', 'L2 Unit', 'Audit Network', true)}<ul>`;
+            roster.l2_reviewers.forEach(r => { html += `<li>${createCard(r.name, 'L2 Reviewer', r.status)}</li>`; });
+            html += `</ul></li>`;
+        }
+        
+        if (roster.pods) {
+            roster.pods.forEach(pod => {
+                html += `<li>${createCard(pod.name, 'Pod Lead: ' + (pod.lead||'Unassigned'), 'Pod Unit', true)}<ul>`;
+                pod.trainers.forEach(t => { html += `<li>${createCard(t.name, 'Trainer', t.status)}</li>`; });
+                html += `</ul></li>`;
+            });
+        }
+        html += `</ul></li></ul></div>`;
+        document.getElementById('org-tree-container').innerHTML = html;
+    }
 
-      // Pods
-      if(globalRoster.pods) {
-        globalRoster.pods.forEach(pod => {
-          html += `
-          <div class="bento-card">
-            <div class="bento-header">
-              <div class="bento-title">${pod.name} <span class="badge-system bento-badge" style="background:#f1f5f9; color:#475569; border-color:#cbd5e1;">POD</span></div>
-              <div class="bento-meta">Lead: <strong>${pod.lead}</strong> · ${pod.trainers.length} Trainers</div>
-            </div>
-            <div class="bento-list">
-              ${pod.trainers.map(t => `
-                <div class="bento-item">
-                  <div class="bento-info"><strong>${t.name}</strong><span>${t.email || '—'}</span></div>
-                  <span class="bento-badge badge-${getStatusClass(t.status)}">${getStatusText(t.status)}</span>
+    function renderSwimlanes() {
+        let html = '';
+        
+        if (roster.l2_reviewers && roster.l2_reviewers.length > 0) {
+            html += `
+            <div class="swimlane">
+                <div class="lane-header">
+                    <div class="lane-title">Quality Oversight</div>
+                    <div style="font-size:13px; color:var(--text-sub);">L2 Reviewers Network</div>
                 </div>
-              `).join('')}
-            </div>
-          </div>`;
+                <div class="lane-body">
+                    ${roster.l2_reviewers.map(r => createCard(r.name, 'L2 Reviewer', r.status)).join('')}
+                </div>
+            </div>`;
+        }
+
+        if (roster.pods) {
+            roster.pods.forEach(pod => {
+                html += `
+                <div class="swimlane">
+                    <div class="lane-header">
+                        <div class="lane-title">${pod.name}</div>
+                        ${createCard(pod.lead || 'Unassigned', 'Pod Lead', 'Active', true)}
+                    </div>
+                    <div class="lane-body">
+                        ${pod.trainers.map(t => createCard(t.name, 'Trainer', t.status)).join('')}
+                    </div>
+                </div>`;
+            });
+        }
+        document.getElementById('swimlane-container').innerHTML = html;
+    }
+
+    function renderMatrix() {
+        const groups = { 'c-active': [], 'c-lowperf': [], 'c-mia': [], 'c-off': [] };
+        allPersonnel.forEach(p => {
+            const s = getStatusClass(p.status);
+            if (groups[s]) groups[s].push(p);
         });
-      }
-      document.getElementById('bento-container').innerHTML = html;
+
+        const col = (key, title, cls) => `
+            <div class="matrix-col">
+                <div class="m-header ${cls}">${title} <span class="m-count">${groups[key].length}</span></div>
+                <div class="m-body">
+                    ${groups[key].map(p => createMiniCard(p.name, p.group + ' · ' + p.role, p.status)).join('')}
+                </div>
+            </div>`;
+
+        let html = col('c-active', 'Active Capacity', 'active') + 
+                   col('c-lowperf', 'Low Performance', 'lowperf') + 
+                   col('c-mia', 'MIA Alerts', 'mia') + 
+                   col('c-off', 'Offboarded', 'off');
+        
+        document.getElementById('matrix-container').innerHTML = html;
     }
 
-    // -- App Logic --
-    function switchView(type, btnElement) {
-      document.querySelectorAll('.view-tab').forEach(b => b.classList.remove('active'));
-      btnElement.classList.add('active');
-      currentViewType = type;
-      
-      const titleEl = document.getElementById('view-title');
-      titleEl.innerText = btnElement.innerText.replace(/^\d+\.\s*/, '');
-      
-      const btnExport = document.getElementById('btn-img');
+    function renderDirectory() {
+        let html = '';
+        const groups = { 'L2 Reviewers': [], 'Pod Leads': [], 'Trainers': [] };
+        
+        allPersonnel.forEach(p => {
+            if(p.role === 'L2 Reviewer') groups['L2 Reviewers'].push(p);
+            else if(p.role === 'Pod Lead') groups['Pod Leads'].push(p);
+            else groups['Trainers'].push(p);
+        });
 
-      if (type === 'bento') {
-        document.getElementById('echarts-view').classList.remove('active');
-        document.getElementById('bento-view').classList.add('active');
-        renderBentoGrid();
-        
-        btnExport.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg> Print to PDF';
-      } else {
-        document.getElementById('echarts-view').classList.add('active');
-        document.getElementById('bento-view').classList.remove('active');
-        btnExport.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg> Export PNG Canvas';
-        
-        eChartInstance.clear();
-        let option = {};
-        if (type === 'vertical') option = getVerticalOption();
-        else if (type === 'horizontal') option = getHorizontalOption();
-        else if (type === 'radial') option = getRadialOption();
-        else if (type === 'treemap') option = getTreemapOption();
-        
-        eChartInstance.setOption(option);
-      }
+        Object.keys(groups).forEach(k => {
+            if (groups[k].length > 0) {
+                html += `
+                <div class="directory-section">
+                    <div class="dir-header">${k} <span style="font-size:13px; color:var(--text-sub); font-weight:600;">${groups[k].length} Members</span></div>
+                    <div class="dir-grid">
+                        ${groups[k].sort((a,b)=>a.name.localeCompare(b.name)).map(p => createCard(p.name, p.group, p.status)).join('')}
+                    </div>
+                </div>`;
+            }
+        });
+        document.getElementById('dir-container').innerHTML = html;
     }
 
-    function exportView() {
-      if (currentViewType === 'bento') {
-        window.print();
-      } else if (eChartInstance) {
-        const url = eChartInstance.getDataURL({ type: 'png', pixelRatio: 3, backgroundColor: '#f8fafc' });
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `Hierarchy_${document.getElementById('view-title').innerText.replace(/\s+/g, '_')}.png`;
-        a.click();
-      }
+    function renderBentoChart() {
+        const chartDom = document.getElementById('health-chart');
+        if(donutChart) donutChart.dispose();
+        donutChart = echarts.init(chartDom);
+        
+        const option = {
+            tooltip: { trigger: 'item', fontFamily: 'Inter' },
+            legend: { top: '5%', left: 'center', fontFamily: 'Inter' },
+            series: [{
+                name: 'Team Health',
+                type: 'pie', radius: ['40%', '70%'], center: ['50%', '60%'],
+                avoidLabelOverlap: false,
+                itemStyle: { borderRadius: 10, borderColor: '#fff', borderWidth: 2 },
+                label: { show: false },
+                data: [
+                    { value: stats.active, name: 'Active', itemStyle: { color: '#059669' } },
+                    { value: stats.lowperf, name: 'Low Perf', itemStyle: { color: '#d97706' } },
+                    { value: stats.mia, name: 'MIA', itemStyle: { color: '#e11d48' } },
+                    { value: stats.offboarded, name: 'Offboarded', itemStyle: { color: '#475569' } }
+                ]
+            }]
+        };
+        donutChart.setOption(option);
+        window.addEventListener('resize', () => donutChart.resize());
     }
 
-    function downloadOfflineHTML() {
-      const doc = document.documentElement.cloneNode(true);
-      const existingScript = doc.querySelector('#offline-payload-script');
-      if (existingScript) existingScript.remove();
-
-      const script = document.createElement('script');
-      script.id = 'offline-payload-script';
-      script.textContent = `window.__OFFLINE_PAYLOAD__ = ${JSON.stringify(globalRoster)};`;
-      doc.querySelector('head').prepend(script);
-
-      const htmlString = "<!DOCTYPE html>\n" + doc.outerHTML;
-      const blob = new Blob([htmlString], { type: 'text/html;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `Hierarchy_Snapshot_${new Date().toISOString().split('T')[0]}.html`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+    function switchView(id, btn) {
+        document.querySelectorAll('.view-tab').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        document.querySelectorAll('.view-content').forEach(v => v.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        if(id === 'v-bento' && donutChart) donutChart.resize();
     }
 
     init();
