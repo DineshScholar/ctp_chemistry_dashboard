@@ -191,8 +191,11 @@
       if (exactMatch) return exactMatch.name;
 
       const rawFirstName = rawName.trim().split(' ')[0].toLowerCase();
-      const firstMatch = members.find(r => r.name.trim().split(' ')[0].toLowerCase() === rawFirstName);
-      if (firstMatch) return firstMatch.name;
+      const firstNameMatches = members.filter(r => r.name.trim().split(' ')[0].toLowerCase() === rawFirstName);
+      
+      if (firstNameMatches.length === 1) {
+        return firstNameMatches[0].name;
+      }
 
       return null;
     }
@@ -349,7 +352,7 @@
                     Lead: 
                     <input class="ghost-input" style="font-size:10px; font-weight:600; width:110px; color:inherit; margin-left:4px;" value="${pod.lead || ''}" placeholder="Lead Name" onchange="updatePod(${pIdx}, 'lead', this.value)">
                     <span style="opacity: 0.5;">|</span>
-                    <input class="ghost-input" style="font-size:10px; font-weight:500; width:150px; color:inherit; font-family:monospace;" value="${pod.lead_email || ''}" placeholder="lead@turing.com" onchange="updatePod(${pIdx}, 'lead_email', this.value)">
+                    <input class="ghost-input" style="font-size:10px; font-weight:500; width:150px; color:inherit; font-family:monospace;" value="${pod.lead_email \vert{}\vert{} ''}" placeholder="lead@turing.com" onchange="updatePod(${pIdx}, 'lead_email', this.value)">
                   </span>
                   
                   <span style="font-family:ui-monospace,monospace; font-size:11px; color:#64748b; margin-left:auto;">${pod.trainers.length} Trainers</span>
