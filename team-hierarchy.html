@@ -169,6 +169,7 @@
     .stat-amber { background: #fffbeb; color: #b45309; border-color: #fde68a; }
     .stat-purple { background: #f5f3ff; color: #6d28d9; border-color: #ddd6fe; }
     .stat-slate { background: #f1f5f9; color: #475569; border-color: #cbd5e1; }
+    .stat-red { background: #ffe4e6; color: #e11d48; border-color: #fecaca; }
     
     /* Other views */
     .dense-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
@@ -206,7 +207,7 @@
     <div class="header">
       <h1>Team Hierarchy</h1>
       
-      <!-- Interactive Status Legend (Primarily for Tab 1, but globally visible) -->
+      <!-- Interactive Status Legend -->
       <div class="status-filters" id="status-filters">
         <button class="filter-btn f-active" data-filter="active">
           <span class="dot" style="background: var(--c-active)"></span> Active (<span id="c-act">0</span>)
@@ -233,7 +234,7 @@
       <button class="sub-tab-btn" onclick="switchTab('tab-stats')" style="color: var(--c-exec);">✦ Concise Stats Hierarchy</button>
     </div>
 
-    <!-- Tab 1: Topology (Original) -->
+    <!-- Tab 1: Topology -->
     <div id="tab-topology" class="tab-content active">
       <div class="topology-wrapper" id="topology-wrapper">
         <div class="tree-root">
@@ -307,8 +308,19 @@
     <div id="tab-stats" class="tab-content">
       <div class="outline-card">
         <div style="font-size: 13px; color: #64748b; margin-bottom: 20px;">
-          Live task metrics computed against all-time dataset. Click on a Pod Header to collapse or expand its trainers.
+          Live task metrics computed against all-time dataset. Data is structurally isolated matching Ledger & Flow rules.
         </div>
+        
+        <div class="local-filters">
+          <input type="text" id="stats-search" class="filter-input" placeholder="Search hierarchy name..." onkeyup="renderStatsView()">
+          <select id="stats-role" class="filter-input" onchange="renderStatsView()">
+            <option value="All">All Roles</option>
+            <option value="L2 Reviewer">L2 Reviewer</option>
+            <option value="Pod Lead">Pod Lead</option>
+            <option value="Trainer">Trainer</option>
+          </select>
+        </div>
+        
         <div id="stats-outline-container"></div>
       </div>
     </div>
@@ -324,7 +336,7 @@
     let allMembersFlat = [];
     let userStats = {}; // To store computed metrics per user
 
-    // Gradient Generator
+    // Shared UI Utilities
     function getGradient(name) {
         const gradients = [
             'linear-gradient(135deg, #0ea5e9, #2563eb)', 'linear-gradient(135deg, #10b981, #059669)',
@@ -351,7 +363,7 @@
       document.getElementById(tabId).classList.add('active');
     }
 
-    // Task Analytics Utilities (Imported from index.html)
+    // --- Task Ledger / Flow Logical Functions ---
     function resolveAnnotator(rawName, members, mappings) {
       if (!rawName || rawName === '—' || rawName === 'Unassigned') return null;
       if (mappings && mappings[rawName]) return mappings[rawName];
@@ -375,6 +387,30 @@
       );
     }
 
+    function hasClearedL2(task) {
+      if (task.state === 'Approved') return true;
+      if (!task.history) return false;
+      return task.history.some(h => h.label === 'Approved' || h.kind === 'approved' || h.state === 'Approved' || (h.label && h.label.toLowerCase().includes('l2 approved')));
+    }
+
+    function getCombinedStatus(task) {
+      const s = (task.state || '').toLowerCase();
+      const clearedL1 = hasClearedL1(task);
+      const clearedL2 = hasClearedL2(task);
+      let reworks = 0;
+      if (task.history) { task.history.forEach(h => { if (h.label && h.label.toLowerCase().includes('rework')) reworks++; }); }
+      
+      if (s.includes('pool') || s.includes('draft') || s === '' || s === 'unassigned' || s === '—') return 'Draft / Unsubmitted';
+      if (s.includes('approved') || clearedL2) return 'Final Approved (L2)';
+      if (s.includes('quarantine')) return clearedL1 ? 'Quarantined (L1-Accepted)' : 'Quarantined';
+      if (s.includes('rework')) return clearedL1 ? 'Rework (L2)' : 'Rework (L1)';
+      if (clearedL1) return 'L1-Accepted (Pending L2)';
+      if (reworks === 0) return 'Fresh Submission';
+      return 'Pending L1';
+    }
+
+
+    // --- Initialization & Setup ---
     async function init() {
       try {
         const [rosterRes, taskRes] = await Promise.all([
@@ -425,40 +461,49 @@
     }
 
     function computeStats() {
-      // Initialize stats dictionary
+      // Initialize stats dictionary combining Trainer & Reviewer dual-roles
       allMembersFlat.forEach(m => {
-        userStats[m.name] = { submitted: 0, l1_passed: 0, reworks_got: 0, reviewed: 0, reworks_sent: 0 };
+        userStats[m.name] = {
+          asTrainer: { total: 0, apprL2: 0, apprL1: 0, rework: 0, quar: 0, pending: 0, draft: 0 },
+          asReviewer: { tasksAudited: new Set(), approved: 0, rwSent: 0, quarSent: 0 }
+        };
       });
 
       rawTasks.forEach(t => {
-        const tr = resolveAnnotator(t.annotator, allMembersFlat, globalRoster.mappings);
-        const rev = resolveAnnotator(t.reviewer, allMembersFlat, globalRoster.mappings);
-        
-        const l1 = hasClearedL1(t);
-        const state = (t.state || '').toLowerCase();
-        
-        if (tr && userStats[tr]) {
-          userStats[tr].submitted++;
-          if (l1) userStats[tr].l1_passed++;
-          if (state.includes('rework')) userStats[tr].reworks_got++;
-        }
-        
-        if (rev && userStats[rev]) {
-          userStats[rev].reviewed++;
-          if (state.includes('rework')) userStats[rev].reworks_sent++;
+        // Resolve mapped names
+        let tAuthor = resolveAnnotator(t.annotator, allMembersFlat, globalRoster.mappings) || t.annotator;
+        const cStatus = getCombinedStatus(t);
+
+        // Compute Trainer Stats (Based on current task status)
+        if (tAuthor && userStats[tAuthor]) {
+          const st = userStats[tAuthor].asTrainer;
+          st.total++;
+          if (cStatus === 'Final Approved (L2)') st.apprL2++;
+          else if (cStatus === 'L1-Accepted (Pending L2)') st.apprL1++;
+          else if (cStatus.includes('Rework')) st.rework++;
+          else if (cStatus.includes('Quarantined')) st.quar++;
+          else if (cStatus === 'Draft / Unsubmitted') st.draft++;
+          else st.pending++; // Pending L1 or Fresh Sub
         }
 
-        // Deeper history check for accurate reviewer actions (optional but useful)
+        // Compute Reviewer Stats (Based strictly on history actions to match true events triggered)
         if (t.history) {
-            t.history.forEach(h => {
-                let act = resolveAnnotator(h.actor_name, allMembersFlat, globalRoster.mappings) || h.actor_name;
-                if(act && userStats[act]) {
-                   if(h.kind==='review_rework' || (h.label||'').toLowerCase().includes('rework requested')) {
-                       // Note: this might overcount if multiple reworks on same task, but serves as good "events" stat
-                       userStats[act].reworks_sent++;
-                   }
-                }
-            });
+          t.history.forEach(h => {
+            let hActor = resolveAnnotator(h.actor_name, allMembersFlat, globalRoster.mappings) || h.actor_name;
+            if (hActor && userStats[hActor]) {
+              const st = userStats[hActor].asReviewer;
+              const kLower = (h.kind || '').toLowerCase();
+              const lLower = (h.label || '').toLowerCase();
+              
+              if (kLower.includes('review') || lLower.includes('approve') || lLower.includes('rework') || lLower.includes('quarantine')) {
+                  st.tasksAudited.add(t.id); // Captures unique tasks they audited
+                  
+                  if (kLower === 'review_approved' || lLower === 'review approved' || lLower.includes('l2 approved')) st.approved++;
+                  else if (kLower === 'review_rework' || lLower === 'rework requested' || lLower.includes('returned for rework')) st.rwSent++;
+                  else if (kLower === 'review_quarantined' || lLower === 'quarantined') st.quarSent++;
+              }
+            }
+          });
         }
       });
     }
@@ -610,7 +655,7 @@
       document.getElementById('pods-container').innerHTML = html;
     }
 
-    // --- Tab 6: Stats Outline Tree Render ---
+    // --- Tab 6: Advanced Stats Outline Render ---
     function toggleBranch(podId, iconId) {
        const branch = document.getElementById(podId);
        const icon = document.getElementById(iconId);
@@ -625,113 +670,151 @@
        }
     }
 
-    function buildStatBadges(name, isRev = false) {
-      const st = userStats[name] || {submitted:0, l1_passed:0, reworks_got:0, reviewed:0, reworks_sent:0};
+    function buildStatBadges(name, role) {
+      const st = userStats[name];
+      if (!st) return '';
       
-      if (isRev) {
-        return `
-          <span class="stat-badge stat-blue">Reviewed: ${st.reviewed}</span>
-          <span class="stat-badge stat-amber">RW Sent: ${st.reworks_sent}</span>
-        `;
+      let html = '';
+      if (role === 'Trainer') {
+         const t = st.asTrainer;
+         html += `<span class="stat-badge stat-slate" title="Total Tasks Assigned">Total: ${t.total}</span>`;
+         if(t.apprL2 > 0) html += `<span class="stat-badge stat-green">Appr L2: ${t.apprL2}</span>`;
+         if(t.apprL1 > 0) html += `<span class="stat-badge stat-blue">Appr L1: ${t.apprL1}</span>`;
+         if(t.rework > 0) html += `<span class="stat-badge stat-amber">In Rework: ${t.rework}</span>`;
+         if(t.quar > 0) html += `<span class="stat-badge stat-red">Quarantined: ${t.quar}</span>`;
+         if(t.pending > 0) html += `<span class="stat-badge stat-purple">Pending: ${t.pending}</span>`;
+         if(t.draft > 0) html += `<span class="stat-badge stat-slate" style="background:#f8fafc;">Draft/Pool: ${t.draft}</span>`;
       } else {
-        return `
-          <span class="stat-badge stat-purple">Tasks: ${st.submitted}</span>
-          <span class="stat-badge stat-green">L1 Pass: ${st.l1_passed}</span>
-          <span class="stat-badge stat-amber">RW Got: ${st.reworks_got}</span>
-        `;
+         const r = st.asReviewer;
+         html += `<span class="stat-badge stat-slate" title="Unique Tasks Touched/Audited">Audits: ${r.tasksAudited.size}</span>`;
+         if(r.approved > 0) html += `<span class="stat-badge stat-green">Appr Event: ${r.approved}</span>`;
+         if(r.rwSent > 0) html += `<span class="stat-badge stat-amber">RW Event: ${r.rwSent}</span>`;
+         if(r.quarSent > 0) html += `<span class="stat-badge stat-red">Quar Event: ${r.quarSent}</span>`;
+         
+         // Dual Role: If a lead/reviewer also authors tasks, append their trainer stats distinctly
+         if(st.asTrainer.total > 0) {
+             html += `<span style="margin: 0 4px; color:#cbd5e1;">|</span>`;
+             html += `<span class="stat-badge stat-purple" title="Their own authored tasks">Authored: ${st.asTrainer.total}</span>`;
+         }
       }
+      return html;
     }
 
     function renderStatsView() {
+      const q = document.getElementById('stats-search').value.toLowerCase();
+      const rFilter = document.getElementById('stats-role').value;
       const c = document.getElementById('stats-outline-container');
+      
+      const isMatch = (m) => {
+         const matchQ = m.name.toLowerCase().includes(q);
+         const matchR = rFilter === 'All' || m.role === rFilter;
+         return matchQ && matchR;
+      };
+
       let html = '';
 
-      // Root
-      html += `
-        <div class="tree-node" style="border-bottom: 1px solid var(--border); padding-bottom: 16px; border-radius: 0;">
-           <div class="tree-node-left">
-             <span class="role-badge" style="background:var(--bg-exec); color:var(--c-exec);">Ops Lead</span>
-             Dinesh Kashyap
-           </div>
-           <div class="tree-node-right">
-             <span class="stat-badge stat-slate">Administrator</span>
-           </div>
-        </div>
-      `;
-
-      // L2 Branch
-      html += `
-        <div class="tree-node pod-head" onclick="toggleBranch('branch-l2', 'icon-l2')">
-           <div class="tree-node-left">
-             <span class="tree-toggle" id="icon-l2">▼</span>
-             Quality Oversight (L2)
-             <span style="font-size:11px; color:var(--text-sub); font-weight:500;">${globalRoster.l2_reviewers.length} Reviewers</span>
-           </div>
-        </div>
-        <div class="tree-branch" id="branch-l2">
-           ${globalRoster.l2_reviewers.map(r => `
-             <div class="tree-node">
+      // Ops Lead
+      const opsLead = allMembersFlat.find(m => m.role === 'Operations Lead');
+      if (opsLead && isMatch(opsLead)) {
+          html += `
+            <div class="tree-node" style="border-bottom: 1px solid var(--border); padding-bottom: 16px; border-radius: 0;">
                <div class="tree-node-left">
-                 <span class="status-dot ${getStatusData(r.status).dot}"></span>
-                 <span class="role-badge l2">L2</span> ${r.name}
+                 <span class="role-badge" style="background:var(--bg-exec); color:var(--c-exec);">Ops Lead</span>
+                 ${opsLead.name}
                </div>
                <div class="tree-node-right">
-                 ${buildStatBadges(r.name, true)}
+                 <span class="stat-badge stat-slate">Administrator (View Only)</span>
                </div>
-             </div>
-           `).join('')}
-        </div>
-      `;
+            </div>
+          `;
+      }
+
+      // L2 Branch
+      const l2Members = allMembersFlat.filter(m => m.role === 'L2 Reviewer' && isMatch(m));
+      if (l2Members.length > 0 || rFilter === 'All') {
+          html += `
+            <div class="tree-node pod-head" onclick="toggleBranch('branch-l2', 'icon-l2')">
+               <div class="tree-node-left">
+                 <span class="tree-toggle" id="icon-l2">▼</span>
+                 Quality Oversight (L2)
+                 <span style="font-size:11px; color:var(--text-sub); font-weight:500;">${globalRoster.l2_reviewers.length} Reviewers</span>
+               </div>
+            </div>
+            <div class="tree-branch" id="branch-l2">
+               ${l2Members.map(r => `
+                 <div class="tree-node">
+                   <div class="tree-node-left">
+                     <span class="status-dot ${getStatusData(r.status).dot}"></span>
+                     <span class="role-badge l2">L2</span> ${r.name}
+                   </div>
+                   <div class="tree-node-right">
+                     ${buildStatBadges(r.name, 'L2 Reviewer')}
+                   </div>
+                 </div>
+               `).join('')}
+            </div>
+          `;
+      }
 
       // Pods
       globalRoster.pods.forEach((pod, idx) => {
          const pId = `branch-pod-${idx}`;
          const iId = `icon-pod-${idx}`;
          
-         let lLeadHtml = '';
-         if (pod.lead) {
-            lLeadHtml = `
-              <div class="tree-node" style="background:#fafafa; border:1px solid #f1f5f9; margin-bottom:8px;">
-                <div class="tree-node-left">
-                  <span class="status-dot bg-active"></span>
-                  <span class="role-badge lead">Lead</span> ${pod.lead}
-                </div>
-                <div class="tree-node-right">
-                  ${buildStatBadges(pod.lead, true)}
-                </div>
-              </div>
-            `;
-         }
+         const leadMatch = pod.lead ? allMembersFlat.find(m => m.name === pod.lead && isMatch(m)) : null;
+         const trMatches = pod.trainers.map(t => allMembersFlat.find(m => m.name === t.name && isMatch(m))).filter(Boolean);
+         
+         if (leadMatch || trMatches.length > 0 || (q === '' && rFilter === 'All')) {
+             
+             let lLeadHtml = '';
+             if (leadMatch) {
+                lLeadHtml = `
+                  <div class="tree-node" style="background:#fafafa; border:1px solid #f1f5f9; margin-bottom:8px;">
+                    <div class="tree-node-left">
+                      <span class="status-dot bg-active"></span>
+                      <span class="role-badge lead">Lead</span> ${leadMatch.name}
+                    </div>
+                    <div class="tree-node-right">
+                      ${buildStatBadges(leadMatch.name, 'Pod Lead')}
+                    </div>
+                  </div>
+                `;
+             }
 
-         html += `
-          <div class="tree-node pod-head" onclick="toggleBranch('${pId}', '${iId}')">
-             <div class="tree-node-left">
-               <span class="tree-toggle" id="${iId}">▼</span>
-               ${pod.name}
-               <span style="font-size:11px; color:var(--text-sub); font-weight:500;">${pod.trainers.length} Trainers</span>
-             </div>
-          </div>
-          <div class="tree-branch" id="${pId}">
-             ${lLeadHtml}
-             ${pod.trainers.map(t => `
-               <div class="tree-node">
+             // Only render trainers that match the filter for this specific pod
+             const displayTrainers = (q !== '' || rFilter !== 'All') ? trMatches : pod.trainers;
+
+             html += `
+              <div class="tree-node pod-head" onclick="toggleBranch('${pId}', '${iId}')">
                  <div class="tree-node-left">
-                   <span class="status-dot ${getStatusData(t.status).dot}"></span>
-                   <span class="role-badge">TR</span> ${t.name}
+                   <span class="tree-toggle" id="${iId}">▼</span>
+                   ${pod.name}
+                   <span style="font-size:11px; color:var(--text-sub); font-weight:500;">${pod.trainers.length} Trainers</span>
                  </div>
-                 <div class="tree-node-right">
-                   ${buildStatBadges(t.name, false)}
-                 </div>
-               </div>
-             `).join('')}
-          </div>
-         `;
+              </div>
+              <div class="tree-branch" id="${pId}">
+                 ${lLeadHtml}
+                 ${displayTrainers.map(t => `
+                   <div class="tree-node">
+                     <div class="tree-node-left">
+                       <span class="status-dot ${getStatusData(t.status).dot}"></span>
+                       <span class="role-badge">TR</span> ${t.name}
+                     </div>
+                     <div class="tree-node-right">
+                       ${buildStatBadges(t.name, 'Trainer')}
+                     </div>
+                   </div>
+                 `).join('')}
+              </div>
+             `;
+         }
       });
 
+      if(html === '') html = '<div style="padding: 20px; color: var(--text-sub); text-align: center;">No matches found.</div>';
       c.innerHTML = html;
     }
 
-    // Top Header Filters Logic (For Topology Tab)
+    // Top Header Filters Logic (For Topology Tab specifically)
     function setupInteractions() {
         const wrapper = document.getElementById('topology-wrapper');
         const filters = document.querySelectorAll('.status-filters .filter-btn');
