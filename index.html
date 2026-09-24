@@ -731,14 +731,11 @@
     function resolveAnnotator(rawName, members, mappings) {
       if (!rawName || rawName === '—' || rawName === 'Unassigned') return rawName;
       if (mappings && mappings[rawName]) return mappings[rawName];
-
       const exactMatch = members.find(r => r.name.toLowerCase() === rawName.toLowerCase());
       if (exactMatch) return exactMatch.name;
-
       const rawFirstName = rawName.trim().split(' ')[0].toLowerCase();
-      const firstMatch = members.find(r => r.name.trim().split(' ')[0].toLowerCase() === rawFirstName);
-      if (firstMatch) return firstMatch.name;
-
+      const firstNameMatches = members.filter(r => r.name.trim().split(' ')[0].toLowerCase() === rawFirstName);
+      if (firstNameMatches.length === 1) return firstNameMatches[0].name;
       return rawName;
     }
 
@@ -1078,8 +1075,24 @@
         if (t.history && t.history.length > 0) {
           const recent = t.history.slice(-2);
           miniHistoryHTML = recent.map(h => {
-            const isSysAction = (h.kind || '').toLowerCase() === 'review_cleared' || (h.label || '').toLowerCase().includes('cleared for claim pool');
-            const rolePrefix = isSysAction ? 'SYS' : ((h.actor_name === t.reviewer) ? 'RV' : (h.actor_name === t.annotator ? 'TR' : 'SYS'));
+            const kLower = (h.kind || '').toLowerCase();
+            const lLower = (h.label || '').toLowerCase();
+            const isSysAction = kLower === 'review_cleared' || lLower.includes('cleared for claim pool') || kLower === 'seeded' || lLower === 'seeded';
+            
+            let rolePrefix = 'SYS';
+            if (!isSysAction) {
+                if (['claimed', 'started', 'returned_to_pool'].includes(kLower) || lLower.includes('claim') || lLower.includes('pool') || lLower.includes('work')) {
+                    rolePrefix = 'TR';
+                } else if (kLower.includes('review') || lLower.includes('approve') || lLower.includes('rework') || lLower.includes('quarantine')) {
+                    rolePrefix = 'RV';
+                } else if (h.actor_name === t.reviewer && t.reviewer !== '—' && t.reviewer !== 'Unassigned') {
+                    rolePrefix = 'RV';
+                } else if (h.actor_name === t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned') {
+                    rolePrefix = 'TR';
+                } else {
+                    rolePrefix = 'SYS';
+                }
+            }
             return `<div class="mini-history-item"><span class="mini-history-date">${formatDateShort(h.occurred_at)}</span> &rarr; <span>${rolePrefix}: ${esc(h.label)}</span></div>`;
           }).join('');
         }
@@ -1169,17 +1182,23 @@
             roleLabel = 'SYSTEM';
             roleClass = 'system';
             displayActor = 'System';
-          } else if (h.actor_name === task.reviewer) {
-            roleLabel = 'REVIEWER';
-            roleClass = 'reviewer';
-          } else if (h.actor_name === task.annotator) {
+          } else if (kLower === 'seeded' || lLower === 'seeded') {
+            roleLabel = 'SYSTEM';
+            roleClass = 'system';
+          } else if (['claimed', 'started', 'returned_to_pool'].includes(kLower) || lLower.includes('claim') || lLower.includes('pool') || lLower.includes('work')) {
             roleLabel = 'TRAINER';
             roleClass = 'trainer';
-          } else if (h.actor_name && h.actor_name !== 'System') {
+          } else if (kLower.includes('review') || lLower.includes('approve') || lLower.includes('rework') || lLower.includes('quarantine')) {
             roleLabel = 'REVIEWER';
             roleClass = 'reviewer';
+          } else if (h.actor_name === task.reviewer && task.reviewer !== '—' && task.reviewer !== 'Unassigned') {
+            roleLabel = 'REVIEWER';
+            roleClass = 'reviewer';
+          } else if (h.actor_name === task.annotator && task.annotator !== '—' && task.annotator !== 'Unassigned') {
+            roleLabel = 'TRAINER';
+            roleClass = 'trainer';
           }
-          
+
           let displayLabel = esc(h.label);
           let extraDotClass = '';
           let iconHtml = '';
@@ -1369,10 +1388,19 @@
                 roleLabel = 'SYSTEM';
                 roleClass = 'system';
                 displayActor = 'System';
-            } else if (h.actor_name === t.reviewer || (h.actor_name && h.actor_name !== 'System' && h.actor_name !== t.annotator)) {
+            } else if (kLower === 'seeded' || lLower === 'seeded') {
+                roleLabel = 'SYSTEM';
+                roleClass = 'system';
+            } else if (['claimed', 'started', 'returned_to_pool'].includes(kLower) || lLower.includes('claim') || lLower.includes('pool') || lLower.includes('work')) {
+                roleLabel = 'TRAINER';
+                roleClass = 'trainer';
+            } else if (kLower.includes('review') || lLower.includes('approve') || lLower.includes('rework') || lLower.includes('quarantine')) {
                 roleLabel = 'REVIEWER';
                 roleClass = 'reviewer';
-            } else if (h.actor_name === t.annotator) {
+            } else if (h.actor_name === t.reviewer && t.reviewer !== '—' && t.reviewer !== 'Unassigned') {
+                roleLabel = 'REVIEWER';
+                roleClass = 'reviewer';
+            } else if (h.actor_name === t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned') {
                 roleLabel = 'TRAINER';
                 roleClass = 'trainer';
             }
@@ -1804,10 +1832,19 @@
                 roleLabel = 'SYSTEM';
                 roleClass = 'system';
                 displayActor = 'System';
-            } else if (h.actor_name === t.reviewer || (h.actor_name && h.actor_name !== 'System' && h.actor_name !== t.annotator)) {
+            } else if (kLower === 'seeded' || lLower === 'seeded') {
+                roleLabel = 'SYSTEM';
+                roleClass = 'system';
+            } else if (['claimed', 'started', 'returned_to_pool'].includes(kLower) || lLower.includes('claim') || lLower.includes('pool') || lLower.includes('work')) {
+                roleLabel = 'TRAINER';
+                roleClass = 'trainer';
+            } else if (kLower.includes('review') || lLower.includes('approve') || lLower.includes('rework') || lLower.includes('quarantine')) {
                 roleLabel = 'REVIEWER';
                 roleClass = 'reviewer';
-            } else if (h.actor_name === t.annotator) {
+            } else if (h.actor_name === t.reviewer && t.reviewer !== '—' && t.reviewer !== 'Unassigned') {
+                roleLabel = 'REVIEWER';
+                roleClass = 'reviewer';
+            } else if (h.actor_name === t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned') {
                 roleLabel = 'TRAINER';
                 roleClass = 'trainer';
             }
