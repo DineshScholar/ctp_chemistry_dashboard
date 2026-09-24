@@ -103,7 +103,7 @@
     <a href="analytics.html">Analytics & Reporting</a>
     <a href="analytics_2.html">Flow Analytics (v2)</a>
     <a href="admin.html" class="active">Team Builder (Admin)</a>
-    <a href="team-hierarchy.html">Corporate Topology</a>
+    <a href="team-hierarchy.html">Team Hierarchy</a>
   </nav>
 
   <div class="container">
@@ -192,9 +192,6 @@
       const exactMatch = members.find(r => r.name.toLowerCase() === rawName.toLowerCase());
       if (exactMatch) return exactMatch.name;
 
-      // REMOVED buggy first-name fallback here. It was hiding mismatches like "Pooja Verma" 
-      // by falsely assuming she was another "Pooja" in the roster. Unmapped members will now correctly flag.
-      
       return null;
     }
 
@@ -205,7 +202,6 @@
         members.push(...p.trainers);
       });
 
-      // We resolve both annotators AND reviewers so they don't get missed in the mismatch tool
       const uniqueNames = new Set();
       rawTasks.forEach(t => {
         if (t.annotator && t.annotator !== '—' && t.annotator !== 'Unassigned') uniqueNames.add(t.annotator);
