@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CTP Chemistry · Team Hierarchy (Publication Views)</title>
+  
+  <!-- ECharts Library -->
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+  
+  <style>
+    :root { 
+      --primary: #4f46e5; 
+      --primary-light: #e0e7ff;
+      --text-main: #0f172a; 
+      --text-sub: #64748b; 
+      --bg-page: #f8fafc;
+      --border: #e2e8f0;
+    }
+    
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg-page); color: var(--text-main); }
+    
+    /* Navigation */
+    nav { background: #ffffff; padding: 0 32px; display: flex; gap: 30px; border-bottom: 1px solid var(--border); box-shadow: 0 1px 2px rgba(0,0,0,0.02); }
+    nav a { text-decoration: none; color: var(--text-sub); font-weight: 600; font-size: 14px; padding: 20px 0; border-bottom: 2px solid transparent; transition: 0.2s;}
+    nav a.active { color: var(--primary); border-bottom-color: var(--primary); }
+    nav a:hover:not(.active) { color: var(--text-main); }
+
+    .container { padding: 32px; max-width: 1400px; margin: 0 auto; display: flex; flex-direction: column; height: calc(100vh - 65px); }
+    
+    /* Header & Controls */
+    .header { margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: flex-end; flex-shrink: 0;}
+    .header-text h1 { font-size: 22px; font-weight: 800; color: #0f172a; margin-bottom: 6px;}
+    .header-text p { font-size: 13px; color: var(--text-sub); }
+    
+    .action-row { display: flex; gap: 12px; align-items: center; }
+    .btn { background: var(--primary); color: white; border: none; padding: 10px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 8px; transition: 0.2s; }
+    .btn:hover { opacity: 0.9; box-shadow: 0 4px 6px rgba(79, 70, 229, 0.2); }
+    .btn-secondary { background: #ffffff; color: var(--text-main); border: 1px solid #cbd5e1; }
+    .btn-secondary:hover { background: #f1f5f9; box-shadow: none; }
+
+    /* View Tabs */
+    .view-tabs { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; flex-shrink: 0; }
+    .view-tab { background: #ffffff; border: 1px solid var(--border); padding: 10px 18px; border-radius: 8px; font-weight: 600; color: var(--text-sub); cursor: pointer; transition: all 0.2s ease; font-size: 13px; box-shadow: 0 1px 2px rgba(0,0,0,0.02);}
+    .view-tab.active { background: var(--primary-light); color: var(--primary); border-color: #a5b4fc; box-shadow: inset 0 0 0 1px #a5b4fc;}
+    .view-tab:hover:not(.active) { background: #f1f5f9; color: var(--text-main); }
+
+    /* Chart Area */
+    .chart-card { background: #ffffff; border: 1px solid var(--border); border-radius: 12px; padding: 24px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.03); flex-grow: 1; display: flex; flex-direction: column; position: relative;}
+    #chart-container { width: 100%; height: 100%; flex-grow: 1; min-height: 500px; }
+    
+    #loading { position: absolute; inset: 0; background: rgba(255,255,255,0.9); display: flex; justify-content: center; align-items: center; font-weight: 700; color: var(--primary); font-size: 16px; border-radius: 12px; z-index: 10; }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <a href="index.html">Task Ledger</a>
+    <a href="analytics.html">Analytics & Reporting</a>
+    <a href="admin.html">Team Builder (Admin)</a>
+    <a href="team-hierarchy.html" class="active">Team Hierarchy</a>
+  </nav>
+
+  <div class="container">
+    <div class="header">
+      <div class="header-text">
+        <h1>Team Hierarchy & Topology</h1>
+        <p>Uneditable, publication-ready views directly synced from the live roster.</p>
+      </div>
+      <div class="action-row">
+        <button class="btn btn-secondary" onclick="exportImage()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+          Save PNG
+        </button>
+        <button class="btn" onclick="exportHTML()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2-2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          Download Standalone HTML
+        </button>
+      </div>
+    </div>
+
+    <div class="view-tabs">
+      <button class="view-tab active" onclick="switchView('horizontal', this)">1. Horizontal Tree (Modern)</button>
+      <button class="view-tab" onclick="switchView('vertical', this)">2. Vertical Org Chart (Classic)</button>
+      <button class="view-tab" onclick="switchView('radial', this)">3. Radial Dendrogram</button>
+      <button class="view-tab" onclick="switchView('sunburst', this)">4. Sunburst Matrix</button>
+      <button class="view-tab" onclick="switchView('treemap', this)">5. Hierarchical Treemap</button>
+    </div>
+
+    <div class="chart-card">
+      <div id="loading">Syncing Live Roster Data...</div>
+      <div id="chart-container"></div>
+    </div>
+  </div>
+
+  <script>
+    const ROSTER_URL = 'https://turing-api.dineshkashyaparya.workers.dev/roster';
+    let eChartInstance = null;
+    let hierarchicalData = {};
+    let currentOption = {};
+    let currentTitle = 'Horizontal Tree';
+
+    // Color Palette
+    const COLORS = {
+      root: '#0f172a',
+      l2Branch: '#7e22ce',
+      l2Leaf: '#c084fc',
+      podBranch: '#0369a1',
+      podLead: '#0ea5e9',
+      trainerLeaf: '#7dd3fc'
+    };
+
+    async function init() {
+      try {
+        const res = await fetch(ROSTER_URL);
+        const roster = await res.json();
+        buildHierarchicalData(roster);
+        
+        eChartInstance = echarts.init(document.getElementById('chart-container'));
+        document.getElementById('loading').style.display = 'none';
+        
+        // Render default view
+        switchView('horizontal', document.querySelector('.view-tab'));
+        
+        window.addEventListener('resize', () => eChartInstance.resize());
+      } catch (err) {
+        document.getElementById('loading').innerText = 'Failed to load roster data.';
+        console.error(err);
+      }
+    }
+
+    function buildHierarchicalData(roster) {
+      // Base Node
+      hierarchicalData = {
+        name: "Operations Lead\n(Dinesh Kashyap)",
+        value: 100, // Used for Treemap/Sunburst weights
+        itemStyle: { color: COLORS.root },
+        children: []
+      };
+
+      // Quality Oversight (L2s)
+      if (roster.l2_reviewers && roster.l2_reviewers.length > 0) {
+        hierarchicalData.children.push({
+          name: "Quality Oversight",
+          itemStyle: { color: COLORS.l2Branch },
+          children: roster.l2_reviewers.map(r => ({
+            name: r.name + "\n[L2 Reviewer]",
+            value: 1, 
+            itemStyle: { color: COLORS.l2Leaf }
+          }))
+        });
+      }
+
+      // Pods Network
+      if (roster.pods && roster.pods.length > 0) {
+        const podsRoot = {
+          name: "Chemistry Pods Network",
+          itemStyle: { color: COLORS.podBranch },
+          children: roster.pods.map(pod => ({
+            name: pod.name + (pod.lead ? `\n(Lead: ${pod.lead})` : ''),
+            itemStyle: { color: COLORS.podLead },
+            children: pod.trainers.map(t => ({
+              name: t.name,
+              value: 1,
+              itemStyle: { color: COLORS.trainerLeaf }
+            }))
+          }))
+        };
+        hierarchicalData.children.push(podsRoot);
+      }
+    }
+
+    function switchView(type, btnElement) {
+      // Update UI Tabs
+      document.querySelectorAll('.view-tab').forEach(b => b.classList.remove('active'));
+      btnElement.classList.add('active');
+      currentTitle = btnElement.innerText.replace(/^\d+\.\s*/, '');
+
+      eChartInstance.clear();
+
+      const baseLabel = { fontFamily: 'Inter', fontSize: 13, color: '#0f172a' };
+
+      if (type === 'horizontal') {
+        currentOption = {
+          tooltip: { trigger: 'item', triggerOn: 'mousemove' },
+          series: [{
+            type: 'tree',
+            data: [hierarchicalData],
+            layout: 'orthogonal',
+            orient: 'LR',
+            symbol: 'emptyCircle',
+            symbolSize: 12,
+            initialTreeDepth: -1,
+            label: { ...baseLabel, position: 'left', align: 'right' },
+            leaves: { label: { position: 'right', align: 'left' } },
+            expandAndCollapse: false,
+            animationDuration: 550,
+            lineStyle: { color: '#cbd5e1', width: 2, curveness: 0.5 }
+          }]
+        };
+      } 
+      else if (type === 'vertical') {
+        currentOption = {
+          tooltip: { trigger: 'item', triggerOn: 'mousemove' },
+          series: [{
+            type: 'tree',
+            data: [hierarchicalData],
+            layout: 'orthogonal',
+            orient: 'TB',
+            symbol: 'emptyCircle',
+            symbolSize: 12,
+            initialTreeDepth: -1,
+            label: { ...baseLabel, position: 'top', align: 'center', rotate: 0 },
+            leaves: { label: { position: 'bottom', align: 'center', rotate: -90, verticalAlign: 'middle', distance: 10 } },
+            expandAndCollapse: false,
+            animationDuration: 550,
+            lineStyle: { color: '#cbd5e1', width: 2, curveness: 0.5 }
+          }]
+        };
+      }
+      else if (type === 'radial') {
+        currentOption = {
+          tooltip: { trigger: 'item', triggerOn: 'mousemove' },
+          series: [{
+            type: 'tree',
+            data: [hierarchicalData],
+            layout: 'radial',
+            symbol: 'emptyCircle',
+            symbolSize: 10,
+            initialTreeDepth: -1,
+            label: { ...baseLabel, position: 'outside', rotate: 'tangential' },
+            expandAndCollapse: false,
+            animationDuration: 550,
+            lineStyle: { color: '#cbd5e1', width: 2, curveness: 0.5 }
+          }]
+        };
+      }
+      else if (type === 'sunburst') {
+        currentOption = {
+          tooltip: { trigger: 'item' },
+          series: [{
+            type: 'sunburst',
+            data: [hierarchicalData],
+            radius: [0, '95%'],
+            sort: null,
+            label: { ...baseLabel, rotate: 'radial', fontSize: 11 },
+            itemStyle: { borderColor: '#ffffff', borderWidth: 2, borderRadius: 4 },
+            animationDuration: 550
+          }]
+        };
+      }
+      else if (type === 'treemap') {
+        currentOption = {
+          tooltip: { trigger: 'item' },
+          series: [{
+            type: 'treemap',
+            data: [hierarchicalData],
+            roam: 'scale',
+            nodeClick: false,
+            breadcrumb: { show: false },
+            label: { show: true, formatter: '{b}', ...baseLabel, color: '#ffffff', fontSize: 14, fontWeight: 600 },
+            itemStyle: { borderColor: '#ffffff', borderWidth: 3, gapWidth: 2 },
+            levels: [
+              { itemStyle: { borderColor: '#fff', borderWidth: 4, gapWidth: 4 } },
+              { itemStyle: { borderColor: '#fff', borderWidth: 2, gapWidth: 2 } },
+              { itemStyle: { borderColor: '#fff', borderWidth: 1, gapWidth: 1 } }
+            ]
+          }]
+        };
+      }
+
+      eChartInstance.setOption(currentOption);
+    }
+
+    // --- Export Functions ---
+
+    function exportImage() {
+      if (!eChartInstance) return;
+      const url = eChartInstance.getDataURL({ type: 'png', pixelRatio: 2, backgroundColor: '#ffffff' });
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `CTP_Team_Hierarchy_${currentTitle.replace(/\s+/g, '_')}.png`;
+      a.click();
+    }
+
+    function exportHTML() {
+      if (!eChartInstance) return;
+
+      // We package the exact ECharts configuration (which contains the static data) into a raw HTML template.
+      // Stringifying currentOption captures the data natively without needing backend requests in the downloaded file.
+      const optionJson = JSON.stringify(currentOption, null, 2);
+      const safeTitle = currentTitle.replace(/\s+/g, '_');
+
+      const htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>CTP Chemistry · ${currentTitle}</title>
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"><\/script>
+  <style>
+    body, html { margin: 0; padding: 0; width: 100%; height: 100%; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: #ffffff; }
+    .header { position: absolute; top: 20px; left: 24px; z-index: 10; pointer-events: none; }
+    .header h1 { margin: 0; font-size: 20px; color: #0f172a; font-weight: 800; }
+    .header p { margin: 4px 0 0 0; font-size: 12px; color: #64748b; }
+    #chart { width: 100vw; height: 100vh; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>CTP Chemistry Team Topology</h1>
+    <p>View: ${currentTitle} (Exported on ${new Date().toLocaleDateString()})</p>
+  </div>
+  <div id="chart"></div>
+  <script>
+    var myChart = echarts.init(document.getElementById('chart'));
+    var option = ${optionJson};
+    
+    // Add auto-resizing
+    window.addEventListener('resize', function() {
+      myChart.resize();
+    });
+    
+    myChart.setOption(option);
+  <\/script>
+</body>
+</html>`;
+
+      const blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Team_Hierarchy_${safeTitle}.html`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    init();
+  </script>
+</body>
+</html>
